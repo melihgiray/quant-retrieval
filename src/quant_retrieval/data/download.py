@@ -20,7 +20,8 @@ DUMP_URL = "https://archive.org/download/stackexchange/quant.stackexchange.com.7
 
 # The only tables we need. Posts holds questions and answers, PostLinks holds
 # the duplicate and related edges we use to keep near identical questions from
-# landing on both sides of a split.
+# landing on both sides of a split, and Tags carries the site's tag counts for
+# the dataset write-up.
 WANTED_MEMBERS = ("Posts.xml", "PostLinks.xml", "Tags.xml")
 
 
