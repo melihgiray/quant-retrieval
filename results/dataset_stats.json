@@ -1,0 +1,68 @@
+{
+  "raw": {
+    "url": "https://archive.org/download/stackexchange/quant.stackexchange.com.7z",
+    "bytes_downloaded": 55473504,
+    "last_modified": "Sat, 06 Apr 2024 23:43:38 GMT"
+  },
+  "posts": {
+    "questions": 22177,
+    "answers": 26152
+  },
+  "corpus": {
+    "count": 26152,
+    "chars_p50": 679,
+    "chars_p90": 2058,
+    "words_p50": 109,
+    "words_p90": 324
+  },
+  "queries_by_split": {
+    "train": {
+      "count": 9924,
+      "chars_p50": 645,
+      "chars_p90": 1608,
+      "words_p50": 106,
+      "words_p90": 256
+    },
+    "val": {
+      "count": 753,
+      "chars_p50": 739,
+      "chars_p90": 1799,
+      "words_p50": 118,
+      "words_p90": 273
+    },
+    "test": {
+      "count": 797,
+      "chars_p50": 827,
+      "chars_p90": 2095,
+      "words_p50": 133,
+      "words_p90": 322
+    }
+  },
+  "split_boundaries": {
+    "test": {
+      "first": "2021-12-13 17:40:38.630000",
+      "last": "2024-03-31 00:33:15.370000",
+      "queries": 797
+    },
+    "train": {
+      "first": "2010-09-19 21:30:35.003000",
+      "last": "2020-10-21 03:09:33.643000",
+      "queries": 9924
+    },
+    "val": {
+      "first": "2020-10-21 09:13:49.523000",
+      "last": "2021-12-13 05:41:37.113000",
+      "queries": 753
+    }
+  },
+  "label_sources": {
+    "accepted": 7934,
+    "top_voted": 3540
+  },
+  "qrels_by_grade": {
+    "2": 11474,
+    "1": 7485
+  },
+  "judgements_per_query": 1.65,
+  "dropped_as_cross_split_duplicates": 21
+}
