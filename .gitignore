@@ -1,9 +1,3 @@
-# AI handoff files, never commit (see CLAUDE.md attribution rule)
-CLAUDE.md
-CLAUDE.local.md
-INTERVIEW.md
-.claude/
-
 # data and artifacts (leading slash, so the src/*/data package is still tracked)
 /data/
 /checkpoints/
