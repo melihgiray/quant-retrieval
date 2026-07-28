@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<posts>
+  <row Id="1" PostTypeId="1" AcceptedAnswerId="3" CreationDate="2011-01-31T21:00:00.000" Score="10" ViewCount="500" Body="&lt;p&gt;How do I price a &lt;code&gt;swaption&lt;/code&gt;?&lt;/p&gt;" OwnerUserId="6" Title="Pricing a swaption" Tags="|option-pricing|swaption|" AnswerCount="2" CommentCount="1" ContentLicense="CC BY-SA 4.0" />
+  <row Id="2" PostTypeId="2" ParentId="1" CreationDate="2011-01-31T21:05:00.000" Score="1" Body="&lt;p&gt;Use Black 76.&lt;/p&gt;" OwnerUserId="33" ContentLicense="CC BY-SA 4.0" />
+  <row Id="3" PostTypeId="2" ParentId="1" CreationDate="2011-01-31T21:10:00.000" Score="8" Body="&lt;p&gt;The standard approach is the Black model.&lt;/p&gt;" OwnerUserId="41" ContentLicense="CC BY-SA 4.0" />
+  <row Id="4" PostTypeId="1" CreationDate="2012-06-01T09:00:00.000" Score="2" ViewCount="80" Body="&lt;p&gt;What is a good estimator for realized volatility?&lt;/p&gt;" Title="Estimating realized volatility" Tags="&lt;volatility&gt;&lt;estimation&gt;" AnswerCount="0" CommentCount="0" ContentLicense="CC BY-SA 4.0" />
+  <row Id="5" PostTypeId="5" CreationDate="2012-06-02T09:00:00.000" Score="0" Body="&lt;p&gt;Tag wiki text, not a question or an answer.&lt;/p&gt;" ContentLicense="CC BY-SA 4.0" />
+</posts>
