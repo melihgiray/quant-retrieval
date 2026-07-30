@@ -2,6 +2,7 @@ import pytest
 from scripts.evaluate import build_retriever
 
 from quant_retrieval.retrieval.bm25 import BM25Retriever
+from quant_retrieval.retrieval.dense import DenseRetriever
 
 
 def test_builds_bm25_from_config_parameters():
@@ -16,3 +17,20 @@ def test_builds_bm25_from_config_parameters():
 def test_rejects_unknown_retrievers():
     with pytest.raises(ValueError, match="unknown retriever"):
         build_retriever({"retriever": "magic"})
+
+
+def test_builds_dense_retriever_without_loading_a_model():
+    retriever = build_retriever(
+        {
+            "retriever": "dense",
+            "parameters": {
+                "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+                "batch_size": 32,
+                "device": "cpu",
+            },
+        }
+    )
+    assert isinstance(retriever, DenseRetriever)
+    assert retriever.batch_size == 32
+    assert retriever.device == "cpu"
+    assert retriever._model is None
