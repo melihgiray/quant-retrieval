@@ -6,10 +6,13 @@
 from __future__ import annotations
 
 import argparse
+import random
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
+import torch
 import yaml
 
 from quant_retrieval.eval.harness import evaluate_retriever
@@ -28,6 +31,12 @@ def build_retriever(config: dict[str, Any]):
     raise ValueError(f"unknown retriever: {name}")
 
 
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -35,6 +44,7 @@ def main() -> None:
     args = parser.parse_args()
 
     config = yaml.safe_load(args.config.read_text())
+    set_seed(int(config["seed"]))
     retriever = build_retriever(config)
     corpus = pd.read_parquet(args.data / "corpus.parquet")
     queries = pd.read_parquet(args.data / "queries.parquet")
