@@ -12,6 +12,7 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=16.0",
     "py7zr>=0.21",
+    "pyyaml>=6.0",
     "beautifulsoup4>=4.12",
     "lxml>=5.2",
     "scipy>=1.14",
