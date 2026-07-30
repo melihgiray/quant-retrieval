@@ -1,4 +1,5 @@
 run_name: minilm_frozen_val
+seed: 17
 retriever: dense
 split: val
 max_results: 100

@@ -1,4 +1,5 @@
 run_name: bm25_val
+seed: 17
 retriever: bm25
 split: val
 max_results: 100
