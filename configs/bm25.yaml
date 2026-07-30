@@ -1,0 +1,8 @@
+run_name: bm25_val
+retriever: bm25
+split: val
+max_results: 100
+parameters:
+  k1: 1.2
+  b: 0.75
+output: results/bm25_val.json
