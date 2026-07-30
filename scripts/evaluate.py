@@ -15,6 +15,7 @@ import yaml
 from quant_retrieval.eval.harness import evaluate_retriever
 from quant_retrieval.eval.results import build_result_record, write_result
 from quant_retrieval.retrieval.bm25 import BM25Retriever
+from quant_retrieval.retrieval.dense import DenseRetriever
 
 
 def build_retriever(config: dict[str, Any]):
@@ -22,6 +23,8 @@ def build_retriever(config: dict[str, Any]):
     parameters = config.get("parameters", {})
     if name == "bm25":
         return BM25Retriever(**parameters)
+    if name == "dense":
+        return DenseRetriever(**parameters)
     raise ValueError(f"unknown retriever: {name}")
 
 
