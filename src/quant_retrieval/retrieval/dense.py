@@ -88,7 +88,8 @@ class DenseRetriever:
         self._load_model()
         batches: list[np.ndarray] = []
         starts = range(0, len(texts), self.batch_size)
-        for start in tqdm(starts, disable=not self.show_progress, desc="encoding"):
+        show_progress = self.show_progress and len(texts) > self.batch_size
+        for start in tqdm(starts, disable=not show_progress, desc="encoding"):
             batch = list(texts[start : start + self.batch_size])
             tokens = self._tokenizer(
                 batch,
