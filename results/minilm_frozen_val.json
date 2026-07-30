@@ -1,0 +1,43 @@
+{
+  "commit": "eb6eee06d3721e19b6acad3454abe1686e3d0dac",
+  "config": {
+    "max_results": 100,
+    "output": "results/minilm_frozen_val.json",
+    "parameters": {
+      "batch_size": 128,
+      "device": "auto",
+      "max_length": 256,
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2"
+    },
+    "retriever": "dense",
+    "run_name": "minilm_frozen_val",
+    "split": "val"
+  },
+  "counts": {
+    "corpus_documents": 26152,
+    "max_results": 100,
+    "queries": 753
+  },
+  "created_at": "2026-07-30T20:40:30.163159+00:00",
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.13.7"
+  },
+  "metrics": {
+    "graded_ndcg_at_10": 0.5045469497423831,
+    "mrr_at_10": 0.45182813718670267,
+    "ndcg_at_10": 0.49623492882053044,
+    "recall_at_10": 0.6374501992031872,
+    "recall_at_100": 0.8539176626826029
+  },
+  "retriever": "dense",
+  "run_name": "minilm_frozen_val",
+  "split": "val",
+  "timing": {
+    "index_seconds": 45.14130020805169,
+    "search_ms_per_query_p50": 5.015500006265938,
+    "search_ms_per_query_p95": 12.279674992896616,
+    "search_total_seconds": 4.846927832928486
+  }
+}
