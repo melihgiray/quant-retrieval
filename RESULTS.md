@@ -8,8 +8,8 @@ The test split has not been run.
 
 | Retriever | nDCG@10 | MRR@10 | Recall@10 | Recall@100 | Graded nDCG@10 | Index time (s) | Search p50 (ms) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| BM25 | 0.4085 | 0.3692 | 0.5339 | 0.7384 | 0.4060 | 1.37 | 5.43 |
-| Frozen MiniLM | 0.4962 | 0.4518 | 0.6375 | 0.8539 | 0.5045 | 45.14 | 5.02 |
+| BM25 | 0.4085 | 0.3692 | 0.5339 | 0.7384 | 0.4060 | 1.40 | 5.48 |
+| Frozen MiniLM | 0.4962 | 0.4518 | 0.6375 | 0.8539 | 0.5045 | 45.82 | 5.05 |
 
 Strict metrics count only the accepted answer. Graded nDCG also gives partial
 credit to other nonnegative answers written for the same question.
