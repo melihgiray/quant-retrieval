@@ -16,7 +16,9 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=5.2",
     "scipy>=1.14",
+    "torch==2.13.0",
     "tqdm>=4.66",
+    "transformers==5.14.1",
 ]
 
 [project.optional-dependencies]
