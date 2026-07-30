@@ -1,5 +1,5 @@
 {
-  "commit": "eb6eee06d3721e19b6acad3454abe1686e3d0dac",
+  "commit": "299da47000640693043010f858a9889498fc5964",
   "config": {
     "max_results": 100,
     "output": "results/minilm_frozen_val.json",
@@ -11,6 +11,7 @@
     },
     "retriever": "dense",
     "run_name": "minilm_frozen_val",
+    "seed": 17,
     "split": "val"
   },
   "counts": {
@@ -18,7 +19,7 @@
     "max_results": 100,
     "queries": 753
   },
-  "created_at": "2026-07-30T20:40:30.163159+00:00",
+  "created_at": "2026-07-30T20:45:08.016300+00:00",
   "environment": {
     "machine": "arm64",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
@@ -35,9 +36,9 @@
   "run_name": "minilm_frozen_val",
   "split": "val",
   "timing": {
-    "index_seconds": 45.14130020805169,
-    "search_ms_per_query_p50": 5.015500006265938,
-    "search_ms_per_query_p95": 12.279674992896616,
-    "search_total_seconds": 4.846927832928486
+    "index_seconds": 45.815842875046656,
+    "search_ms_per_query_p50": 5.0540410447865725,
+    "search_ms_per_query_p95": 12.64427474234253,
+    "search_total_seconds": 4.883775780443102
   }
 }
