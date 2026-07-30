@@ -1,0 +1,10 @@
+run_name: minilm_frozen_val
+retriever: dense
+split: val
+max_results: 100
+parameters:
+  model_name: sentence-transformers/all-MiniLM-L6-v2
+  batch_size: 128
+  max_length: 256
+  device: auto
+output: results/minilm_frozen_val.json
