@@ -1,5 +1,6 @@
 import pytest
-from scripts.evaluate import build_retriever
+import torch
+from scripts.evaluate import build_retriever, set_seed
 
 from quant_retrieval.retrieval.bm25 import BM25Retriever
 from quant_retrieval.retrieval.dense import DenseRetriever
@@ -34,3 +35,10 @@ def test_builds_dense_retriever_without_loading_a_model():
     assert retriever.batch_size == 32
     assert retriever.device == "cpu"
     assert retriever._model is None
+
+
+def test_seed_repeats_torch_random_values():
+    set_seed(17)
+    first = torch.rand(4)
+    set_seed(17)
+    assert torch.equal(first, torch.rand(4))
