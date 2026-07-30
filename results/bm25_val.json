@@ -1,0 +1,41 @@
+{
+  "commit": "5899d348d0287e9c6a64ec0662ad7975c9a55b5a",
+  "config": {
+    "max_results": 100,
+    "output": "results/bm25_val.json",
+    "parameters": {
+      "b": 0.75,
+      "k1": 1.2
+    },
+    "retriever": "bm25",
+    "run_name": "bm25_val",
+    "split": "val"
+  },
+  "counts": {
+    "corpus_documents": 26152,
+    "max_results": 100,
+    "queries": 753
+  },
+  "created_at": "2026-07-30T20:34:17.443065+00:00",
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.13.7"
+  },
+  "metrics": {
+    "graded_ndcg_at_10": 0.40601859248394034,
+    "mrr_at_10": 0.36916197643289267,
+    "ndcg_at_10": 0.40847970959155494,
+    "recall_at_10": 0.5338645418326693,
+    "recall_at_100": 0.7383798140770252
+  },
+  "retriever": "bm25",
+  "run_name": "bm25_val",
+  "split": "val",
+  "timing": {
+    "index_seconds": 1.3706741250352934,
+    "search_ms_per_query_p50": 5.432875012047589,
+    "search_ms_per_query_p95": 7.127800025045872,
+    "search_total_seconds": 4.136114380089566
+  }
+}
