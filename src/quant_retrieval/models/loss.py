@@ -28,3 +28,18 @@ def info_nce_loss(
     logits = queries @ documents.transpose(0, 1) / temperature
     labels = torch.arange(logits.shape[0], device=logits.device)
     return functional.cross_entropy(logits, labels)
+
+
+def in_batch_accuracy(query_embeddings: Tensor, document_embeddings: Tensor) -> float:
+    """Share of queries whose own document is the closest one in the batch.
+
+    A readable companion to the loss while training. Loss in nats says little on
+    its own, but "62 percent of questions rank their own answer top of a batch of
+    64" is a number you can reason about. It is not a retrieval metric: the
+    competition is 63 random documents, not the full corpus.
+    """
+    queries = functional.normalize(query_embeddings, p=2, dim=1)
+    documents = functional.normalize(document_embeddings, p=2, dim=1)
+    predicted = (queries @ documents.transpose(0, 1)).argmax(dim=1)
+    labels = torch.arange(predicted.shape[0], device=predicted.device)
+    return (predicted == labels).float().mean().item()
