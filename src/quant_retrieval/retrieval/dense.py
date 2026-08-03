@@ -7,19 +7,13 @@ from collections.abc import Sequence
 import numpy as np
 import torch
 import torch.nn.functional as functional
-from torch import Tensor
 from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
 
+from quant_retrieval.models.pooling import mean_pool
 from quant_retrieval.retrieval.base import SearchResult
 
-
-def mean_pool(token_embeddings: Tensor, attention_mask: Tensor) -> Tensor:
-    """Average non-padding token vectors for each sequence in a batch."""
-    expanded_mask = attention_mask.unsqueeze(-1).to(token_embeddings.dtype)
-    token_sum = (token_embeddings * expanded_mask).sum(dim=1)
-    token_count = expanded_mask.sum(dim=1).clamp(min=1e-9)
-    return token_sum / token_count
+__all__ = ["DenseRetriever", "choose_device", "mean_pool"]
 
 
 def choose_device(requested: str) -> str:
