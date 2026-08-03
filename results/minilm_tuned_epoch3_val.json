@@ -1,0 +1,45 @@
+{
+  "commit": "6fee603bb3e51cd068841b5a4218459489fc89e4",
+  "config": {
+    "display_name": "Tuned MiniLM (epoch 3)",
+    "max_results": 100,
+    "output": "results/minilm_tuned_epoch3_val.json",
+    "parameters": {
+      "batch_size": 128,
+      "device": "auto",
+      "max_length": 256,
+      "model_name": "checkpoints/minilm_tuned/epoch-3"
+    },
+    "retriever": "dense",
+    "run_name": "minilm_tuned_epoch3_val",
+    "seed": 17,
+    "split": "val"
+  },
+  "counts": {
+    "corpus_documents": 26152,
+    "max_results": 100,
+    "queries": 753
+  },
+  "created_at": "2026-08-03T06:50:38.099736+00:00",
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.13.7"
+  },
+  "metrics": {
+    "graded_ndcg_at_10": 0.5426972276764556,
+    "mrr_at_10": 0.49152016273530225,
+    "ndcg_at_10": 0.5358141932674043,
+    "recall_at_10": 0.6759628154050464,
+    "recall_at_100": 0.8924302788844621
+  },
+  "retriever": "dense",
+  "run_name": "minilm_tuned_epoch3_val",
+  "split": "val",
+  "timing": {
+    "index_seconds": 39.39522233302705,
+    "search_ms_per_query_p50": 4.70837508328259,
+    "search_ms_per_query_p95": 9.113924764096737,
+    "search_total_seconds": 4.189813253120519
+  }
+}
