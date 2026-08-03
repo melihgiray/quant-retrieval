@@ -1,0 +1,16 @@
+# Tiny run whose only job is to prove the loop works before a real one starts.
+# Not an experiment, so its history is not committed.
+run_name: smoke
+seed: 17
+model_name: sentence-transformers/all-MiniLM-L6-v2
+max_length: 128
+batch_size: 16
+epochs: 2
+learning_rate: 2.0e-5
+warmup_ratio: 0.1
+temperature: 0.05
+limit_pairs: 512
+log_every: 8
+device: auto
+output_dir: checkpoints/smoke
+history: checkpoints/smoke/history.json
