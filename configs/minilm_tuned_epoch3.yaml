@@ -1,0 +1,14 @@
+# Checkpoint from epoch 3 of configs/base.yaml. All three epochs are evaluated
+# on validation so the choice of checkpoint is visible rather than asserted.
+run_name: minilm_tuned_epoch3_val
+seed: 17
+retriever: dense
+split: val
+max_results: 100
+display_name: Tuned MiniLM (epoch 3)
+parameters:
+  model_name: checkpoints/minilm_tuned/epoch-3
+  batch_size: 128
+  max_length: 256
+  device: auto
+output: results/minilm_tuned_epoch3_val.json
