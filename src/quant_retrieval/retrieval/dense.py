@@ -12,18 +12,9 @@ from transformers import AutoModel, AutoTokenizer
 
 from quant_retrieval.models.pooling import mean_pool
 from quant_retrieval.retrieval.base import SearchResult
+from quant_retrieval.runtime import choose_device
 
 __all__ = ["DenseRetriever", "choose_device", "mean_pool"]
-
-
-def choose_device(requested: str) -> str:
-    if requested != "auto":
-        return requested
-    if torch.backends.mps.is_available():
-        return "mps"
-    if torch.cuda.is_available():
-        return "cuda"
-    return "cpu"
 
 
 class DenseRetriever:

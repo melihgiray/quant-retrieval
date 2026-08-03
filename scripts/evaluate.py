@@ -6,19 +6,17 @@
 from __future__ import annotations
 
 import argparse
-import random
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
-import torch
 import yaml
 
 from quant_retrieval.eval.harness import evaluate_retriever
 from quant_retrieval.eval.results import build_result_record, write_result
 from quant_retrieval.retrieval.bm25 import BM25Retriever
 from quant_retrieval.retrieval.dense import DenseRetriever
+from quant_retrieval.runtime import set_seed
 
 
 def build_retriever(config: dict[str, Any]):
@@ -29,12 +27,6 @@ def build_retriever(config: dict[str, Any]):
     if name == "dense":
         return DenseRetriever(**parameters)
     raise ValueError(f"unknown retriever: {name}")
-
-
-def set_seed(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
 
 
 def main() -> None:
