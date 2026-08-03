@@ -3,7 +3,7 @@ import math
 import pytest
 import torch
 
-from quant_retrieval.models.loss import info_nce_loss
+from quant_retrieval.models.loss import in_batch_accuracy, info_nce_loss
 
 
 def test_info_nce_matches_a_hand_calculated_example():
@@ -51,3 +51,25 @@ def test_info_nce_rejects_invalid_batches(queries, documents, message):
 def test_info_nce_rejects_nonpositive_temperature():
     with pytest.raises(ValueError, match="temperature"):
         info_nce_loss(torch.ones(2, 3), torch.ones(2, 3), temperature=0)
+
+
+def test_in_batch_accuracy_is_one_when_every_pair_matches_itself():
+    queries = torch.tensor([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
+    assert in_batch_accuracy(queries, queries.clone()) == pytest.approx(1.0)
+
+
+def test_in_batch_accuracy_is_zero_when_every_pair_is_swapped():
+    queries = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
+    assert in_batch_accuracy(queries, queries.flip(0)) == pytest.approx(0.0)
+
+
+def test_in_batch_accuracy_counts_the_fraction_that_match():
+    queries = torch.tensor([[1.0, 0.0], [0.0, 1.0], [1.0, 0.0]])
+    documents = torch.tensor([[1.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    # Only the first query ranks its own document first.
+    assert in_batch_accuracy(queries, documents) == pytest.approx(1 / 3)
+
+
+def test_in_batch_accuracy_ignores_vector_length():
+    queries = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
+    assert in_batch_accuracy(queries, queries * 7.0) == pytest.approx(1.0)
