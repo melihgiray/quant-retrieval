@@ -1,0 +1,24 @@
+# Hard negatives mined from two retrievers that fail differently. BM25 misses
+# lexically (shares the vocabulary, answers a different question) and the tuned
+# encoder misses semantically (right topic, wrong point). A document both rank
+# highly is the most useful kind, so overlaps are kept once at their best rank.
+seed: 17
+split: train
+output: data/processed/negatives.parquet
+mining:
+  depth: 50
+  per_query: 4
+  skip_top: 1
+sources:
+  - name: bm25
+    retriever: bm25
+    parameters:
+      k1: 1.2
+      b: 0.75
+  - name: tuned_dense
+    retriever: dense
+    parameters:
+      model_name: checkpoints/minilm_tuned/epoch-3
+      batch_size: 128
+      max_length: 256
+      device: auto
