@@ -1,7 +1,9 @@
+import pytest
 import torch
 from torch import nn
 
 from quant_retrieval.models.encoder import parameter_groups
+from quant_retrieval.models.pooling import cls_pool, pool
 
 
 class TinyModel(nn.Module):
@@ -49,3 +51,21 @@ def test_groups_are_usable_by_an_optimizer():
     loss = model.norm(model.linear(torch.randn(2, 4))).sum()
     loss.backward()
     optimizer.step()
+
+
+def test_cls_pooling_takes_the_first_token():
+    embeddings = torch.tensor([[[1.0, 2.0], [9.0, 9.0]], [[3.0, 4.0], [9.0, 9.0]]])
+    mask = torch.tensor([[1, 1], [1, 0]])
+    assert torch.equal(cls_pool(embeddings, mask), torch.tensor([[1.0, 2.0], [3.0, 4.0]]))
+
+
+def test_pool_dispatches_to_both_strategies():
+    embeddings = torch.tensor([[[1.0, 3.0], [3.0, 5.0]]])
+    mask = torch.tensor([[1, 1]])
+    assert torch.equal(pool("mean", embeddings, mask), torch.tensor([[2.0, 4.0]]))
+    assert torch.equal(pool("cls", embeddings, mask), torch.tensor([[1.0, 3.0]]))
+
+
+def test_unknown_pooling_is_rejected():
+    with pytest.raises(ValueError, match="unknown pooling"):
+        pool("max", torch.ones(1, 2, 2), torch.ones(1, 2))
