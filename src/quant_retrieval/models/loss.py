@@ -30,6 +30,43 @@ def info_nce_loss(
     return functional.cross_entropy(logits, labels)
 
 
+def info_nce_with_negatives(
+    query_embeddings: Tensor,
+    document_embeddings: Tensor,
+    negative_embeddings: Tensor,
+    *,
+    temperature: float = 0.05,
+) -> Tensor:
+    """InfoNCE where each query also competes against mined wrong answers.
+
+    `negative_embeddings` is (batch, negatives_per_query, dimensions). The
+    negatives are pooled across the whole batch rather than kept per query, so a
+    batch of 64 with 4 negatives each puts 64 + 256 candidates in front of every
+    question instead of 4. Sharing them costs nothing, since they are encoded
+    either way, and every extra candidate is another chance for the model to be
+    wrong in a way the loss can see.
+    """
+    if negative_embeddings.ndim != 3:
+        raise ValueError("negative embeddings must be (batch, negatives, dimensions)")
+    if negative_embeddings.shape[0] != query_embeddings.shape[0]:
+        raise ValueError("negative embeddings must have one row per query")
+    if query_embeddings.shape != document_embeddings.shape:
+        raise ValueError("query and document embeddings must have the same shape")
+    if temperature <= 0:
+        raise ValueError("temperature must be positive")
+
+    batch_size, _, dimensions = negative_embeddings.shape
+    queries = functional.normalize(query_embeddings, p=2, dim=1)
+    positives = functional.normalize(document_embeddings, p=2, dim=1)
+    negatives = functional.normalize(negative_embeddings.reshape(-1, dimensions), p=2, dim=1)
+
+    candidates = torch.cat([positives, negatives], dim=0)
+    logits = queries @ candidates.transpose(0, 1) / temperature
+    # Candidate i is query i's own answer, so the label is just the position.
+    labels = torch.arange(batch_size, device=logits.device)
+    return functional.cross_entropy(logits, labels)
+
+
 def in_batch_accuracy(query_embeddings: Tensor, document_embeddings: Tensor) -> float:
     """Share of queries whose own document is the closest one in the batch.
 
