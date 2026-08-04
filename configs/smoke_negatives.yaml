@@ -1,0 +1,18 @@
+# Smoke test for the hard negative path. Same job as configs/smoke.yaml: prove
+# the loop runs and the loss falls before spending eight minutes on a real run.
+run_name: smoke_negatives
+seed: 17
+model_name: sentence-transformers/all-MiniLM-L6-v2
+max_length: 128
+batch_size: 16
+epochs: 2
+learning_rate: 2.0e-5
+warmup_ratio: 0.1
+temperature: 0.05
+limit_pairs: 512
+negatives_per_query: 4
+negatives_path: data/processed/negatives.parquet
+log_every: 8
+device: auto
+output_dir: checkpoints/smoke_negatives
+history: checkpoints/smoke_negatives/history.json
