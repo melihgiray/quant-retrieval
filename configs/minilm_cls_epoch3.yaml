@@ -1,0 +1,14 @@
+# Epoch 3 of configs/minilm_cls.yaml.
+run_name: minilm_cls_epoch3_val
+seed: 17
+retriever: dense
+split: val
+max_results: 100
+display_name: Tuned, CLS pooling
+parameters:
+  model_name: checkpoints/minilm_cls/epoch-3
+  batch_size: 128
+  max_length: 256
+  device: auto
+  pooling: cls
+output: results/minilm_cls_epoch3_val.json

@@ -1,0 +1,13 @@
+# Epoch 3 of configs/minilm_batch128.yaml.
+run_name: minilm_batch128_epoch3_val
+seed: 17
+retriever: dense
+split: val
+max_results: 100
+display_name: Tuned, batch 128
+parameters:
+  model_name: checkpoints/minilm_batch128/epoch-3
+  batch_size: 128
+  max_length: 256
+  device: auto
+output: results/minilm_batch128_epoch3_val.json

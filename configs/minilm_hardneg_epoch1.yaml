@@ -1,0 +1,13 @@
+# Epoch 1 of configs/minilm_hardneg.yaml.
+run_name: minilm_hardneg_epoch1_val
+seed: 17
+retriever: dense
+split: val
+max_results: 100
+display_name: Hard negatives (epoch 1)
+parameters:
+  model_name: checkpoints/minilm_hardneg/epoch-1
+  batch_size: 128
+  max_length: 256
+  device: auto
+output: results/minilm_hardneg_epoch1_val.json
