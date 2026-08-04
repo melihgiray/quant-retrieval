@@ -1,0 +1,20 @@
+# Same as configs/base.yaml with four mined negatives per question. This is
+# the run that says whether mining was worth the trouble.
+run_name: minilm_hardneg
+seed: 17
+model_name: sentence-transformers/all-MiniLM-L6-v2
+max_length: 256
+batch_size: 64
+epochs: 3
+learning_rate: 2.0e-5
+weight_decay: 0.01
+warmup_ratio: 0.1
+max_grad_norm: 1.0
+temperature: 0.05
+pooling: mean
+negatives_per_query: 4
+negatives_path: data/processed/negatives.parquet
+log_every: 50
+device: auto
+output_dir: checkpoints/minilm_hardneg
+history: results/minilm_hardneg_training.json
