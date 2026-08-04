@@ -149,3 +149,81 @@ def test_shuffling_is_reproducible_for_a_seed(tmp_path):
 def test_training_config_rejects_impossible_settings(tmp_path, kwargs, message):
     with pytest.raises(ValueError, match=message):
         TrainingConfig(output_dir=tmp_path, **kwargs)
+
+
+@pytest.fixture
+def mined():
+    return pd.DataFrame(
+        {
+            "question_id": [1, 1, 1, 2],
+            "answer_id": [12, 13, 11, 10],
+            "rank": [3, 1, 2, 1],
+            "source": ["bm25", "bm25", "dense", "bm25"],
+        }
+    )
+
+
+def test_negatives_are_attached_hardest_first(tables, mined):
+    corpus, queries, qrels = tables
+    corpus = pd.concat(
+        [
+            corpus,
+            pd.DataFrame(
+                {
+                    "answer_id": [14],
+                    "question_id": [4],
+                    "score": [0],
+                    "text": ["unrelated"],
+                }
+            ),
+        ]
+    )
+    pairs = load_training_pairs(
+        corpus, queries, qrels, split="train", negatives=mined, negatives_per_query=2
+    )
+    first = next(pair for pair in pairs if pair.question_id == 1)
+    # Ranks 1 and 2 come before rank 3.
+    assert first.negative_texts == ("accepted three", "sibling one")
+
+
+def test_a_question_without_enough_negatives_is_dropped(tables, mined):
+    pairs = load_training_pairs(
+        *tables, split="train", negatives=mined, negatives_per_query=3
+    )
+    # Question 2 has only one mined negative, so it cannot fill a batch slot.
+    assert [pair.question_id for pair in pairs] == [1]
+
+
+def test_no_negatives_requested_means_none_attached(tables, mined):
+    pairs = load_training_pairs(*tables, split="train", negatives=mined)
+    assert all(pair.negative_texts == () for pair in pairs)
+
+
+def test_requesting_negatives_without_supplying_them_is_an_error(tables):
+    with pytest.raises(ValueError, match="no negatives"):
+        load_training_pairs(*tables, split="train", negatives_per_query=2)
+
+
+def test_collator_flattens_negatives_across_the_batch():
+    pairs = [
+        TrainingPair(1, "query one", "document one", ("bad a", "bad b")),
+        TrainingPair(2, "query two", "document two", ("bad c", "bad d")),
+    ]
+    batch = PairCollator(FakeTokenizer(), max_length=8)(pairs)
+    # Two pairs with two negatives each gives four rows.
+    assert batch["negative_input_ids"].shape[0] == 4
+    assert batch["query_input_ids"].shape[0] == 2
+
+
+def test_collator_rejects_a_batch_with_uneven_negative_counts():
+    pairs = [
+        TrainingPair(1, "query one", "document one", ("bad a",)),
+        TrainingPair(2, "query two", "document two", ("bad b", "bad c")),
+    ]
+    with pytest.raises(ValueError, match="same number of negatives"):
+        PairCollator(FakeTokenizer(), max_length=8)(pairs)
+
+
+def test_config_rejects_negatives_without_a_path(tmp_path):
+    with pytest.raises(ValueError, match="negatives_path"):
+        TrainingConfig(output_dir=tmp_path, negatives_per_query=4)
