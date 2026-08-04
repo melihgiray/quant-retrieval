@@ -19,20 +19,23 @@ import torch.nn.functional as functional
 from torch import Tensor, nn
 from transformers import AutoModel, AutoTokenizer
 
-from quant_retrieval.models.pooling import mean_pool
+from quant_retrieval.models.pooling import POOLING_STRATEGIES, pool
 
 
 class TextEncoder(nn.Module):
-    """Hugging Face encoder body, mean pooled and normalized."""
+    """Hugging Face encoder body, pooled and normalized."""
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, pooling: str = "mean") -> None:
         super().__init__()
+        if pooling not in POOLING_STRATEGIES:
+            raise ValueError(f"unknown pooling {pooling!r}, expected one of {POOLING_STRATEGIES}")
         self.model_name = model_name
+        self.pooling = pooling
         self.backbone = AutoModel.from_pretrained(model_name)
 
     def forward(self, input_ids: Tensor, attention_mask: Tensor) -> Tensor:
         output = self.backbone(input_ids=input_ids, attention_mask=attention_mask)
-        pooled = mean_pool(output.last_hidden_state, attention_mask)
+        pooled = pool(self.pooling, output.last_hidden_state, attention_mask)
         return functional.normalize(pooled, p=2, dim=1)
 
     def save(self, directory: Path, tokenizer: AutoTokenizer | None = None) -> None:

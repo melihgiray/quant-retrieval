@@ -10,7 +10,7 @@ import torch.nn.functional as functional
 from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
 
-from quant_retrieval.models.pooling import mean_pool
+from quant_retrieval.models.pooling import POOLING_STRATEGIES, mean_pool, pool
 from quant_retrieval.retrieval.base import SearchResult
 from quant_retrieval.runtime import choose_device
 
@@ -27,7 +27,10 @@ class DenseRetriever:
         max_length: int = 256,
         device: str = "auto",
         show_progress: bool = True,
+        pooling: str = "mean",
     ) -> None:
+        if pooling not in POOLING_STRATEGIES:
+            raise ValueError(f"unknown pooling {pooling!r}, expected one of {POOLING_STRATEGIES}")
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
         if max_length <= 0:
@@ -36,6 +39,7 @@ class DenseRetriever:
         self.batch_size = batch_size
         self.max_length = max_length
         self.device = choose_device(device)
+        self.pooling = pooling
         self.show_progress = show_progress
         self.document_ids = np.array([], dtype=np.int64)
         self.embeddings = np.empty((0, 0), dtype=np.float32)
@@ -86,7 +90,7 @@ class DenseRetriever:
             tokens = {name: tensor.to(self.device) for name, tensor in tokens.items()}
             with torch.inference_mode():
                 output = self._model(**tokens)
-                pooled = mean_pool(output.last_hidden_state, tokens["attention_mask"])
+                pooled = pool(self.pooling, output.last_hidden_state, tokens["attention_mask"])
                 normalized = functional.normalize(pooled, p=2, dim=1)
             batches.append(normalized.cpu().numpy().astype(np.float32, copy=False))
         return np.concatenate(batches)
