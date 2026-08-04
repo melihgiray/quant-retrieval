@@ -42,7 +42,15 @@ def main() -> None:
     corpus = pd.read_parquet(args.data / "corpus.parquet")
     queries = pd.read_parquet(args.data / "queries.parquet")
     qrels = pd.read_parquet(args.data / "qrels.parquet")
-    pairs = load_training_pairs(corpus, queries, qrels, split="train")
+    negatives = pd.read_parquet(config.negatives_path) if config.negatives_path else None
+    pairs = load_training_pairs(
+        corpus,
+        queries,
+        qrels,
+        split="train",
+        negatives=negatives,
+        negatives_per_query=config.negatives_per_query,
+    )
 
     history = train(config, pairs, resume=args.resume)
     write_history(history, history_path, config)

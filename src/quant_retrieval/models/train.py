@@ -29,7 +29,11 @@ from transformers import AutoTokenizer
 
 from quant_retrieval.models.dataset import PairCollator, TrainingPair
 from quant_retrieval.models.encoder import TextEncoder, parameter_groups
-from quant_retrieval.models.loss import in_batch_accuracy, info_nce_loss
+from quant_retrieval.models.loss import (
+    in_batch_accuracy,
+    info_nce_loss,
+    info_nce_with_negatives,
+)
 from quant_retrieval.models.schedule import linear_warmup_decay
 from quant_retrieval.runtime import choose_device, set_seed
 
@@ -52,6 +56,10 @@ class TrainingConfig:
     limit_pairs: int | None = None
     device: str = "auto"
     log_every: int = 20
+    pooling: str = "mean"
+    # Mined wrong answers attached to each question. Zero means in-batch only.
+    negatives_per_query: int = 0
+    negatives_path: str | None = None
 
     def __post_init__(self) -> None:
         if self.batch_size < 2:
@@ -60,6 +68,8 @@ class TrainingConfig:
             raise ValueError("epochs must be at least 1")
         if not 0 <= self.warmup_ratio < 1:
             raise ValueError("warmup_ratio must be in [0, 1)")
+        if self.negatives_per_query and not self.negatives_path:
+            raise ValueError("negatives_per_query needs negatives_path")
 
 
 @dataclass
@@ -109,7 +119,7 @@ def train(
         pairs = list(pairs)[: config.limit_pairs]
 
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
-    encoder = TextEncoder(config.model_name).to(device)
+    encoder = TextEncoder(config.model_name, pooling=config.pooling).to(device)
     loader = build_dataloader(pairs, config, tokenizer)
 
     total_steps = len(loader) * config.epochs
@@ -146,9 +156,21 @@ def train(
             document_embeddings = encoder(
                 batch["document_input_ids"], batch["document_attention_mask"]
             )
-            loss = info_nce_loss(
-                query_embeddings, document_embeddings, temperature=config.temperature
-            )
+            if "negative_input_ids" in batch:
+                flat = encoder(batch["negative_input_ids"], batch["negative_attention_mask"])
+                negative_embeddings = flat.reshape(
+                    query_embeddings.shape[0], -1, flat.shape[-1]
+                )
+                loss = info_nce_with_negatives(
+                    query_embeddings,
+                    document_embeddings,
+                    negative_embeddings,
+                    temperature=config.temperature,
+                )
+            else:
+                loss = info_nce_loss(
+                    query_embeddings, document_embeddings, temperature=config.temperature
+                )
 
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
