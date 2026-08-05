@@ -1,0 +1,72 @@
+{
+  "config": {
+    "output_dir": "checkpoints/minilm_batch128",
+    "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+    "max_length": 256,
+    "batch_size": 128,
+    "epochs": 3,
+    "learning_rate": 2e-05,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.1,
+    "max_grad_norm": 1.0,
+    "temperature": 0.05,
+    "seed": 17,
+    "limit_pairs": null,
+    "device": "auto",
+    "log_every": 50,
+    "pooling": "mean",
+    "negatives_per_query": 0,
+    "negatives_path": null,
+    "gradient_checkpointing": true
+  },
+  "steps": [
+    {
+      "step": 50,
+      "epoch": 0,
+      "loss": 0.5,
+      "in_batch_accuracy": 0.8594,
+      "learning_rate": 1.7403846153846157e-05
+    },
+    {
+      "step": 100,
+      "epoch": 1,
+      "loss": 0.4863,
+      "in_batch_accuracy": 0.8906,
+      "learning_rate": 1.2596153846153847e-05
+    },
+    {
+      "step": 150,
+      "epoch": 1,
+      "loss": 0.4161,
+      "in_batch_accuracy": 0.8984,
+      "learning_rate": 7.78846153846154e-06
+    },
+    {
+      "step": 200,
+      "epoch": 2,
+      "loss": 0.3957,
+      "in_batch_accuracy": 0.9219,
+      "learning_rate": 2.980769230769231e-06
+    }
+  ],
+  "epochs": [
+    {
+      "epoch": 0,
+      "mean_loss": 0.5829,
+      "mean_in_batch_accuracy": 0.8545,
+      "seconds": 218.3
+    },
+    {
+      "epoch": 1,
+      "mean_loss": 0.4569,
+      "mean_in_batch_accuracy": 0.888,
+      "seconds": 213.8
+    },
+    {
+      "epoch": 2,
+      "mean_loss": 0.4089,
+      "mean_in_batch_accuracy": 0.8979,
+      "seconds": 211.4
+    }
+  ]
+}

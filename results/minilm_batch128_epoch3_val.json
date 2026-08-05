@@ -1,0 +1,45 @@
+{
+  "commit": "64fe16fd37454795c77786395316a87f7c03987f",
+  "config": {
+    "display_name": "Tuned, batch 128",
+    "max_results": 100,
+    "output": "results/minilm_batch128_epoch3_val.json",
+    "parameters": {
+      "batch_size": 128,
+      "device": "auto",
+      "max_length": 256,
+      "model_name": "checkpoints/minilm_batch128/epoch-3"
+    },
+    "retriever": "dense",
+    "run_name": "minilm_batch128_epoch3_val",
+    "seed": 17,
+    "split": "val"
+  },
+  "counts": {
+    "corpus_documents": 26152,
+    "max_results": 100,
+    "queries": 753
+  },
+  "created_at": "2026-08-05T18:59:22.711850+00:00",
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.13.7"
+  },
+  "metrics": {
+    "graded_ndcg_at_10": 0.5356143065537285,
+    "mrr_at_10": 0.48348616117540394,
+    "ndcg_at_10": 0.5284380376787806,
+    "recall_at_10": 0.6706507304116865,
+    "recall_at_100": 0.8937583001328021
+  },
+  "retriever": "dense",
+  "run_name": "minilm_batch128_epoch3_val",
+  "split": "val",
+  "timing": {
+    "index_seconds": 41.9020254999632,
+    "search_ms_per_query_p50": 4.887667018920183,
+    "search_ms_per_query_p95": 12.326016626320778,
+    "search_total_seconds": 4.59267250134144
+  }
+}
