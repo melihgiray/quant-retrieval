@@ -5,6 +5,7 @@ retriever: dense
 split: val
 max_results: 100
 display_name: Tuned, batch 128
+display_order: 35
 parameters:
   model_name: checkpoints/minilm_batch128/epoch-3
   batch_size: 128

@@ -5,7 +5,8 @@ seed: 17
 retriever: dense
 split: val
 max_results: 100
-display_name: Tuned MiniLM (epoch 2)
+display_name: Tuned, batch 64, epoch 2
+display_order: 33
 parameters:
   model_name: checkpoints/minilm_tuned/epoch-2
   batch_size: 128

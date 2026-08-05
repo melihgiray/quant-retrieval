@@ -4,7 +4,8 @@ seed: 17
 retriever: dense
 split: val
 max_results: 100
-display_name: Hard negatives (epoch 2)
+display_name: Hard negatives, epoch 2
+display_order: 41
 parameters:
   model_name: checkpoints/minilm_hardneg/epoch-2
   batch_size: 128

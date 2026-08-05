@@ -3,6 +3,8 @@ seed: 17
 retriever: dense
 split: val
 max_results: 100
+display_name: Frozen MiniLM
+display_order: 20
 parameters:
   model_name: sentence-transformers/all-MiniLM-L6-v2
   batch_size: 128

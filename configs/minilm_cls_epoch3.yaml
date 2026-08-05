@@ -5,6 +5,7 @@ retriever: dense
 split: val
 max_results: 100
 display_name: Tuned, CLS pooling
+display_order: 50
 parameters:
   model_name: checkpoints/minilm_cls/epoch-3
   batch_size: 128

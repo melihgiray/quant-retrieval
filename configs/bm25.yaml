@@ -3,6 +3,8 @@ seed: 17
 retriever: bm25
 split: val
 max_results: 100
+display_name: BM25
+display_order: 10
 parameters:
   k1: 1.2
   b: 0.75
