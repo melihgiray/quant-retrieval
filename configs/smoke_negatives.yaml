@@ -13,6 +13,7 @@ limit_pairs: 512
 negatives_per_query: 4
 negatives_path: data/processed/negatives.parquet
 log_every: 8
+gradient_checkpointing: true
 device: auto
 output_dir: checkpoints/smoke_negatives
 history: checkpoints/smoke_negatives/history.json
