@@ -7,10 +7,11 @@ The search box is the visible part. The work underneath is an embedding model
 fine-tuned with a contrastive loss written in PyTorch, measured against BM25 and
 off-the-shelf embeddings on held-out questions the model never saw.
 
-Status: in progress. The dataset, the evaluation harness, both baselines, and the
-first fine-tuned model are done. A reranker, hybrid retrieval, an approximate
-index, and a hosted demo are not. Results land in RESULTS.md as they are
-produced, and no number appears there that did not come out of the harness.
+Status: in progress. The dataset, the evaluation harness, both baselines, the
+fine-tuned model, and a round of ablations are done. A reranker, hybrid
+retrieval, an approximate index, and a hosted demo are not. Results land in
+RESULTS.md as they are produced, and no number appears there that did not come
+out of the harness.
 
 ## Where it stands
 
@@ -23,8 +24,15 @@ On the validation split, ranking all 26,152 answers for each of 753 questions:
 | MiniLM, fine-tuned here | 0.5358 | 0.8924 |
 
 Fine-tuning is worth 8 percent relative nDCG@10 over the same encoder untrained,
-after about eight minutes of training on a laptop. RESULTS.md has the full table,
-every epoch checkpoint, and what each row means. The test split has not been run.
+after about eight minutes of training on a laptop. The test split has not been
+run.
+
+Three ablations are in RESULTS.md with the full table. The short version: batch
+size matters because in-batch negatives make it part of the objective, peaking at
+64. CLS pooling is much worse than mean pooling, worse even than not training at
+all. And mining hard negatives, which was supposed to be the next real gain, did
+nothing for ranking and cost recall. That last one is written up rather than
+buried, along with why it probably happened.
 
 ## Running it
 
@@ -48,6 +56,10 @@ Then train and score a model:
 Training writes one checkpoint per epoch and resumes with `--resume` if it stops.
 `configs/smoke.yaml` runs the same loop on 512 pairs in about fifteen seconds,
 which is the fast way to check a change before starting a real run.
+
+Every experiment is a config file plus a seed, and reruns reproduce their
+committed numbers exactly. `./run_ablations.sh` takes run names and works
+through them in order.
 
     pytest
 
