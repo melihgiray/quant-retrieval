@@ -60,6 +60,11 @@ class TrainingConfig:
     # Mined wrong answers attached to each question. Zero means in-batch only.
     negatives_per_query: int = 0
     negatives_path: str | None = None
+    # Recompute activations in the backward pass instead of storing them.
+    # Roughly 30 percent slower and several times smaller in memory, and unlike
+    # gradient accumulation it is mathematically the same run: same batch, same
+    # negatives, same gradients. Only the timings stop being comparable.
+    gradient_checkpointing: bool = False
 
     def __post_init__(self) -> None:
         if self.batch_size < 2:
@@ -120,6 +125,10 @@ def train(
 
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
     encoder = TextEncoder(config.model_name, pooling=config.pooling).to(device)
+    if config.gradient_checkpointing:
+        encoder.backbone.gradient_checkpointing_enable(
+            gradient_checkpointing_kwargs={"use_reentrant": False}
+        )
     loader = build_dataloader(pairs, config, tokenizer)
 
     total_steps = len(loader) * config.epochs
