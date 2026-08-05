@@ -1,0 +1,107 @@
+{
+  "config": {
+    "output_dir": "checkpoints/minilm_cls",
+    "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+    "max_length": 256,
+    "batch_size": 64,
+    "epochs": 3,
+    "learning_rate": 2e-05,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.1,
+    "max_grad_norm": 1.0,
+    "temperature": 0.05,
+    "seed": 17,
+    "limit_pairs": null,
+    "device": "auto",
+    "log_every": 50,
+    "pooling": "cls",
+    "negatives_per_query": 0,
+    "negatives_path": null,
+    "gradient_checkpointing": false
+  },
+  "steps": [
+    {
+      "step": 50,
+      "epoch": 0,
+      "loss": 1.2657,
+      "in_batch_accuracy": 0.7031,
+      "learning_rate": 1.9809069212410505e-05
+    },
+    {
+      "step": 100,
+      "epoch": 0,
+      "loss": 0.8506,
+      "in_batch_accuracy": 0.7812,
+      "learning_rate": 1.7422434367541766e-05
+    },
+    {
+      "step": 150,
+      "epoch": 0,
+      "loss": 0.4284,
+      "in_batch_accuracy": 0.9062,
+      "learning_rate": 1.5035799522673032e-05
+    },
+    {
+      "step": 200,
+      "epoch": 1,
+      "loss": 0.6023,
+      "in_batch_accuracy": 0.875,
+      "learning_rate": 1.2649164677804298e-05
+    },
+    {
+      "step": 250,
+      "epoch": 1,
+      "loss": 0.6556,
+      "in_batch_accuracy": 0.75,
+      "learning_rate": 1.026252983293556e-05
+    },
+    {
+      "step": 300,
+      "epoch": 1,
+      "loss": 0.7125,
+      "in_batch_accuracy": 0.8125,
+      "learning_rate": 7.875894988066827e-06
+    },
+    {
+      "step": 350,
+      "epoch": 2,
+      "loss": 0.341,
+      "in_batch_accuracy": 0.8906,
+      "learning_rate": 5.4892601431980906e-06
+    },
+    {
+      "step": 400,
+      "epoch": 2,
+      "loss": 0.4227,
+      "in_batch_accuracy": 0.9219,
+      "learning_rate": 3.102625298329356e-06
+    },
+    {
+      "step": 450,
+      "epoch": 2,
+      "loss": 0.4836,
+      "in_batch_accuracy": 0.8281,
+      "learning_rate": 7.159904534606206e-07
+    }
+  ],
+  "epochs": [
+    {
+      "epoch": 0,
+      "mean_loss": 1.1679,
+      "mean_in_batch_accuracy": 0.751,
+      "seconds": 152.6
+    },
+    {
+      "epoch": 1,
+      "mean_loss": 0.6072,
+      "mean_in_batch_accuracy": 0.8393,
+      "seconds": 151.9
+    },
+    {
+      "epoch": 2,
+      "mean_loss": 0.5122,
+      "mean_in_batch_accuracy": 0.8666,
+      "seconds": 157.0
+    }
+  ]
+}
