@@ -1,7 +1,8 @@
 {
-  "commit": "6fee603bb3e51cd068841b5a4218459489fc89e4",
+  "commit": "a3d19f53f53fa727c79d3ce0816ab69454fbcf7c",
   "config": {
-    "display_name": "Tuned MiniLM (epoch 2)",
+    "display_name": "Tuned, batch 64, epoch 2",
+    "display_order": 33,
     "max_results": 100,
     "output": "results/minilm_tuned_epoch2_val.json",
     "parameters": {
@@ -20,7 +21,7 @@
     "max_results": 100,
     "queries": 753
   },
-  "created_at": "2026-08-03T06:49:52.630922+00:00",
+  "created_at": "2026-08-05T19:03:55.927507+00:00",
   "environment": {
     "machine": "arm64",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
@@ -37,9 +38,9 @@
   "run_name": "minilm_tuned_epoch2_val",
   "split": "val",
   "timing": {
-    "index_seconds": 39.65330804197583,
-    "search_ms_per_query_p50": 4.852500045672059,
-    "search_ms_per_query_p95": 9.4438083935529,
-    "search_total_seconds": 4.418564623920247
+    "index_seconds": 41.03439779195469,
+    "search_ms_per_query_p50": 4.83766698744148,
+    "search_ms_per_query_p95": 12.633916363120079,
+    "search_total_seconds": 4.5696728124748915
   }
 }

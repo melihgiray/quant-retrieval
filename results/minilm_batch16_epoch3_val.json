@@ -1,7 +1,8 @@
 {
-  "commit": "4e6bc6a196ddea251a41df10392a2bb28b3f80dd",
+  "commit": "a3d19f53f53fa727c79d3ce0816ab69454fbcf7c",
   "config": {
     "display_name": "Tuned, batch 16",
+    "display_order": 30,
     "max_results": 100,
     "output": "results/minilm_batch16_epoch3_val.json",
     "parameters": {
@@ -20,7 +21,7 @@
     "max_results": 100,
     "queries": 753
   },
-  "created_at": "2026-08-04T23:00:08.009891+00:00",
+  "created_at": "2026-08-05T19:05:33.592624+00:00",
   "environment": {
     "machine": "arm64",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
@@ -37,9 +38,9 @@
   "run_name": "minilm_batch16_epoch3_val",
   "split": "val",
   "timing": {
-    "index_seconds": 41.686236958019435,
-    "search_ms_per_query_p50": 4.990375018678606,
-    "search_ms_per_query_p95": 12.081258231773973,
-    "search_total_seconds": 4.670110790175386
+    "index_seconds": 43.11704108293634,
+    "search_ms_per_query_p50": 4.8600840382277966,
+    "search_ms_per_query_p95": 12.776133557781575,
+    "search_total_seconds": 4.636258719721809
   }
 }
