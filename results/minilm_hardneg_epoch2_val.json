@@ -1,0 +1,45 @@
+{
+  "commit": "64fe16fd37454795c77786395316a87f7c03987f",
+  "config": {
+    "display_name": "Hard negatives (epoch 2)",
+    "max_results": 100,
+    "output": "results/minilm_hardneg_epoch2_val.json",
+    "parameters": {
+      "batch_size": 128,
+      "device": "auto",
+      "max_length": 256,
+      "model_name": "checkpoints/minilm_hardneg/epoch-2"
+    },
+    "retriever": "dense",
+    "run_name": "minilm_hardneg_epoch2_val",
+    "seed": 17,
+    "split": "val"
+  },
+  "counts": {
+    "corpus_documents": 26152,
+    "max_results": 100,
+    "queries": 753
+  },
+  "created_at": "2026-08-05T18:57:46.735712+00:00",
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.13.7"
+  },
+  "metrics": {
+    "graded_ndcg_at_10": 0.5430857032353726,
+    "mrr_at_10": 0.4898469613609054,
+    "ndcg_at_10": 0.5344467490923461,
+    "recall_at_10": 0.6759628154050464,
+    "recall_at_100": 0.8764940239043825
+  },
+  "retriever": "dense",
+  "run_name": "minilm_hardneg_epoch2_val",
+  "split": "val",
+  "timing": {
+    "index_seconds": 41.93478683300782,
+    "search_ms_per_query_p50": 4.858958069235086,
+    "search_ms_per_query_p95": 12.093599839136004,
+    "search_total_seconds": 4.557265443843789
+  }
+}
