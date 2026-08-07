@@ -67,6 +67,29 @@ def info_nce_with_negatives(
     return functional.cross_entropy(logits, labels)
 
 
+def grouped_cross_entropy(scores: Tensor) -> Tensor:
+    """Rank one positive above its own negatives, per group.
+
+    `scores` is (groups, candidates) and column 0 is the positive. This is the
+    reranker's objective, and it differs from the retriever's in what it compares
+    against: the bi-encoder competes each question against the whole batch,
+    because at search time it really does face the whole corpus. The reranker only
+    ever sees a shortlist somebody else produced, so it is trained on exactly that
+    shape, one question against its own handful of candidates.
+    """
+    if scores.ndim != 2:
+        raise ValueError("scores must be (groups, candidates)")
+    if scores.shape[1] < 2:
+        raise ValueError("each group needs a positive and at least one negative")
+    labels = torch.zeros(scores.shape[0], dtype=torch.long, device=scores.device)
+    return functional.cross_entropy(scores, labels)
+
+
+def top_one_accuracy(scores: Tensor) -> float:
+    """Share of groups whose positive outscores every negative in that group."""
+    return (scores.argmax(dim=1) == 0).float().mean().item()
+
+
 def in_batch_accuracy(query_embeddings: Tensor, document_embeddings: Tensor) -> float:
     """Share of queries whose own document is the closest one in the batch.
 
