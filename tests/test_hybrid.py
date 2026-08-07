@@ -75,20 +75,27 @@ def test_indexing_reaches_every_retriever():
     assert second.indexed == [1, 2]
 
 
-def test_depth_controls_how_far_down_each_list_is_read():
+def test_depth_reads_further_than_k_so_agreement_deep_in_a_list_still_counts():
     # Document 50 sits at rank 49 in the first list and rank 1 in the second.
-    # With depth 50 it is seen by both and its scores add. With depth 2 the
-    # first retriever never reports it, so it only gets the second's share.
+    # Asking for 4 results reads at least `depth` from each, so with depth 50 it
+    # picks up both contributions and with depth 2 only the second one.
     def fused_score(depth):
         retriever = HybridRetriever(
             [ScriptedRetriever(list(range(1, 51))), ScriptedRetriever([99, 50])],
             rrf_k=1,
             depth=depth,
         )
-        results = {r.document_id: r.score for r in retriever.search("q", 60)}
-        return results[50]
+        return {r.document_id: r.score for r in retriever.search("q", 4)}[50]
 
     assert fused_score(50) > fused_score(2)
+
+
+def test_depth_is_a_floor_not_a_cap():
+    # A caller asking for more results than `depth` still gets them.
+    retriever = HybridRetriever(
+        [ScriptedRetriever([1, 2, 3]), ScriptedRetriever([4, 5, 6])], depth=1
+    )
+    assert len(retriever.search("q", 6)) == 6
 
 
 @pytest.mark.parametrize(
