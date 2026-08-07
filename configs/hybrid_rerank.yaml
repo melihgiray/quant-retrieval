@@ -1,0 +1,34 @@
+# Hybrid + reranker. Depth 50: the reranker only sees the first 50 candidates, so
+# whatever the base retriever misses in its top 50 is unreachable here.
+# One epoch, not two: the second could not complete on this machine, see
+# RESULTS.md.
+run_name: hybrid_rerank_val
+seed: 17
+retriever: rerank
+split: val
+max_results: 100
+display_name: Hybrid + reranker (undertrained)
+display_order: 63
+parameters:
+  model_name: checkpoints/reranker/epoch-1
+  depth: 50
+  batch_size: 64
+  max_length: 320
+  device: auto
+  base:
+    retriever: hybrid
+    parameters:
+      rrf_k: 60
+      depth: 100
+      retrievers:
+        - retriever: bm25
+          parameters:
+            k1: 1.2
+            b: 0.75
+        - retriever: dense
+          parameters:
+            model_name: checkpoints/minilm_tuned/epoch-3
+            batch_size: 128
+            max_length: 256
+            device: auto
+output: results/hybrid_rerank_val.json
