@@ -82,16 +82,23 @@ def render_table(evaluations: list[dict[str, Any]]) -> list[str]:
 
 def headline(evaluations: list[dict[str, Any]]) -> list[str]:
     frozen = find(evaluations, "minilm_frozen_val")
-    tuned = [r for r in evaluations if r["run_name"].startswith(("minilm_tuned", "minilm_hardneg"))]
-    if frozen is None or not tuned:
+    # Every system that is meant to work: baselines are the thing being beaten,
+    # and the undertrained reranker pipelines are not a candidate for best.
+    candidates = [
+        r
+        for r in evaluations
+        if r["run_name"] not in {"bm25_val", "minilm_frozen_val"}
+        and not r["run_name"].endswith("_rerank_val")
+    ]
+    if frozen is None or not candidates:
         return []
-    best = max(tuned, key=lambda r: r["metrics"]["ndcg_at_10"])
+    best = max(candidates, key=lambda r: r["metrics"]["ndcg_at_10"])
     before, after = frozen["metrics"]["ndcg_at_10"], best["metrics"]["ndcg_at_10"]
     bm25 = find(evaluations, "bm25_val")
     text = (
-        f"The best configuration reaches {after:.4f} nDCG@10 against {before:.4f} for the "
-        f"same encoder untrained, {after - before:+.4f} absolute and "
-        f"{(after - before) / before:+.1%} relative."
+        f"{display_name(best)} is the strongest pipeline here at {after:.4f} nDCG@10, "
+        f"against {before:.4f} for the same encoder untrained. That is "
+        f"{after - before:+.4f} absolute and {(after - before) / before:+.1%} relative."
     )
     if bm25 is not None:
         gap = before - bm25["metrics"]["ndcg_at_10"]
@@ -208,6 +215,83 @@ def pooling_section(evaluations: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+def hybrid_section(evaluations: list[dict[str, Any]]) -> list[str]:
+    hybrid = find(evaluations, "hybrid_val")
+    dense = find(evaluations, "minilm_tuned_epoch3_val")
+    bm25 = find(evaluations, "bm25_val")
+    if hybrid is None or dense is None or bm25 is None:
+        return []
+
+    lines = ["### Fusing the two retrievers beats either one", ""]
+    lines += paragraph(
+        "BM25 and the tuned encoder fail differently. BM25 finds the exact ticker, function "
+        "name or formula that the encoder has smoothed into a general sense of the topic. The "
+        "encoder finds the answer that never repeats the question's words. Reciprocal rank "
+        "fusion merges them on rank rather than score, because BM25 sums unbounded term "
+        "weights while cosine lives in [-1, 1], and combining those numbers directly means "
+        "inventing a scale factor and then tuning it."
+    )
+    lines += paragraph(
+        f"Hybrid reaches {score(hybrid):.4f} nDCG@10 against {score(dense):.4f} for the tuned "
+        f"encoder alone and {score(bm25):.4f} for BM25, so it is "
+        f"{score(hybrid) - score(dense):+.4f} over the better of its two parts. Recall@100 "
+        f"goes from {score(dense, 'recall_at_100'):.4f} to "
+        f"{score(hybrid, 'recall_at_100'):.4f}."
+    )
+    lines += paragraph(
+        "The recall number is the one that matters most for what comes next. A reranking stage "
+        "can only reorder what it is given, so the candidate list is a hard ceiling, and fusion "
+        "raises that ceiling before anything expensive runs."
+    )
+    return lines
+
+
+def reranker_section(evaluations: list[dict[str, Any]]) -> list[str]:
+    reranked = [r for r in evaluations if r["run_name"].endswith("_rerank_val")]
+    if not reranked:
+        return []
+
+    lines = ["### The reranker is not finished, and the numbers show it", ""]
+    lines += paragraph(
+        "A cross-encoder reads the question and one answer as a single sequence, so attention "
+        "runs across both. That is strictly more informative than comparing two vectors, and "
+        "strictly too slow to search with, so it runs last over the top 50 candidates."
+    )
+    lines += paragraph(
+        "It is implemented, tested, and trained for one epoch. The planned second epoch did "
+        "not complete: the machine ran out of memory partway through, and a resumed run was "
+        "reduced to about eight steps per minute against 133 in the first epoch, so it was "
+        "stopped rather than left thrashing."
+    )
+    for result in sorted(reranked, key=table_order):
+        base_name = {"bm25_rerank_val": "bm25_val", "dense_rerank_val": "minilm_tuned_epoch3_val"}
+        base = find(evaluations, base_name.get(result["run_name"], ""))
+        if base is None:
+            continue
+        lines += paragraph(
+            f"{display_name(result)}: {score(result):.4f} nDCG@10 against {score(base):.4f} "
+            f"for the same retriever without it, {score(result) - score(base):+.4f}. "
+            f"Recall@100 is unchanged at {score(result, 'recall_at_100'):.4f}."
+        )
+    lines += paragraph(
+        "So a half-trained reranker is worse than none, and it does more damage the better the "
+        "retriever underneath it, which is what you would expect: there is more good ordering "
+        "to destroy. Scored directly against four random documents it picks the right answer "
+        "42 percent of the time, against 20 percent for guessing, so it has learned something "
+        "real and nowhere near enough."
+    )
+    lines += paragraph(
+        "Recall@100 holding exactly steady is worth noting on its own. It confirms the stage "
+        "only reorders its shortlist and never drops what sits beyond it, which is the one "
+        "thing a reranker must not get wrong."
+    )
+    lines += paragraph(
+        "Hybrid plus reranker was not run. With both single-retriever pipelines this far down, "
+        "a third would cost ten minutes to confirm what the first two already say."
+    )
+    return lines
+
+
 def render_results(evaluations: list[dict[str, Any]], split: str) -> str:
     if not evaluations:
         raise ValueError(f"no {split} evaluation results found")
@@ -237,6 +321,8 @@ def render_results(evaluations: list[dict[str, Any]], split: str) -> str:
         *hard_negative_section(evaluations),
         *batch_section(evaluations),
         *pooling_section(evaluations),
+        *hybrid_section(evaluations),
+        *reranker_section(evaluations),
         "## What each row is",
         "",
         "BM25 parameters are k1 1.2 and b 0.75. Frozen MiniLM is",
