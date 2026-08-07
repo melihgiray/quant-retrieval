@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from torch import nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
@@ -144,7 +145,9 @@ def train(
     first_epoch = 0
     state_path = config.output_dir / STATE_FILE
     if resume and state_path.exists():
-        first_epoch = _restore(state_path, encoder, optimizer, scheduler, history, device)
+        first_epoch = restore_training_state(
+            state_path, encoder, optimizer, scheduler, history, device
+        )
         on_log(f"resumed after epoch {first_epoch}")
 
     on_log(
@@ -221,16 +224,16 @@ def train(
 
         checkpoint = config.output_dir / f"epoch-{epoch + 1}"
         encoder.save(checkpoint, tokenizer)
-        _save_state(state_path, epoch + 1, encoder, optimizer, scheduler, history, config)
+        save_training_state(state_path, epoch + 1, encoder, optimizer, scheduler, history, config)
         on_log(f"wrote {checkpoint}")
 
     return history
 
 
-def _save_state(
+def save_training_state(
     path: Path,
     completed_epochs: int,
-    encoder: TextEncoder,
+    encoder: nn.Module,
     optimizer: AdamW,
     scheduler: LambdaLR,
     history: TrainingHistory,
@@ -250,9 +253,9 @@ def _save_state(
     )
 
 
-def _restore(
+def restore_training_state(
     path: Path,
-    encoder: TextEncoder,
+    encoder: nn.Module,
     optimizer: AdamW,
     scheduler: LambdaLR,
     history: TrainingHistory,
