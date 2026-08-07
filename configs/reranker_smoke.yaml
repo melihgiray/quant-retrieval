@@ -1,0 +1,17 @@
+# Proves the reranker loop runs and its loss falls before a real run starts.
+run_name: reranker_smoke
+seed: 17
+model_name: sentence-transformers/all-MiniLM-L6-v2
+max_length: 192
+batch_size: 8
+epochs: 2
+learning_rate: 2.0e-5
+warmup_ratio: 0.1
+pooling: mean
+negatives_per_query: 4
+negatives_path: data/processed/negatives.parquet
+limit_pairs: 256
+log_every: 8
+device: auto
+output_dir: checkpoints/reranker_smoke
+history: checkpoints/reranker_smoke/history.json

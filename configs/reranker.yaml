@@ -1,0 +1,21 @@
+# Cross-encoder reranker. batch_size counts questions, and each contributes
+# 1 + negatives_per_query candidates, so a step scores 8 * 5 = 40 pairs.
+# Two epochs: rerankers converge fast, and the shortlist they see at search
+# time is small enough that more passes mostly overfit the mined negatives.
+run_name: reranker
+seed: 17
+model_name: sentence-transformers/all-MiniLM-L6-v2
+max_length: 320
+batch_size: 8
+epochs: 2
+learning_rate: 2.0e-5
+weight_decay: 0.01
+warmup_ratio: 0.1
+max_grad_norm: 1.0
+pooling: mean
+negatives_per_query: 4
+negatives_path: data/processed/negatives.parquet
+log_every: 100
+device: auto
+output_dir: checkpoints/reranker
+history: results/reranker_training.json
