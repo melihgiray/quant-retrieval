@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import pandas as pd
+import torch
 from torch import Tensor
 
 from quant_retrieval.data.pairs import GRADE_PRIMARY
@@ -134,3 +135,53 @@ class PairCollator:
             max_length=self.max_length,
             return_tensors="pt",
         )
+
+
+class CrossEncoderCollator:
+    """Tokenize each pair as one sequence, grouped positive-first.
+
+    Output is flat, (groups * candidates, length), with the group's positive at
+    offset 0. The training loop reshapes the scores back to (groups, candidates).
+
+    Truncation is `longest_first`, which trims whichever side is currently longer
+    until the pair fits. Trimming only the answer was the first attempt and it
+    fails outright here: plenty of questions on this site are longer than the
+    whole budget on their own, so there is nothing left to take off the answer.
+    Both sides lead with their most useful text, the question with its title and
+    the answer with its opening, so trimming from the end of the longer one costs
+    the least.
+    """
+
+    def __init__(self, tokenizer, max_length: int = 320) -> None:
+        if max_length <= 0:
+            raise ValueError("max_length must be positive")
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+
+    def __call__(self, pairs: Sequence[TrainingPair]) -> dict[str, Tensor]:
+        counts = {len(pair.negative_texts) for pair in pairs}
+        if len(counts) > 1:
+            raise ValueError(f"every group needs the same size, saw {sorted(counts)}")
+        if counts == {0}:
+            raise ValueError("the reranker needs at least one negative per question")
+
+        queries: list[str] = []
+        documents: list[str] = []
+        for pair in pairs:
+            for document in (pair.document_text, *pair.negative_texts):
+                queries.append(pair.query_text)
+                documents.append(document)
+
+        encoded = self.tokenizer(
+            queries,
+            documents,
+            padding=True,
+            truncation="longest_first",
+            max_length=self.max_length,
+            return_tensors="pt",
+        )
+        batch = {"input_ids": encoded["input_ids"], "attention_mask": encoded["attention_mask"]}
+        if "token_type_ids" in encoded:
+            batch["token_type_ids"] = encoded["token_type_ids"]
+        batch["group_size"] = torch.tensor(counts.pop() + 1)
+        return batch
