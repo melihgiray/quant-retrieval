@@ -8,10 +8,10 @@ fine-tuned with a contrastive loss written in PyTorch, measured against BM25 and
 off-the-shelf embeddings on held-out questions the model never saw.
 
 Status: in progress. The dataset, the evaluation harness, both baselines, the
-fine-tuned model, and a round of ablations are done. A reranker, hybrid
-retrieval, an approximate index, and a hosted demo are not. Results land in
-RESULTS.md as they are produced, and no number appears there that did not come
-out of the harness.
+fine-tuned model, a round of ablations, and hybrid retrieval are done. The
+cross-encoder reranker is built and trained but not finished. An approximate
+index and a hosted demo are not started. Results land in RESULTS.md as they are
+produced, and no number appears there that did not come out of the harness.
 
 ## Where it stands
 
@@ -22,17 +22,25 @@ On the validation split, ranking all 26,152 answers for each of 753 questions:
 | BM25 | 0.4085 | 0.7384 |
 | MiniLM, off the shelf | 0.4962 | 0.8539 |
 | MiniLM, fine-tuned here | 0.5358 | 0.8924 |
+| BM25 and the tuned model, fused | 0.5550 | 0.9097 |
 
 Fine-tuning is worth 8 percent relative nDCG@10 over the same encoder untrained,
-after about eight minutes of training on a laptop. The test split has not been
-run.
+after about eight minutes of training on a laptop. Fusing that model with BM25 on
+rank adds another 4 percent and takes Recall@100 to 0.9097. The test split has
+not been run.
 
-Three ablations are in RESULTS.md with the full table. The short version: batch
-size matters because in-batch negatives make it part of the objective, peaking at
-64. CLS pooling is much worse than mean pooling, worse even than not training at
-all. And mining hard negatives, which was supposed to be the next real gain, did
-nothing for ranking and cost recall. That last one is written up rather than
-buried, along with why it probably happened.
+RESULTS.md has the full table and what each row means. Four findings worth
+skipping to, two of which are negative:
+
+- Batch size is part of the objective, not just a speed knob, because in-batch
+  negatives are the training signal. It peaks at 64.
+- CLS pooling is much worse than mean pooling here, worse even than not training
+  at all, because the base model was distilled with mean pooling.
+- Mining hard negatives, the obvious next gain, did nothing for ranking and cost
+  recall. Written up with why, rather than dropped.
+- The cross-encoder reranker is implemented and tested, trained one epoch of a
+  planned two, and at that level it makes ranking worse. Reported as unfinished
+  rather than as a conclusion about reranking.
 
 ## Running it
 
@@ -56,6 +64,14 @@ Then train and score a model:
 Training writes one checkpoint per epoch and resumes with `--resume` if it stops.
 `configs/smoke.yaml` runs the same loop on 512 pairs in about fifteen seconds,
 which is the fast way to check a change before starting a real run.
+
+Pipelines are described entirely by config. A reranking run nests its base
+retriever, which can itself be a fusion of two others, and the whole tree is
+written into the result file as provenance:
+
+    python scripts/mine_negatives.py --config configs/negatives.yaml
+    python scripts/train_reranker.py --config configs/reranker.yaml
+    python scripts/evaluate.py --config configs/hybrid_rerank.yaml
 
 Every experiment is a config file plus a seed, and reruns reproduce their
 committed numbers exactly. `./run_ablations.sh` takes run names and works
