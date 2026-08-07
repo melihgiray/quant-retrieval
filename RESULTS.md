@@ -22,11 +22,14 @@ The test split has not been run. Everything below is validation, 753 questions.
 | Hard negatives, epoch 2 | 0.5344 | 0.4898 | 0.6760 | 0.8765 | 0.5431 | 43.30 | 4.89 |
 | Hard negatives, epoch 3 | 0.5367 | 0.4902 | 0.6839 | 0.8738 | 0.5451 | 42.76 | 4.85 |
 | Tuned, CLS pooling | 0.4621 | 0.4188 | 0.5989 | 0.8420 | 0.4682 | 42.55 | 4.74 |
+| Hybrid (BM25 + tuned) | 0.5550 | 0.5072 | 0.7065 | 0.9097 | 0.5560 | 88.98 | 60.85 |
+| BM25 + reranker (undertrained) | 0.2519 | 0.2012 | 0.4170 | 0.7384 | 0.2551 | 1.35 | 281.66 |
+| Tuned + reranker (undertrained) | 0.1696 | 0.1297 | 0.3015 | 0.8924 | 0.1742 | 84.10 | 481.08 |
 
-The best configuration reaches 0.5367 nDCG@10 against 0.4962 for the same encoder
-untrained, +0.0404 absolute and +8.1% relative. For scale, moving from BM25 to that
-untrained encoder was worth +0.0878, so domain training bought rather less than
-switching to embeddings did in the first place.
+Hybrid (BM25 + tuned) is the strongest pipeline here at 0.5550 nDCG@10, against 0.4962
+for the same encoder untrained. That is +0.0587 absolute and +11.8% relative. For scale,
+moving from BM25 to that untrained encoder was worth +0.0878, so domain training bought
+rather less than switching to embeddings did in the first place.
 
 Strict metrics count only the accepted answer. Graded nDCG also gives partial
 credit to other nonnegative answers written for the same question.
@@ -82,6 +85,53 @@ This is the expected direction rather than a surprise. all-MiniLM-L6-v2 was dist
 with mean pooling, so its first token was never trained to stand for the sequence. The
 ablation is here because it is cheap and because the claim is better shown than
 asserted.
+
+### Fusing the two retrievers beats either one
+
+BM25 and the tuned encoder fail differently. BM25 finds the exact ticker, function name
+or formula that the encoder has smoothed into a general sense of the topic. The encoder
+finds the answer that never repeats the question's words. Reciprocal rank fusion merges
+them on rank rather than score, because BM25 sums unbounded term weights while cosine
+lives in [-1, 1], and combining those numbers directly means inventing a scale factor
+and then tuning it.
+
+Hybrid reaches 0.5550 nDCG@10 against 0.5358 for the tuned encoder alone and 0.4085 for
+BM25, so it is +0.0192 over the better of its two parts. Recall@100 goes from 0.8924 to
+0.9097.
+
+The recall number is the one that matters most for what comes next. A reranking stage
+can only reorder what it is given, so the candidate list is a hard ceiling, and fusion
+raises that ceiling before anything expensive runs.
+
+### The reranker is not finished, and the numbers show it
+
+A cross-encoder reads the question and one answer as a single sequence, so attention
+runs across both. That is strictly more informative than comparing two vectors, and
+strictly too slow to search with, so it runs last over the top 50 candidates.
+
+It is implemented, tested, and trained for one epoch. The planned second epoch did not
+complete: the machine ran out of memory partway through, and a resumed run was reduced
+to about eight steps per minute against 133 in the first epoch, so it was stopped rather
+than left thrashing.
+
+BM25 + reranker (undertrained): 0.2519 nDCG@10 against 0.4085 for the same retriever
+without it, -0.1566. Recall@100 is unchanged at 0.7384.
+
+Tuned + reranker (undertrained): 0.1696 nDCG@10 against 0.5358 for the same retriever
+without it, -0.3662. Recall@100 is unchanged at 0.8924.
+
+So a half-trained reranker is worse than none, and it does more damage the better the
+retriever underneath it, which is what you would expect: there is more good ordering to
+destroy. Scored directly against four random documents it picks the right answer 42
+percent of the time, against 20 percent for guessing, so it has learned something real
+and nowhere near enough.
+
+Recall@100 holding exactly steady is worth noting on its own. It confirms the stage only
+reorders its shortlist and never drops what sits beyond it, which is the one thing a
+reranker must not get wrong.
+
+Hybrid plus reranker was not run. With both single-retriever pipelines this far down, a
+third would cost ten minutes to confirm what the first two already say.
 
 ## What each row is
 
