@@ -1,0 +1,24 @@
+# BM25 fused with the tuned encoder. The two fail differently, so agreement
+# between them is worth more than either one's confidence on its own.
+run_name: hybrid_val
+seed: 17
+retriever: hybrid
+split: val
+max_results: 100
+display_name: Hybrid (BM25 + tuned)
+display_order: 60
+parameters:
+  rrf_k: 60
+  depth: 100
+  retrievers:
+    - retriever: bm25
+      parameters:
+        k1: 1.2
+        b: 0.75
+    - retriever: dense
+      parameters:
+        model_name: checkpoints/minilm_tuned/epoch-3
+        batch_size: 128
+        max_length: 256
+        device: auto
+output: results/hybrid_val.json
