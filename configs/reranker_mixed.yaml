@@ -1,0 +1,25 @@
+# The reranker retrained on a mix of negatives. Everything except the negative
+# mix matches configs/reranker.yaml, so the comparison is one variable.
+#
+# Two mined and two random, group size still five. Trained on mined negatives
+# alone the model learned to separate answers that already look plausible and
+# never learned to reject one that is off topic, which is most of what it sees
+# at search time. See the reranker section of RESULTS.md.
+run_name: reranker_mixed
+seed: 17
+model_name: sentence-transformers/all-MiniLM-L6-v2
+max_length: 320
+batch_size: 8
+epochs: 2
+learning_rate: 2.0e-5
+weight_decay: 0.01
+warmup_ratio: 0.1
+max_grad_norm: 1.0
+pooling: mean
+negatives_per_query: 2
+random_negatives_per_query: 2
+negatives_path: data/processed/negatives.parquet
+log_every: 100
+device: auto
+output_dir: checkpoints/reranker_mixed
+history: results/reranker_mixed_training.json
