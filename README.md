@@ -10,8 +10,8 @@ off-the-shelf embeddings on held-out questions the model never saw.
 Status: in progress. The dataset, the evaluation harness, both baselines, the
 fine-tuned model, a round of ablations, hybrid retrieval, and a cross-encoder
 reranker are all built and measured. An approximate index and a hosted demo are
-not started. Results land in RESULTS.md as they are
-produced, and no number appears there that did not come out of the harness.
+not started. Results land in RESULTS.md as they are produced, and no number
+appears there that did not come out of the harness.
 
 ## Where it stands
 
