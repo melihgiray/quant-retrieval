@@ -82,8 +82,9 @@ def render_table(evaluations: list[dict[str, Any]]) -> list[str]:
 
 def headline(evaluations: list[dict[str, Any]]) -> list[str]:
     frozen = find(evaluations, "minilm_frozen_val")
-    # Every system that is meant to work: baselines are the thing being beaten,
-    # and the undertrained reranker pipelines are not a candidate for best.
+    # Every system meant to be an improvement. Baselines are the thing being
+    # beaten, and the reranker pipelines lose to their own base retrievers, so
+    # neither belongs in a claim about the best result.
     candidates = [
         r
         for r in evaluations
@@ -251,43 +252,58 @@ def reranker_section(evaluations: list[dict[str, Any]]) -> list[str]:
     if not reranked:
         return []
 
-    lines = ["### The reranker is not finished, and the numbers show it", ""]
+    lines = ["### The reranker does not work, and here is how far I got finding out why", ""]
     lines += paragraph(
         "A cross-encoder reads the question and one answer as a single sequence, so attention "
-        "runs across both. That is strictly more informative than comparing two vectors, and "
-        "strictly too slow to search with, so it runs last over the top 50 candidates."
+        "runs across both. That is strictly more informative than comparing two vectors and "
+        "strictly too slow to search with, so it runs last over the top 50 candidates. It is "
+        "implemented, tested, and trained for the two epochs its config asks for."
     )
-    lines += paragraph(
-        "It is implemented, tested, and trained for one epoch. The planned second epoch did "
-        "not complete: the machine ran out of memory partway through, and a resumed run was "
-        "reduced to about eight steps per minute against 133 in the first epoch, so it was "
-        "stopped rather than left thrashing."
-    )
+    lines += paragraph("It makes every pipeline substantially worse:")
+    bases = {
+        "bm25_rerank_val": "bm25_val",
+        "dense_rerank_val": "minilm_tuned_epoch3_val",
+        "hybrid_rerank_val": "hybrid_val",
+    }
     for result in sorted(reranked, key=table_order):
-        base_name = {"bm25_rerank_val": "bm25_val", "dense_rerank_val": "minilm_tuned_epoch3_val"}
-        base = find(evaluations, base_name.get(result["run_name"], ""))
+        base = find(evaluations, bases.get(result["run_name"], ""))
         if base is None:
             continue
         lines += paragraph(
             f"{display_name(result)}: {score(result):.4f} nDCG@10 against {score(base):.4f} "
-            f"for the same retriever without it, {score(result) - score(base):+.4f}. "
-            f"Recall@100 is unchanged at {score(result, 'recall_at_100'):.4f}."
+            f"without it, {score(result) - score(base):+.4f}. Recall@100 is unchanged at "
+            f"{score(result, 'recall_at_100'):.4f}."
         )
     lines += paragraph(
-        "So a half-trained reranker is worse than none, and it does more damage the better the "
-        "retriever underneath it, which is what you would expect: there is more good ordering "
-        "to destroy. Scored directly against four random documents it picks the right answer "
-        "42 percent of the time, against 20 percent for guessing, so it has learned something "
-        "real and nowhere near enough."
+        "Recall@100 holding exactly steady in all three is worth its own sentence. It confirms "
+        "the stage only reorders its shortlist and never drops what lies beyond it, which is "
+        "the one thing a reranking stage must not get wrong, and there is a test for it."
     )
     lines += paragraph(
-        "Recall@100 holding exactly steady is worth noting on its own. It confirms the stage "
-        "only reorders its shortlist and never drops what sits beyond it, which is the one "
-        "thing a reranker must not get wrong."
+        "The obvious explanation is undertraining, and it is not the explanation. Four "
+        "measurements say otherwise. Training accuracy did climb, from 0.328 to 0.503 across "
+        "the two epochs against 0.20 for guessing, so the loop learns. The scoring head moved "
+        "a long way from its initialisation, ending almost orthogonal to it, so it is not "
+        "stuck at random. The backbone moved about 2 percent, which is normal for two epochs "
+        "at this learning rate. And the model still scores badly against documents picked "
+        "completely at random: 43 percent correct out of five on validation questions, and 28 "
+        "percent on questions it actually trained on, where 20 percent is chance."
     )
     lines += paragraph(
-        "Hybrid plus reranker was not run. With both single-retriever pipelines this far down, "
-        "a third would cost ten minutes to confirm what the first two already say."
+        "That last number is the interesting one. A model cannot be merely undertrained and "
+        "also fail on its own training data against random distractors. The likeliest reading "
+        "is that it was trained on the wrong distribution: every negative it ever saw was a "
+        "mined hard negative, a real answer to a similar question. It was never shown an "
+        "obviously unrelated document, so it never had to learn the easy discrimination, and "
+        "at search time most of the 50 candidates it must judge are exactly that kind of easy "
+        "case. It has calibration for the hard tail and none for the bulk."
+    )
+    lines += paragraph(
+        "The next experiment is therefore to mix random negatives in with the mined ones, two "
+        "and two, and retrain. Standard practice in the retrieval literature is to combine "
+        "hard and random negatives rather than using hard ones alone, and this is a concrete "
+        "case of why. That has not been run, so nothing here claims it is the fix. It is the "
+        "hypothesis the evidence supports and the experiment that would test it."
     )
     return lines
 

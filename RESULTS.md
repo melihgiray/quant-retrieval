@@ -23,8 +23,9 @@ The test split has not been run. Everything below is validation, 753 questions.
 | Hard negatives, epoch 3 | 0.5367 | 0.4902 | 0.6839 | 0.8738 | 0.5451 | 42.76 | 4.85 |
 | Tuned, CLS pooling | 0.4621 | 0.4188 | 0.5989 | 0.8420 | 0.4682 | 42.55 | 4.74 |
 | Hybrid (BM25 + tuned) | 0.5550 | 0.5072 | 0.7065 | 0.9097 | 0.5560 | 88.98 | 60.85 |
-| BM25 + reranker (undertrained) | 0.2519 | 0.2012 | 0.4170 | 0.7384 | 0.2551 | 1.35 | 281.66 |
-| Tuned + reranker (undertrained) | 0.1696 | 0.1297 | 0.3015 | 0.8924 | 0.1742 | 84.10 | 481.08 |
+| BM25 + reranker | 0.2695 | 0.2150 | 0.4462 | 0.7384 | 0.2719 | 1.55 | 113.11 |
+| Tuned + reranker | 0.1932 | 0.1467 | 0.3453 | 0.8924 | 0.1981 | 40.27 | 110.62 |
+| Hybrid + reranker | 0.2351 | 0.1790 | 0.4197 | 0.9097 | 0.2405 | 41.52 | 118.04 |
 
 Hybrid (BM25 + tuned) is the strongest pipeline here at 0.5550 nDCG@10, against 0.4962
 for the same encoder untrained. That is +0.0587 absolute and +11.8% relative. For scale,
@@ -103,35 +104,50 @@ The recall number is the one that matters most for what comes next. A reranking 
 can only reorder what it is given, so the candidate list is a hard ceiling, and fusion
 raises that ceiling before anything expensive runs.
 
-### The reranker is not finished, and the numbers show it
+### The reranker does not work, and here is how far I got finding out why
 
 A cross-encoder reads the question and one answer as a single sequence, so attention
-runs across both. That is strictly more informative than comparing two vectors, and
-strictly too slow to search with, so it runs last over the top 50 candidates.
+runs across both. That is strictly more informative than comparing two vectors and
+strictly too slow to search with, so it runs last over the top 50 candidates. It is
+implemented, tested, and trained for the two epochs its config asks for.
 
-It is implemented, tested, and trained for one epoch. The planned second epoch did not
-complete: the machine ran out of memory partway through, and a resumed run was reduced
-to about eight steps per minute against 133 in the first epoch, so it was stopped rather
-than left thrashing.
+It makes every pipeline substantially worse:
 
-BM25 + reranker (undertrained): 0.2519 nDCG@10 against 0.4085 for the same retriever
-without it, -0.1566. Recall@100 is unchanged at 0.7384.
+BM25 + reranker: 0.2695 nDCG@10 against 0.4085 without it, -0.1390. Recall@100 is
+unchanged at 0.7384.
 
-Tuned + reranker (undertrained): 0.1696 nDCG@10 against 0.5358 for the same retriever
-without it, -0.3662. Recall@100 is unchanged at 0.8924.
+Tuned + reranker: 0.1932 nDCG@10 against 0.5358 without it, -0.3426. Recall@100 is
+unchanged at 0.8924.
 
-So a half-trained reranker is worse than none, and it does more damage the better the
-retriever underneath it, which is what you would expect: there is more good ordering to
-destroy. Scored directly against four random documents it picks the right answer 42
-percent of the time, against 20 percent for guessing, so it has learned something real
-and nowhere near enough.
+Hybrid + reranker: 0.2351 nDCG@10 against 0.5550 without it, -0.3199. Recall@100 is
+unchanged at 0.9097.
 
-Recall@100 holding exactly steady is worth noting on its own. It confirms the stage only
-reorders its shortlist and never drops what sits beyond it, which is the one thing a
-reranker must not get wrong.
+Recall@100 holding exactly steady in all three is worth its own sentence. It confirms
+the stage only reorders its shortlist and never drops what lies beyond it, which is the
+one thing a reranking stage must not get wrong, and there is a test for it.
 
-Hybrid plus reranker was not run. With both single-retriever pipelines this far down, a
-third would cost ten minutes to confirm what the first two already say.
+The obvious explanation is undertraining, and it is not the explanation. Four
+measurements say otherwise. Training accuracy did climb, from 0.328 to 0.503 across the
+two epochs against 0.20 for guessing, so the loop learns. The scoring head moved a long
+way from its initialisation, ending almost orthogonal to it, so it is not stuck at
+random. The backbone moved about 2 percent, which is normal for two epochs at this
+learning rate. And the model still scores badly against documents picked completely at
+random: 43 percent correct out of five on validation questions, and 28 percent on
+questions it actually trained on, where 20 percent is chance.
+
+That last number is the interesting one. A model cannot be merely undertrained and also
+fail on its own training data against random distractors. The likeliest reading is that
+it was trained on the wrong distribution: every negative it ever saw was a mined hard
+negative, a real answer to a similar question. It was never shown an obviously unrelated
+document, so it never had to learn the easy discrimination, and at search time most of
+the 50 candidates it must judge are exactly that kind of easy case. It has calibration
+for the hard tail and none for the bulk.
+
+The next experiment is therefore to mix random negatives in with the mined ones, two and
+two, and retrain. Standard practice in the retrieval literature is to combine hard and
+random negatives rather than using hard ones alone, and this is a concrete case of why.
+That has not been run, so nothing here claims it is the fix. It is the hypothesis the
+evidence supports and the experiment that would test it.
 
 ## What each row is
 
