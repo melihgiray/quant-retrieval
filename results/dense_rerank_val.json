@@ -1,7 +1,7 @@
 {
-  "commit": "f87bcbf466feff70a6ae52be92459a3986b6065d",
+  "commit": "2aafc19a62f6a895a445140ff4afff5b1cf1d8c4",
   "config": {
-    "display_name": "Tuned + reranker (undertrained)",
+    "display_name": "Tuned + reranker",
     "display_order": 62,
     "max_results": 100,
     "output": "results/dense_rerank_val.json",
@@ -19,7 +19,7 @@
       "depth": 50,
       "device": "auto",
       "max_length": 320,
-      "model_name": "checkpoints/reranker/epoch-1"
+      "model_name": "checkpoints/reranker/epoch-2"
     },
     "retriever": "rerank",
     "run_name": "dense_rerank_val",
@@ -31,26 +31,26 @@
     "max_results": 100,
     "queries": 753
   },
-  "created_at": "2026-08-07T05:29:14.329825+00:00",
+  "created_at": "2026-08-12T05:08:41.248517+00:00",
   "environment": {
     "machine": "arm64",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
     "python": "3.13.7"
   },
   "metrics": {
-    "graded_ndcg_at_10": 0.17421044862870821,
-    "mrr_at_10": 0.1296528173022198,
-    "ndcg_at_10": 0.16957765099672456,
-    "recall_at_10": 0.301460823373174,
+    "graded_ndcg_at_10": 0.1980698608102734,
+    "mrr_at_10": 0.14665517822888338,
+    "ndcg_at_10": 0.19322247334513665,
+    "recall_at_10": 0.3452855245683931,
     "recall_at_100": 0.8924302788844621
   },
   "retriever": "rerank",
   "run_name": "dense_rerank_val",
   "split": "val",
   "timing": {
-    "index_seconds": 84.09541733295191,
-    "search_ms_per_query_p50": 481.08141601551324,
-    "search_ms_per_query_p95": 569.2077498184516,
-    "search_total_seconds": 294.0285420703003
+    "index_seconds": 40.26785274990834,
+    "search_ms_per_query_p50": 110.61945906840265,
+    "search_ms_per_query_p95": 123.17368346266448,
+    "search_total_seconds": 84.32409279420972
   }
 }
