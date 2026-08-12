@@ -35,25 +35,31 @@ def load_training_pairs(
     split: str = "train",
     negatives: pd.DataFrame | None = None,
     negatives_per_query: int = 0,
+    random_negatives_per_query: int = 0,
 ) -> list[TrainingPair]:
     """Join the three tables into (question, answer) text pairs for one split.
 
-    With `negatives`, each pair also carries the mined wrong answers its question
-    ranked highest. They are taken in rank order, hardest first, rather than
-    sampled: the sampling variant would add diversity across epochs, but a fixed
-    choice keeps a rerun of the same config on the same numbers, which matters
-    more while the ablations are being compared.
+    With `negatives`, each pair also carries the wrong answers its question was
+    given. `negatives_per_query` takes mined ones in rank order, hardest first,
+    rather than sampling: the sampling variant would add diversity across epochs,
+    but a fixed choice keeps a rerun of the same config on the same numbers,
+    which matters more while runs are being compared.
 
-    A question with fewer than `negatives_per_query` mined negatives is dropped,
-    because every example in a batch has to contribute the same number.
+    `random_negatives_per_query` adds uniformly drawn documents on top. Training
+    on mined negatives alone teaches a model to separate answers that already
+    look plausible and never teaches it to reject one that is off topic, which is
+    what the reranker turned out to be missing.
+
+    A question that cannot fill both quotas is dropped, because every example in
+    a batch has to contribute the same number of candidates.
     """
     selected = queries.loc[queries["split"] == split]
     if selected.empty:
         raise ValueError(f"split {split!r} contains no queries")
-    if negatives_per_query < 0:
-        raise ValueError("negatives_per_query cannot be negative")
-    if negatives_per_query and negatives is None:
-        raise ValueError("negatives_per_query was set but no negatives were given")
+    if negatives_per_query < 0 or random_negatives_per_query < 0:
+        raise ValueError("negative counts cannot be negative")
+    if (negatives_per_query or random_negatives_per_query) and negatives is None:
+        raise ValueError("negatives were requested but no negatives were given")
 
     primary = qrels.loc[qrels["grade"] == GRADE_PRIMARY, ["question_id", "answer_id"]]
     documents = corpus.set_index("answer_id")["text"]
@@ -62,12 +68,15 @@ def load_training_pairs(
     joined["document_text"] = joined["answer_id"].map(documents)
     joined = joined[joined["document_text"].notna()]
 
-    chosen = _negatives_by_question(negatives, documents, negatives_per_query)
+    wanted = negatives_per_query + random_negatives_per_query
+    chosen = _negatives_by_question(
+        negatives, documents, negatives_per_query, random_negatives_per_query
+    )
 
     pairs = []
     for row in joined.itertuples(index=False):
-        negative_texts = chosen.get(int(row.question_id), ()) if negatives_per_query else ()
-        if negatives_per_query and len(negative_texts) < negatives_per_query:
+        negative_texts = chosen.get(int(row.question_id), ()) if wanted else ()
+        if wanted and len(negative_texts) < wanted:
             continue
         pairs.append(
             TrainingPair(
@@ -81,16 +90,25 @@ def load_training_pairs(
 
 
 def _negatives_by_question(
-    negatives: pd.DataFrame | None, documents: pd.Series, per_query: int
+    negatives: pd.DataFrame | None,
+    documents: pd.Series,
+    per_query: int,
+    random_per_query: int = 0,
 ) -> dict[int, tuple[str, ...]]:
-    if negatives is None or per_query == 0:
+    """Pick each question's negatives: mined ones first, then random ones."""
+    if negatives is None or per_query + random_per_query == 0:
         return {}
     ranked = negatives.sort_values(["question_id", "rank"])
     ranked = ranked[ranked["answer_id"].isin(documents.index)]
+    is_random = ranked["source"] == "random"
+
     by_question: dict[int, tuple[str, ...]] = {}
     for question_id, group in ranked.groupby("question_id"):
-        texts = documents.loc[group["answer_id"].iloc[:per_query]].tolist()
-        by_question[int(question_id)] = tuple(texts)
+        rows = group[~is_random.loc[group.index]].iloc[:per_query]
+        if random_per_query:
+            drawn = group[is_random.loc[group.index]].iloc[:random_per_query]
+            rows = pd.concat([rows, drawn])
+        by_question[int(question_id)] = tuple(documents.loc[rows["answer_id"]].tolist())
     return by_question
 
 
