@@ -227,3 +227,87 @@ def test_collator_rejects_a_batch_with_uneven_negative_counts():
 def test_config_rejects_negatives_without_a_path(tmp_path):
     with pytest.raises(ValueError, match="negatives_path"):
         TrainingConfig(output_dir=tmp_path, negatives_per_query=4)
+
+
+@pytest.fixture
+def mixed():
+    """Two mined negatives and two random ones for question 1."""
+    return pd.DataFrame(
+        {
+            "question_id": [1, 1, 1, 1],
+            "answer_id": [12, 13, 11, 10],
+            "rank": [1, 2, 10_000, 10_001],
+            "source": ["bm25", "dense", "random", "random"],
+        }
+    )
+
+
+def test_zero_random_negatives_reproduces_the_mined_only_selection(tables, mixed):
+    # The guarantee that this change did not silently alter runs already
+    # committed. Same inputs, same pairs, with and without the new argument.
+    before = load_training_pairs(
+        *tables, split="train", negatives=mixed, negatives_per_query=2
+    )
+    after = load_training_pairs(
+        *tables,
+        split="train",
+        negatives=mixed,
+        negatives_per_query=2,
+        random_negatives_per_query=0,
+    )
+    assert before == after
+    assert all(pair.negative_texts == ("accepted two", "accepted three") for pair in before)
+
+
+def test_a_mix_takes_mined_negatives_first_then_random_ones(tables, mixed):
+    pairs = load_training_pairs(
+        *tables,
+        split="train",
+        negatives=mixed,
+        negatives_per_query=1,
+        random_negatives_per_query=1,
+    )
+    first = next(pair for pair in pairs if pair.question_id == 1)
+    assert first.negative_texts == ("accepted two", "sibling one")
+
+
+def test_random_negatives_are_not_counted_as_mined_ones(tables, mixed):
+    # Only two rows are mined, so asking for three mined negatives drops the
+    # question even though four rows exist for it.
+    pairs = load_training_pairs(
+        *tables, split="train", negatives=mixed, negatives_per_query=3
+    )
+    assert [pair.question_id for pair in pairs] == []
+
+
+def test_a_question_short_of_random_negatives_is_dropped(tables, mixed):
+    pairs = load_training_pairs(
+        *tables,
+        split="train",
+        negatives=mixed,
+        negatives_per_query=1,
+        random_negatives_per_query=3,
+    )
+    assert pairs == []
+
+
+def test_random_negatives_alone_are_allowed(tables, mixed):
+    pairs = load_training_pairs(
+        *tables, split="train", negatives=mixed, random_negatives_per_query=2
+    )
+    first = next(pair for pair in pairs if pair.question_id == 1)
+    assert first.negative_texts == ("sibling one", "accepted one")
+
+
+def test_requesting_random_negatives_without_a_table_is_an_error(tables):
+    with pytest.raises(ValueError, match="no negatives"):
+        load_training_pairs(*tables, split="train", random_negatives_per_query=2)
+
+
+def test_reranker_config_accepts_random_negatives_alone(tmp_path):
+    config = TrainingConfig(
+        output_dir=tmp_path,
+        random_negatives_per_query=4,
+        negatives_path="data/processed/negatives.parquet",
+    )
+    assert config.negatives_per_query == 0
