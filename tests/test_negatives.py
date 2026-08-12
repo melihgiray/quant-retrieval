@@ -2,9 +2,11 @@ import pandas as pd
 import pytest
 
 from quant_retrieval.models.negatives import (
+    RANDOM_RANK_OFFSET,
     NegativeMiningConfig,
     combine_negatives,
     mine_negatives,
+    sample_random_negatives,
 )
 from quant_retrieval.retrieval.base import SearchResult
 
@@ -132,3 +134,64 @@ def test_combine_keeps_one_row_per_pair_at_its_best_rank():
 def test_combine_rejects_an_empty_call():
     with pytest.raises(ValueError, match="nothing to combine"):
         combine_negatives()
+
+
+def draw(tables, **kwargs):
+    corpus, queries, qrels = tables
+    return sample_random_negatives(
+        corpus, queries, qrels, show_progress=False, **{"per_query": 2, "seed": 17, **kwargs}
+    )
+
+
+def test_random_negatives_never_include_the_judged_positive(tables):
+    assert 10 not in set(draw(tables, per_query=3)["answer_id"])
+
+
+def test_random_negatives_never_include_a_sibling(tables):
+    assert 11 not in set(draw(tables, per_query=3)["answer_id"])
+
+
+def test_random_negatives_never_include_an_unjudged_same_question_answer(tables):
+    # Answer 12 is unjudged but belongs to question 1, so it is not wrong.
+    assert 12 not in set(draw(tables, per_query=3)["answer_id"])
+
+
+def test_random_negatives_return_the_requested_count(tables):
+    assert list(draw(tables, per_query=3).groupby("question_id").size()) == [3]
+
+
+def test_random_negatives_are_labelled_and_ranked_above_mined_ones(tables):
+    drawn = draw(tables)
+    assert set(drawn["source"]) == {"random"}
+    assert drawn["rank"].min() >= RANDOM_RANK_OFFSET
+
+
+def test_random_negatives_repeat_for_a_seed_and_differ_across_seeds(tables):
+    first = draw(tables, seed=5)
+    assert first.equals(draw(tables, seed=5))
+    assert not first.equals(draw(tables, seed=6))
+
+
+def test_combining_keeps_the_mined_rank_over_the_random_one(tables):
+    mined = pd.DataFrame(
+        {"question_id": [1], "answer_id": [20], "rank": [3], "source": ["bm25"]}
+    )
+    random_table = pd.DataFrame(
+        {"question_id": [1], "answer_id": [20], "rank": [RANDOM_RANK_OFFSET], "source": ["random"]}
+    )
+    combined = combine_negatives(mined, random_table)
+    assert len(combined) == 1
+    assert combined.iloc[0]["source"] == "bm25"
+
+
+def test_random_negatives_reject_a_nonpositive_count(tables):
+    with pytest.raises(ValueError, match="per_query"):
+        draw(tables, per_query=0)
+
+
+def test_random_negatives_reject_a_corpus_too_small_to_draw_from(tables):
+    corpus, queries, qrels = tables
+    with pytest.raises(ValueError, match="too small"):
+        sample_random_negatives(
+            corpus.head(2), queries, qrels, per_query=5, show_progress=False
+        )
