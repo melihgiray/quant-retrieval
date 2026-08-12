@@ -1,16 +1,14 @@
 # BM25 + reranker. Depth 50: the reranker only sees the first 50 candidates, so
 # whatever the base retriever misses in its top 50 is unreachable here.
-# One epoch, not two: the second could not complete on this machine, see
-# RESULTS.md.
 run_name: bm25_rerank_val
 seed: 17
 retriever: rerank
 split: val
 max_results: 100
-display_name: BM25 + reranker (undertrained)
+display_name: BM25 + reranker
 display_order: 61
 parameters:
-  model_name: checkpoints/reranker/epoch-1
+  model_name: checkpoints/reranker/epoch-2
   depth: 50
   batch_size: 64
   max_length: 320
