@@ -23,6 +23,7 @@ from quant_retrieval.models.negatives import (  # noqa: E402
     NegativeMiningConfig,
     combine_negatives,
     mine_negatives,
+    sample_random_negatives,
 )
 from quant_retrieval.retrieval.bm25 import BM25Retriever  # noqa: E402
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
@@ -66,6 +67,18 @@ def main() -> None:
         )
         print(f"{spec['name']}: {len(table)} negatives")
         tables.append(table)
+
+    random_per_query = int(config.get("random_per_query", 0))
+    if random_per_query:
+        drawn = sample_random_negatives(
+            corpus,
+            training_queries,
+            qrels,
+            per_query=random_per_query,
+            seed=int(config.get("seed", 17)),
+        )
+        print(f"random: {len(drawn)} negatives")
+        tables.append(drawn)
 
     negatives = combine_negatives(*tables)
     output = Path(config.get("output", args.data / "negatives.parquet"))

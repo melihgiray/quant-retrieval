@@ -9,6 +9,10 @@ mining:
   depth: 50
   per_query: 4
   skip_top: 1
+# Drawn uniformly, on top of whatever the retrievers below find. The reranker
+# needs to learn that an unrelated document is wrong, and no mined negative
+# ever teaches that.
+random_per_query: 3
 sources:
   - name: bm25
     retriever: bm25
