@@ -64,8 +64,8 @@ def train_reranker(
     on_log: Callable[[str], None] = print,
 ) -> TrainingHistory:
     """Fine-tune the cross-encoder, one checkpoint per epoch."""
-    if config.negatives_per_query < 1:
-        raise ValueError("the reranker needs negatives_per_query of at least 1")
+    if config.negatives_per_query + config.random_negatives_per_query < 1:
+        raise ValueError("the reranker needs at least one negative per question")
 
     set_seed(config.seed)
     device = choose_device(config.device)
@@ -98,7 +98,9 @@ def train_reranker(
         on_log(f"resumed after epoch {first_epoch}")
 
     on_log(
-        f"{len(pairs)} questions, {config.negatives_per_query + 1} candidates each, "
+        f"{len(pairs)} questions, "
+        f"{config.negatives_per_query + config.random_negatives_per_query + 1} "
+        "candidates each, "
         f"{len(loader)} steps per epoch, {total_steps} total, device {device}"
     )
 

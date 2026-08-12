@@ -60,6 +60,9 @@ class TrainingConfig:
     pooling: str = "mean"
     # Mined wrong answers attached to each question. Zero means in-batch only.
     negatives_per_query: int = 0
+    # Uniformly drawn documents added on top of the mined ones. Zero reproduces
+    # the mined-only behaviour exactly.
+    random_negatives_per_query: int = 0
     negatives_path: str | None = None
     # Recompute activations in the backward pass instead of storing them.
     # Roughly 30 percent slower and several times smaller in memory, and unlike
@@ -74,7 +77,9 @@ class TrainingConfig:
             raise ValueError("epochs must be at least 1")
         if not 0 <= self.warmup_ratio < 1:
             raise ValueError("warmup_ratio must be in [0, 1)")
-        if self.negatives_per_query and not self.negatives_path:
+        if (self.negatives_per_query or self.random_negatives_per_query) and (
+            not self.negatives_path
+        ):
             raise ValueError("negatives_per_query needs negatives_path")
 
 

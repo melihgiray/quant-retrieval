@@ -45,6 +45,7 @@ def main() -> None:
         split="train",
         negatives=negatives,
         negatives_per_query=config.negatives_per_query,
+        random_negatives_per_query=config.random_negatives_per_query,
     )
 
     history = train_reranker(config, pairs, resume=args.resume)
