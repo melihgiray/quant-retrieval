@@ -8,9 +8,9 @@ fine-tuned with a contrastive loss written in PyTorch, measured against BM25 and
 off-the-shelf embeddings on held-out questions the model never saw.
 
 Status: in progress. The dataset, the evaluation harness, both baselines, the
-fine-tuned model, a round of ablations, and hybrid retrieval are done. The
-cross-encoder reranker is built and trained but not finished. An approximate
-index and a hosted demo are not started. Results land in RESULTS.md as they are
+fine-tuned model, a round of ablations, hybrid retrieval, and a cross-encoder
+reranker are all built and measured. An approximate index and a hosted demo are
+not started. Results land in RESULTS.md as they are
 produced, and no number appears there that did not come out of the harness.
 
 ## Where it stands
@@ -38,9 +38,9 @@ skipping to, two of which are negative:
   at all, because the base model was distilled with mean pooling.
 - Mining hard negatives, the obvious next gain, did nothing for ranking and cost
   recall. Written up with why, rather than dropped.
-- The cross-encoder reranker is implemented and tested, trained one epoch of a
-  planned two, and at that level it makes ranking worse. Reported as unfinished
-  rather than as a conclusion about reranking.
+- The cross-encoder reranker makes every pipeline worse, and undertraining is
+  not the reason. RESULTS.md has the four measurements that rule that out and
+  the distribution problem they point to instead.
 
 ## Running it
 
