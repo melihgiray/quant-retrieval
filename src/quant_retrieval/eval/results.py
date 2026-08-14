@@ -30,6 +30,12 @@ def build_result_record(
         "metrics": evaluation["metrics"],
         "timing": evaluation["timing"],
         "counts": evaluation["counts"],
+        # Kept so two runs can be compared question by question. Averages alone
+        # cannot say whether a difference is larger than the spread.
+        "per_query": {
+            str(query_id): {name: round(value, 6) for name, value in scores.items()}
+            for query_id, scores in sorted(evaluation.get("per_query", {}).items())
+        },
         "environment": {
             "python": platform.python_version(),
             "platform": platform.platform(),

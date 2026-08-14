@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from quant_retrieval.eval.metrics import aggregate_metrics
+from quant_retrieval.eval.metrics import aggregate_metrics, per_query_metrics
 from quant_retrieval.retrieval.base import Retriever
 
 
@@ -50,6 +50,7 @@ def evaluate_retriever(
 
     return {
         "metrics": aggregate_metrics(rankings, qrel_map),
+        "per_query": per_query_metrics(rankings, qrel_map),
         "timing": {
             "index_seconds": index_seconds,
             "search_total_seconds": sum(latencies_ms) / 1000,
