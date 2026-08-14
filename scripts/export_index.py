@@ -42,6 +42,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, default=Path("checkpoints/minilm_tuned/epoch-3"))
     parser.add_argument("--data", type=Path, default=Path("data/processed"))
+    parser.add_argument(
+        "--corpus",
+        type=Path,
+        default=None,
+        help="a corpus parquet other than the default, for the scaling study",
+    )
     parser.add_argument("--out", type=Path, default=Path("artifacts"))
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--max-length", type=int, default=256)
@@ -49,7 +55,7 @@ def main() -> None:
     args = parser.parse_args()
 
     set_seed(args.seed)
-    corpus = pd.read_parquet(args.data / "corpus.parquet")
+    corpus = pd.read_parquet(args.corpus or args.data / "corpus.parquet")
     retriever = DenseRetriever(
         str(args.checkpoint), batch_size=args.batch_size, max_length=args.max_length
     )
@@ -70,6 +76,7 @@ def main() -> None:
 
     manifest = {
         "checkpoint": str(args.checkpoint),
+        "corpus": str(args.corpus or args.data / "corpus.parquet"),
         "commit": current_commit(),
         "documents": int(len(answer_ids)),
         "dimensions": int(embeddings.shape[1]),
