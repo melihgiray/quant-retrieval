@@ -1,6 +1,7 @@
 # data and artifacts (leading slash, so the src/*/data package is still tracked)
 /data/
 /checkpoints/
+/artifacts/
 *.log
 *.7z
 

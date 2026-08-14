@@ -22,6 +22,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# faiss is not a core dependency. It and torch each bundle their own OpenMP
+# runtime, and importing both in one process aborts on macOS. The Linux wheels
+# share a runtime, so the ANN work runs in the cloud.
+ann = [
+    "faiss-cpu>=1.8",
+]
 dev = [
     "pytest>=8.2",
     "ruff>=0.5",
