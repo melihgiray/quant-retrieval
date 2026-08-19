@@ -1,0 +1,22 @@
+{
+  "checkpoint": "checkpoints/reranker_mixed/epoch-2",
+  "device": "mps",
+  "splits": [
+    {
+      "chance": 0.2,
+      "distractors": 4,
+      "median_margin": 1.5041,
+      "questions": 100,
+      "split": "val",
+      "top_one_accuracy": 0.85
+    },
+    {
+      "chance": 0.2,
+      "distractors": 4,
+      "median_margin": 1.8122,
+      "questions": 100,
+      "split": "train",
+      "top_one_accuracy": 0.86
+    }
+  ]
+}
