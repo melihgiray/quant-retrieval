@@ -45,6 +45,11 @@ def test_renderer_rejects_an_empty_result_set():
         render_results([], "val")
 
 
+def flat(markdown: str) -> str:
+    """Collapse the wrapping, so an assertion is about words rather than layout."""
+    return " ".join(markdown.split())
+
+
 def named(run_name: str, score_value: float, order: int | None = None, **metrics) -> dict:
     item = result(run_name, "dense", score_value)
     item["metrics"].update(metrics)
@@ -82,8 +87,45 @@ def test_batch_section_names_the_best_size_it_actually_saw():
         named("minilm_batch32_epoch3_val", 0.60),
         named("minilm_tuned_epoch3_val", 0.50),
     ]
-    markdown = render_results(evaluations, "val")
-    assert "Best is 32" in markdown
+    markdown = flat(render_results(evaluations, "val"))
+    # The claim is about the climb from the smallest to the best size seen, not
+    # a ranking of sizes whose gaps the data may not support.
+    assert "climb from 16 to 32" in markdown
+    assert "+0.2000" in markdown
+
+
+def test_a_difference_that_fails_the_bootstrap_is_labelled_as_noise():
+    evaluations = [
+        named("bm25_val", 0.40),
+        named("minilm_tuned_epoch3_val", 0.50),
+        named("hybrid_val", 0.52),
+    ]
+    comparisons = {
+        ("minilm_tuned_epoch3_val", "hybrid_val", "ndcg_at_10"): {
+            "baseline": "minilm_tuned_epoch3_val", "candidate": "hybrid_val",
+            "metric": "ndcg_at_10", "mean_difference": 0.02, "ci_low": -0.01,
+            "ci_high": 0.05, "p_value": 0.15, "significant": False,
+        }
+    }
+    markdown = flat(render_results(evaluations, "val", comparisons))
+    assert "not distinguishable from noise" in markdown
+
+
+def test_a_difference_that_survives_shows_its_interval():
+    evaluations = [
+        named("minilm_tuned_epoch3_val", 0.50),
+        named("minilm_cls_epoch3_val", 0.42),
+    ]
+    comparisons = {
+        ("minilm_tuned_epoch3_val", "minilm_cls_epoch3_val", "ndcg_at_10"): {
+            "baseline": "minilm_tuned_epoch3_val", "candidate": "minilm_cls_epoch3_val",
+            "metric": "ndcg_at_10", "mean_difference": -0.08, "ci_low": -0.10,
+            "ci_high": -0.06, "p_value": 0.0001, "significant": True,
+        }
+    }
+    markdown = flat(render_results(evaluations, "val", comparisons))
+    assert "[-0.1000, -0.0600]" in markdown
+    assert "not distinguishable" not in markdown
 
 
 def test_pooling_section_only_claims_it_beat_frozen_when_it_did():
