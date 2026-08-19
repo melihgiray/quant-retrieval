@@ -1,0 +1,15 @@
+{
+  "baseline": "bm25_val",
+  "baseline_mean": 0.40847974103585655,
+  "candidate": "minilm_frozen_val",
+  "candidate_mean": 0.4962349614873838,
+  "ci_high": 0.12099914674634793,
+  "ci_low": 0.05430680083001329,
+  "confidence": 0.95,
+  "iterations": 10000,
+  "mean_difference": 0.08775522045152721,
+  "metric": "ndcg_at_10",
+  "p_value": 0.0,
+  "queries": 753,
+  "significant": true
+}

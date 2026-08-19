@@ -1,0 +1,15 @@
+{
+  "baseline": "minilm_tuned_epoch3_val",
+  "baseline_mean": 0.5358142217795485,
+  "candidate": "dense_rerank_mixed_val",
+  "candidate_mean": 0.274691213811421,
+  "ci_high": -0.23150897167994686,
+  "ci_low": -0.2907610449203187,
+  "confidence": 0.95,
+  "iterations": 10000,
+  "mean_difference": -0.2611230079681275,
+  "metric": "ndcg_at_10",
+  "p_value": 0.0,
+  "queries": 753,
+  "significant": true
+}

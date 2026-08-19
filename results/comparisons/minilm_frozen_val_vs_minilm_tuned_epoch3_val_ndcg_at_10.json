@@ -1,0 +1,15 @@
+{
+  "baseline": "minilm_frozen_val",
+  "baseline_mean": 0.4962349614873838,
+  "candidate": "minilm_tuned_epoch3_val",
+  "candidate_mean": 0.5358142217795485,
+  "ci_high": 0.05459903034528553,
+  "ci_low": 0.02513533247011952,
+  "confidence": 0.95,
+  "iterations": 10000,
+  "mean_difference": 0.03957926029216467,
+  "metric": "ndcg_at_10",
+  "p_value": 0.0,
+  "queries": 753,
+  "significant": true
+}

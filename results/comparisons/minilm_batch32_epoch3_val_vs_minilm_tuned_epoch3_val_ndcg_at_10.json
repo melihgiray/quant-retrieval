@@ -1,0 +1,15 @@
+{
+  "baseline": "minilm_batch32_epoch3_val",
+  "baseline_mean": 0.5323213665338645,
+  "candidate": "minilm_tuned_epoch3_val",
+  "candidate_mean": 0.5358142217795485,
+  "ci_high": 0.010420997144754314,
+  "ci_low": -0.0034282167994687867,
+  "confidence": 0.95,
+  "iterations": 10000,
+  "mean_difference": 0.003492855245683931,
+  "metric": "ndcg_at_10",
+  "p_value": 0.3167,
+  "queries": 753,
+  "significant": false
+}
