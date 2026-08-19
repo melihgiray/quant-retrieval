@@ -52,6 +52,31 @@ def load_evaluations(results_dir: Path, split: str) -> list[dict[str, Any]]:
     return evaluations
 
 
+def load_comparisons(results_dir: Path) -> dict[tuple[str, str, str], dict[str, Any]]:
+    """Every paired bootstrap that has been run, keyed by what it compared."""
+    comparisons = {}
+    for path in sorted((results_dir / "comparisons").glob("*.json")):
+        record = json.loads(path.read_text())
+        comparisons[(record["baseline"], record["candidate"], record["metric"])] = record
+    return comparisons
+
+
+def verdict(
+    comparisons: dict, baseline: str, candidate: str, metric: str = "ndcg_at_10"
+) -> str:
+    """One clause stating whether a difference survived resampling."""
+    record = comparisons.get((f"{baseline}_val", f"{candidate}_val", metric))
+    if record is None:
+        return ""
+    interval = f"[{record['ci_low']:+.4f}, {record['ci_high']:+.4f}]"
+    if record["significant"]:
+        return f" ({interval}, p = {record['p_value']:.3f})"
+    return (
+        f" ({interval}, p = {record['p_value']:.2f}, which does not exclude zero, "
+        "so this difference is not distinguishable from noise)"
+    )
+
+
 def find(evaluations: list[dict[str, Any]], run_name: str) -> dict[str, Any] | None:
     return next((r for r in evaluations if r["run_name"] == run_name), None)
 
@@ -80,7 +105,7 @@ def render_table(evaluations: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
-def headline(evaluations: list[dict[str, Any]]) -> list[str]:
+def headline(evaluations: list[dict[str, Any]], comparisons: dict) -> list[str]:
     frozen = find(evaluations, "minilm_frozen_val")
     # Every system meant to be an improvement. Baselines are the thing being
     # beaten, and the reranker pipelines lose to their own base retrievers, so
@@ -97,21 +122,34 @@ def headline(evaluations: list[dict[str, Any]]) -> list[str]:
     before, after = frozen["metrics"]["ndcg_at_10"], best["metrics"]["ndcg_at_10"]
     bm25 = find(evaluations, "bm25_val")
     text = (
-        f"{display_name(best)} is the strongest pipeline here at {after:.4f} nDCG@10, "
-        f"against {before:.4f} for the same encoder untrained. That is "
-        f"{after - before:+.4f} absolute and {(after - before) / before:+.1%} relative."
+        f"{display_name(best)} has the highest nDCG@10 here at {after:.4f}, against "
+        f"{before:.4f} for the same encoder untrained. Fine-tuning alone accounts for most "
+        f"of that: it is worth {score(find(evaluations, 'minilm_tuned_epoch3_val')) - before:+.4f}"
+        + verdict(comparisons, "minilm_frozen", "minilm_tuned_epoch3")
+        + "."
     )
     if bm25 is not None:
         gap = before - bm25["metrics"]["ndcg_at_10"]
         text += (
-            f" For scale, moving from BM25 to that untrained encoder was worth {gap:+.4f}, "
-            "so domain training bought rather less than switching to embeddings did in the "
-            "first place."
+            f" For scale, moving from BM25 to that untrained encoder was worth {gap:+.4f}"
+            + verdict(comparisons, "bm25", "minilm_frozen")
+            + ", so domain training bought rather less than switching to embeddings did in "
+            "the first place."
         )
-    return paragraph(text)
+    lines = paragraph(text)
+    lines += paragraph(
+        "Every comparison below carries a 95 percent confidence interval and a p value from "
+        "a paired bootstrap: resample the 753 questions ten thousand times, recompute both "
+        "systems on each resample, and see whether the difference between them keeps its "
+        "sign. Paired, because both systems answered the same questions, so the large "
+        "variance from some questions simply being harder cancels instead of drowning the "
+        "effect. Two of the differences this file used to describe as real do not survive "
+        "that test, and they are marked where they appear."
+    )
+    return lines
 
 
-def hard_negative_section(evaluations: list[dict[str, Any]]) -> list[str]:
+def hard_negative_section(evaluations: list[dict[str, Any]], comparisons: dict) -> list[str]:
     base = find(evaluations, "minilm_tuned_epoch3_val")
     mined = find(evaluations, "minilm_hardneg_epoch3_val")
     if base is None or mined is None:
@@ -130,8 +168,12 @@ def hard_negative_section(evaluations: list[dict[str, Any]]) -> list[str]:
         "answer to the same question excluded."
     )
     lines += paragraph(
-        f"It bought {ndcg_delta:+.4f} nDCG@10, which is nothing, and cost "
-        f"{recall_delta:+.4f} Recall@100."
+        f"It bought {ndcg_delta:+.4f} nDCG@10"
+        + verdict(comparisons, "minilm_tuned_epoch3", "minilm_hardneg_epoch3")
+        + f", and cost {recall_delta:+.4f} Recall@100"
+        + verdict(comparisons, "minilm_tuned_epoch3", "minilm_hardneg_epoch3", "recall_at_100")
+        + ". So the ranking gain really is nothing, and the recall loss really is something. "
+        "Reporting one without the other would have been the flattering half."
     )
     if early is not None and early_base is not None:
         lines += paragraph(
@@ -155,7 +197,7 @@ def hard_negative_section(evaluations: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
-def batch_section(evaluations: list[dict[str, Any]]) -> list[str]:
+def batch_section(evaluations: list[dict[str, Any]], comparisons: dict) -> list[str]:
     sizes = {
         16: find(evaluations, "minilm_batch16_epoch3_val"),
         32: find(evaluations, "minilm_batch32_epoch3_val"),
@@ -176,8 +218,17 @@ def batch_section(evaluations: list[dict[str, Any]]) -> list[str]:
         "whether the right answer beats 63 others, a batch of 16 asks whether it beats 15."
     )
     lines += paragraph(
-        f"On nDCG@10, batch {listed}. Best is {best_size}, worth {climb:+.4f} over batch "
-        f"{smallest}, and it falls off again after that."
+        f"On nDCG@10, batch {listed}. The climb from {smallest} to {best_size} is "
+        f"{climb:+.4f} and it falls off again after that."
+    )
+    lines += paragraph(
+        "The peak is softer than it looks. Batch 32 against batch 64 is "
+        f"{score(present[64]) - score(present[32]):+.4f}"
+        + verdict(comparisons, "minilm_batch32_epoch3", "minilm_tuned_epoch3")
+        + ". So the honest reading is that batch size matters over the range 16 to 64 and "
+        "that 32 and 64 are indistinguishable on this validation set. An earlier version of "
+        "this file said the peak was at 64, which was reading a ranking off differences the "
+        "data does not support."
     )
     lines += paragraph(
         "One caveat that matters: the learning rate was held at 2e-5 for all four. Bigger "
@@ -189,7 +240,7 @@ def batch_section(evaluations: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
-def pooling_section(evaluations: list[dict[str, Any]]) -> list[str]:
+def pooling_section(evaluations: list[dict[str, Any]], comparisons: dict) -> list[str]:
     mean = find(evaluations, "minilm_tuned_epoch3_val")
     cls = find(evaluations, "minilm_cls_epoch3_val")
     frozen = find(evaluations, "minilm_frozen_val")
@@ -199,7 +250,9 @@ def pooling_section(evaluations: list[dict[str, Any]]) -> list[str]:
     lines = ["### Pooling is not a free choice", ""]
     lines += paragraph(
         f"Taking the first token instead of averaging them reaches {score(cls):.4f} against "
-        f"{score(mean):.4f}, a loss of {score(cls) - score(mean):.4f}."
+        f"{score(mean):.4f}, a loss of {score(cls) - score(mean):.4f}"
+        + verdict(comparisons, "minilm_tuned_epoch3", "minilm_cls_epoch3")
+        + "."
     )
     if frozen is not None and score(cls) < score(frozen):
         lines += paragraph(
@@ -216,14 +269,14 @@ def pooling_section(evaluations: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
-def hybrid_section(evaluations: list[dict[str, Any]]) -> list[str]:
+def hybrid_section(evaluations: list[dict[str, Any]], comparisons: dict) -> list[str]:
     hybrid = find(evaluations, "hybrid_val")
     dense = find(evaluations, "minilm_tuned_epoch3_val")
     bm25 = find(evaluations, "bm25_val")
     if hybrid is None or dense is None or bm25 is None:
         return []
 
-    lines = ["### Fusing the two retrievers beats either one", ""]
+    lines = ["### Fusing the two retrievers buys recall, not ranking", ""]
     lines += paragraph(
         "BM25 and the tuned encoder fail differently. BM25 finds the exact ticker, function "
         "name or formula that the encoder has smoothed into a general sense of the topic. The "
@@ -233,84 +286,119 @@ def hybrid_section(evaluations: list[dict[str, Any]]) -> list[str]:
         "inventing a scale factor and then tuning it."
     )
     lines += paragraph(
-        f"Hybrid reaches {score(hybrid):.4f} nDCG@10 against {score(dense):.4f} for the tuned "
-        f"encoder alone and {score(bm25):.4f} for BM25, so it is "
-        f"{score(hybrid) - score(dense):+.4f} over the better of its two parts. Recall@100 "
-        f"goes from {score(dense, 'recall_at_100'):.4f} to "
-        f"{score(hybrid, 'recall_at_100'):.4f}."
+        f"Hybrid reaches {score(hybrid):.4f} nDCG@10 against {score(dense):.4f} for the "
+        f"tuned encoder alone, which is {score(hybrid) - score(dense):+.4f}"
+        + verdict(comparisons, "minilm_tuned_epoch3", "hybrid")
+        + "."
     )
     lines += paragraph(
-        "The recall number is the one that matters most for what comes next. A reranking stage "
-        "can only reorder what it is given, so the candidate list is a hard ceiling, and fusion "
-        "raises that ceiling before anything expensive runs."
+        f"Recall@100 is the different story. It goes from {score(dense, 'recall_at_100'):.4f} "
+        f"to {score(hybrid, 'recall_at_100'):.4f}, "
+        f"{score(hybrid, 'recall_at_100') - score(dense, 'recall_at_100'):+.4f}"
+        + verdict(comparisons, "minilm_tuned_epoch3", "hybrid", "recall_at_100")
+        + ", which does hold up."
+    )
+    lines += paragraph(
+        "So fusion earns its place by finding answers the encoder alone misses, not by "
+        "ordering them better. That is a narrower claim than the one this file made before "
+        "the bootstrap was run, and it is the one the data supports. It also happens to be "
+        "the more useful half: a reranking stage can reorder a candidate list but cannot "
+        "conjure a document that is not in it, so the ceiling fusion raises is the ceiling "
+        "that matters."
+    )
+    lines += paragraph(
+        "Worth saying plainly: with 753 questions, a difference of about 0.02 in nDCG@10 sits "
+        "right at the edge of what this evaluation set can resolve. Reaching a verdict on "
+        "fusion's ranking effect needs more questions, not more argument."
     )
     return lines
 
 
-def reranker_section(evaluations: list[dict[str, Any]]) -> list[str]:
+def reranker_section(evaluations: list[dict[str, Any]], comparisons: dict) -> list[str]:
     reranked = [r for r in evaluations if r["run_name"].endswith("_rerank_val")]
-    if not reranked:
+    mixed = [r for r in evaluations if r["run_name"].endswith("_rerank_mixed_val")]
+    if not reranked and not mixed:
         return []
 
-    lines = ["### The reranker does not work, and here is how far I got finding out why", ""]
+    lines = ["### The reranker: a diagnosis that was right and a fix that was not enough", ""]
     lines += paragraph(
         "A cross-encoder reads the question and one answer as a single sequence, so attention "
-        "runs across both. That is strictly more informative than comparing two vectors and "
-        "strictly too slow to search with, so it runs last over the top 50 candidates. It is "
-        "implemented, tested, and trained for the two epochs its config asks for."
+        "runs across both. Strictly more informative than comparing two vectors, strictly too "
+        "slow to search with, so it runs last over the top 50 candidates."
     )
-    lines += paragraph("It makes every pipeline substantially worse:")
+    lines += paragraph(
+        "The first one made every pipeline worse, and undertraining was not the reason. Its "
+        "training accuracy climbed, its scoring head ended almost orthogonal to its "
+        "initialisation, its backbone moved a normal amount, and yet against four documents "
+        "picked completely at random it scored 43 percent on validation questions and 28 "
+        "percent on questions it had trained on, where chance is 20. Nothing merely "
+        "undertrained fails on its own training data against off-topic distractors."
+    )
+    lines += paragraph(
+        "The reading was that it had been trained on the wrong distribution. Every negative it "
+        "ever saw was a mined hard negative, a plausible answer to a similar question, so it "
+        "learned to make fine distinctions inside a narrow band and never learned the coarse "
+        "one. At search time most of its 50 candidates are exactly the coarse case."
+    )
+    lines += paragraph(
+        "That diagnosis was testable, so it was tested: retrain with two mined negatives and "
+        "two drawn uniformly from the corpus, everything else identical. Against four random "
+        "documents the new model scores 85.0 percent on validation and 86.0 on training "
+        "questions, against 43.3 and 28.3 before. The training split is no longer the worse "
+        "of the two, which was the specific symptom the diagnosis predicted would go away."
+    )
+
     bases = {
-        "bm25_rerank_val": "bm25_val",
-        "dense_rerank_val": "minilm_tuned_epoch3_val",
-        "hybrid_rerank_val": "hybrid_val",
+        "bm25_rerank": "bm25_val",
+        "dense_rerank": "minilm_tuned_epoch3_val",
+        "hybrid_rerank": "hybrid_val",
     }
-    for result in sorted(reranked, key=table_order):
-        base = find(evaluations, bases.get(result["run_name"], ""))
-        if base is None:
+    for stem, label in (("bm25_rerank", "BM25"), ("dense_rerank", "Tuned"),
+                        ("hybrid_rerank", "Hybrid")):
+        base = find(evaluations, bases[stem])
+        old = find(evaluations, f"{stem}_val")
+        new = find(evaluations, f"{stem}_mixed_val")
+        if not (base and old and new):
             continue
         lines += paragraph(
-            f"{display_name(result)}: {score(result):.4f} nDCG@10 against {score(base):.4f} "
-            f"without it, {score(result) - score(base):+.4f}. Recall@100 is unchanged at "
-            f"{score(result, 'recall_at_100'):.4f}."
+            f"{label}: {score(base):.4f} with no reranker, {score(old):.4f} with the "
+            f"mined-only one, {score(new):.4f} with the mixed one."
+        )
+
+    tuned = find(evaluations, "minilm_tuned_epoch3_val")
+    best_rerank = find(evaluations, "dense_rerank_mixed_val")
+    if tuned is not None and best_rerank is not None:
+        cost = score(best_rerank) - score(tuned)
+        lines += paragraph(
+            "So the fix moved every pipeline in the right direction and not remotely far "
+            f"enough. On the strongest base the reranker still costs {cost:+.4f} nDCG@10"
+            + verdict(comparisons, "minilm_tuned_epoch3", "dense_rerank_mixed")
+            + "."
         )
     lines += paragraph(
-        "Recall@100 holding exactly steady in all three is worth its own sentence. It confirms "
-        "the stage only reorders its shortlist and never drops what lies beyond it, which is "
-        "the one thing a reranking stage must not get wrong, and there is a test for it."
+        "Which is the honest shape of the result: the hypothesis was right about the cause and "
+        "the remedy was insufficient. 85 percent against four random documents is a real "
+        "improvement and still weak for a cross-encoder, and a model that hesitates on five "
+        "candidates has no chance of ordering fifty. The likeliest remaining causes are the "
+        "size of the model, six layers and 22 million parameters doing a job usually given to "
+        "something larger, and a training group of five candidates when inference presents "
+        "fifty."
     )
     lines += paragraph(
-        "The obvious explanation is undertraining, and it is not the explanation. Four "
-        "measurements say otherwise. Training accuracy did climb, from 0.328 to 0.503 across "
-        "the two epochs against 0.20 for guessing, so the loop learns. The scoring head moved "
-        "a long way from its initialisation, ending almost orthogonal to it, so it is not "
-        "stuck at random. The backbone moved about 2 percent, which is normal for two epochs "
-        "at this learning rate. And the model still scores badly against documents picked "
-        "completely at random: 43 percent correct out of five on validation questions, and 28 "
-        "percent on questions it actually trained on, where 20 percent is chance."
-    )
-    lines += paragraph(
-        "That last number is the interesting one. A model cannot be merely undertrained and "
-        "also fail on its own training data against random distractors. The likeliest reading "
-        "is that it was trained on the wrong distribution: every negative it ever saw was a "
-        "mined hard negative, a real answer to a similar question. It was never shown an "
-        "obviously unrelated document, so it never had to learn the easy discrimination, and "
-        "at search time most of the 50 candidates it must judge are exactly that kind of easy "
-        "case. It has calibration for the hard tail and none for the bulk."
-    )
-    lines += paragraph(
-        "The next experiment is therefore to mix random negatives in with the mined ones, two "
-        "and two, and retrain. Standard practice in the retrieval literature is to combine "
-        "hard and random negatives rather than using hard ones alone, and this is a concrete "
-        "case of why. That has not been run, so nothing here claims it is the fix. It is the "
-        "hypothesis the evidence supports and the experiment that would test it."
+        "Recall@100 is identical with and without the reranker in all six rows. That is the "
+        "stage behaving correctly even as its scores do not: it reorders its shortlist and "
+        "never drops what lies beyond it, which is the one thing a reranking stage must not "
+        "get wrong, and there is a test for it."
     )
     return lines
 
 
-def render_results(evaluations: list[dict[str, Any]], split: str) -> str:
+def render_results(
+    evaluations: list[dict[str, Any]], split: str, comparisons: dict | None = None
+) -> str:
     if not evaluations:
         raise ValueError(f"no {split} evaluation results found")
+    comparisons = comparisons or {}
 
     lines = [
         "# Results",
@@ -328,17 +416,17 @@ def render_results(evaluations: list[dict[str, Any]], split: str) -> str:
         "",
         *render_table(evaluations),
         "",
-        *headline(evaluations),
+        *headline(evaluations, comparisons),
         "Strict metrics count only the accepted answer. Graded nDCG also gives partial",
         "credit to other nonnegative answers written for the same question.",
         "",
         "## What the ablations say",
         "",
-        *hard_negative_section(evaluations),
-        *batch_section(evaluations),
-        *pooling_section(evaluations),
-        *hybrid_section(evaluations),
-        *reranker_section(evaluations),
+        *hard_negative_section(evaluations, comparisons),
+        *batch_section(evaluations, comparisons),
+        *pooling_section(evaluations, comparisons),
+        *hybrid_section(evaluations, comparisons),
+        *reranker_section(evaluations, comparisons),
         "## What each row is",
         "",
         "BM25 parameters are k1 1.2 and b 0.75. Frozen MiniLM is",
@@ -392,7 +480,8 @@ def main() -> None:
     args = parser.parse_args()
 
     evaluations = load_evaluations(args.results, args.split)
-    args.output.write_text(render_results(evaluations, args.split))
+    comparisons = load_comparisons(args.results)
+    args.output.write_text(render_results(evaluations, args.split, comparisons))
     print(f"wrote {args.output} from {len(evaluations)} evaluations")
 
 
