@@ -1,0 +1,15 @@
+{
+  "config": "configs/minilm_tuned_epoch3.yaml",
+  "corpus_documents": 26152,
+  "index_seconds": 43.39,
+  "max_results": 100,
+  "queries": 100,
+  "stages": {
+    "dense": {
+      "calls": 100,
+      "p50_ms": 8.431,
+      "p95_ms": 11.939,
+      "total_ms": 792.9
+    }
+  }
+}

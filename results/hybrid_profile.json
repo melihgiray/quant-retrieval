@@ -1,0 +1,27 @@
+{
+  "config": "configs/hybrid.yaml",
+  "corpus_documents": 26152,
+  "index_seconds": 45.05,
+  "max_results": 100,
+  "queries": 100,
+  "stages": {
+    "hybrid": {
+      "calls": 100,
+      "p50_ms": 15.503,
+      "p95_ms": 20.698,
+      "total_ms": 1562.4
+    },
+    "hybrid.child0:BM25Retriever": {
+      "calls": 100,
+      "p50_ms": 5.485,
+      "p95_ms": 7.356,
+      "total_ms": 565.7
+    },
+    "hybrid.child1:DenseRetriever": {
+      "calls": 100,
+      "p50_ms": 10.084,
+      "p95_ms": 15.509,
+      "total_ms": 989.5
+    }
+  }
+}
