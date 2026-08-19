@@ -9,9 +9,10 @@ off-the-shelf embeddings on held-out questions the model never saw.
 
 Status: in progress. The dataset, the evaluation harness, both baselines, the
 fine-tuned model, a round of ablations, hybrid retrieval, and a cross-encoder
-reranker are all built and measured. An approximate index and a hosted demo are
-not started. Results land in RESULTS.md as they are produced, and no number
-appears there that did not come out of the harness.
+reranker are all built and measured, and every comparison now carries a
+confidence interval from a paired bootstrap. A hosted demo is not started.
+Results land in RESULTS.md as they are produced, and no number appears there
+that did not come out of the harness.
 
 ## Where it stands
 
@@ -24,23 +25,34 @@ On the validation split, ranking all 26,152 answers for each of 753 questions:
 | MiniLM, fine-tuned here | 0.5358 | 0.8924 |
 | BM25 and the tuned model, fused | 0.5550 | 0.9097 |
 
-Fine-tuning is worth 8 percent relative nDCG@10 over the same encoder untrained,
-after about eight minutes of training on a laptop. Fusing that model with BM25 on
-rank adds another 4 percent and takes Recall@100 to 0.9097. The test split has
-not been run.
+Fine-tuning is worth +0.0396 nDCG@10 over the same encoder untrained, after about
+eight minutes of training on a laptop, and that gap survives a paired bootstrap
+comfortably (p < 0.001).
+
+Fusing that model with BM25 looks like another 4 percent, and the bootstrap says
+otherwise: +0.0192 with an interval spanning zero. What fusion does buy, and what
+does hold up, is Recall@100 rising to 0.9097 (p = 0.04). It finds answers the
+encoder alone misses rather than ordering them better, which is the more useful
+half anyway, since nothing downstream can rank a document that was never
+retrieved. The test split has not been run.
 
 RESULTS.md has the full table and what each row means. Four findings worth
 skipping to, two of which are negative:
 
 - Batch size is part of the objective, not just a speed knob, because in-batch
-  negatives are the training signal. It peaks at 64.
+  negatives are the training signal. It climbs from 16 to 64, though 32 and 64
+  are indistinguishable on this validation set.
 - CLS pooling is much worse than mean pooling here, worse even than not training
   at all, because the base model was distilled with mean pooling.
 - Mining hard negatives, the obvious next gain, did nothing for ranking and cost
   recall. Written up with why, rather than dropped.
 - The cross-encoder reranker makes every pipeline worse, and undertraining is
-  not the reason. RESULTS.md has the four measurements that rule that out and
-  the distribution problem they point to instead.
+  not the reason. Four measurements ruled that out and pointed at the training
+  distribution instead: it had only ever seen mined hard negatives, so it never
+  learned to reject an off-topic document. Retraining with random negatives
+  mixed in took it from 43 to 85 percent against random distractors and
+  improved every pipeline, and it still costs more than it gives. The diagnosis
+  was right and the fix was not enough, which RESULTS.md says in those words.
 
 ## Running it
 
