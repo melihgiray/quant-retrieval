@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -55,6 +56,25 @@ class DenseRetriever:
             raise ValueError("document IDs must be unique")
         self.document_ids = np.asarray(document_ids, dtype=np.int64)
         self.embeddings = self._encode(texts)
+
+    def load_index(self, document_ids_path: Path, embeddings_path: Path) -> None:
+        """Load a precomputed corpus index without copying it into memory."""
+        document_ids = np.load(document_ids_path, mmap_mode="r")
+        embeddings = np.load(embeddings_path, mmap_mode="r")
+        if document_ids.ndim != 1:
+            raise ValueError("document IDs must be one-dimensional")
+        if embeddings.ndim != 2:
+            raise ValueError("embeddings must be two-dimensional")
+        if len(document_ids) != len(embeddings):
+            raise ValueError("document IDs and embeddings must have the same length")
+        if not len(document_ids):
+            raise ValueError("cannot load an empty index")
+        if not np.issubdtype(document_ids.dtype, np.integer):
+            raise ValueError("document IDs must be integers")
+        if not np.issubdtype(embeddings.dtype, np.floating):
+            raise ValueError("embeddings must be floating point")
+        self.document_ids = document_ids
+        self.embeddings = embeddings
 
     def search(self, query: str, k: int) -> list[SearchResult]:
         if k <= 0:

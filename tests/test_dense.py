@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import MethodType
 
 import numpy as np
@@ -56,3 +57,27 @@ def test_dense_retriever_rejects_invalid_inputs():
         retriever.index([], [])
     with pytest.raises(RuntimeError, match="index"):
         retriever.search("query", 10)
+
+
+def test_dense_retriever_loads_a_memory_mapped_index(tmp_path: Path):
+    ids_path = tmp_path / "answer_ids.npy"
+    embeddings_path = tmp_path / "embeddings.npy"
+    np.save(ids_path, np.array([30, 10], dtype=np.int64))
+    np.save(embeddings_path, np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float16))
+    retriever = DenseRetriever("unused", show_progress=False)
+
+    retriever.load_index(ids_path, embeddings_path)
+
+    assert isinstance(retriever.document_ids, np.memmap)
+    assert isinstance(retriever.embeddings, np.memmap)
+    assert retriever.embeddings.dtype == np.float16
+
+
+def test_dense_retriever_rejects_misaligned_precomputed_index(tmp_path: Path):
+    ids_path = tmp_path / "answer_ids.npy"
+    embeddings_path = tmp_path / "embeddings.npy"
+    np.save(ids_path, np.array([1, 2], dtype=np.int64))
+    np.save(embeddings_path, np.ones((1, 3), dtype=np.float32))
+
+    with pytest.raises(ValueError, match="same length"):
+        DenseRetriever("unused").load_index(ids_path, embeddings_path)
