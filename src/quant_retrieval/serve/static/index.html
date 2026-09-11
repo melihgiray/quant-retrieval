@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Semantic search over Quant Stack Exchange answers">
+    <title>Quant Retrieval</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <a class="wordmark" href="/">quant retrieval</a>
+        <a class="repo" href="https://github.com/melihgiray/quant-retrieval">source</a>
+      </header>
+
+      <section class="hero">
+        <p class="eyebrow">Fine tuned semantic search</p>
+        <h1>Search 26,152 quant answers.</h1>
+        <p class="intro">
+          Ask about derivatives, portfolio theory, market data, or the math behind them.
+          Results come from Quant Stack Exchange.
+        </p>
+
+        <form id="search-form">
+          <label class="sr-only" for="query">Question</label>
+          <div class="search-box">
+            <input
+              id="query"
+              name="q"
+              type="search"
+              maxlength="1000"
+              placeholder="How does delta hedging affect gamma exposure?"
+              autocomplete="off"
+              required
+            >
+            <button type="submit">Search</button>
+          </div>
+        </form>
+
+        <div class="examples" aria-label="Example searches">
+          <span>Try</span>
+          <button type="button" data-query="How do I calculate implied volatility?">implied volatility</button>
+          <button type="button" data-query="What is the intuition behind risk neutral pricing?">risk neutral pricing</button>
+          <button type="button" data-query="How does portfolio rebalancing affect returns?">rebalancing</button>
+        </div>
+      </section>
+
+      <section id="status" class="status" aria-live="polite"></section>
+      <section id="results" class="results" aria-label="Search results"></section>
+
+      <footer>
+        <p>BM25 and a domain tuned MiniLM encoder, combined with reciprocal rank fusion.</p>
+        <p>Validation nDCG@10: 0.5550. Test remains untouched.</p>
+      </footer>
+    </main>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

@@ -55,3 +55,17 @@ def test_search_validates_query_and_result_count():
 
     assert blank.status_code == 422
     assert too_many.status_code == 422
+
+
+def test_browser_page_and_assets_are_served():
+    with client() as test_client:
+        page = test_client.get("/")
+        script = test_client.get("/static/app.js")
+        styles = test_client.get("/static/styles.css")
+
+    assert page.status_code == 200
+    assert "Search 26,152 quant answers" in page.text
+    assert script.status_code == 200
+    assert 'fetch(`/search?' in script.text
+    assert styles.status_code == 200
+    assert "@media (max-width: 600px)" in styles.text
