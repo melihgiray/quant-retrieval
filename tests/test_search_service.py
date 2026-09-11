@@ -1,0 +1,51 @@
+import pandas as pd
+import pytest
+
+from quant_retrieval.retrieval.base import SearchResult
+from quant_retrieval.serve.search import SearchService
+
+
+class StubRetriever:
+    def index(self, document_ids, texts):
+        raise AssertionError("the service must receive an indexed retriever")
+
+    def search(self, query, k):
+        return [SearchResult(document_id=20, score=0.75)][:k]
+
+
+def corpus():
+    return pd.DataFrame(
+        {
+            "answer_id": [10, 20],
+            "question_id": [1, 2],
+            "text": ["delta answer", "volatility answer"],
+        }
+    )
+
+
+def test_search_service_attaches_corpus_fields_and_source_link():
+    hits = SearchService(StubRetriever(), corpus()).search("volatility", k=1)
+
+    assert [hit.to_dict() for hit in hits] == [
+        {
+            "answer_id": 20,
+            "question_id": 2,
+            "score": 0.75,
+            "text": "volatility answer",
+            "url": "https://quant.stackexchange.com/a/20",
+        }
+    ]
+
+
+@pytest.mark.parametrize(("query", "k"), [("", 10), ("   ", 10), ("delta", 0), ("delta", 21)])
+def test_search_service_rejects_invalid_requests(query, k):
+    with pytest.raises(ValueError):
+        SearchService(StubRetriever(), corpus()).search(query, k=k)
+
+
+def test_search_service_rejects_unknown_ranked_answers():
+    service = SearchService(StubRetriever(), corpus())
+    service.retriever.search = lambda query, k: [SearchResult(document_id=99, score=1.0)]
+
+    with pytest.raises(RuntimeError, match="unknown answer 99"):
+        service.search("delta")
