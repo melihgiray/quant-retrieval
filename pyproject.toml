@@ -14,11 +14,13 @@ dependencies = [
     "py7zr>=0.21",
     "pyyaml>=6.0",
     "beautifulsoup4>=4.12",
+    "fastapi>=0.116",
     "lxml>=5.2",
     "scipy>=1.14",
     "torch==2.13.0",
     "tqdm>=4.66",
     "transformers==5.14.1",
+    "uvicorn[standard]>=0.35",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +31,7 @@ ann = [
     "faiss-cpu>=1.8",
 ]
 dev = [
+    "httpx>=0.28",
     "pytest>=8.2",
     "ruff>=0.5",
 ]
