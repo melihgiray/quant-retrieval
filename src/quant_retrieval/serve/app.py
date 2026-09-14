@@ -44,6 +44,7 @@ def service_from_environment() -> SearchService:
     return SearchService.from_artifacts(
         checkpoint=settings.model_path,
         corpus_path=settings.corpus_path,
+        manifest_path=settings.manifest_path,
         document_ids_path=settings.document_ids_path,
         embeddings_path=settings.embeddings_path,
         device=settings.device,

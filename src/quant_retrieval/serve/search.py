@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -37,6 +38,28 @@ class SearchHit:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class ArtifactManifest:
+    documents: int
+    dimensions: int
+    max_length: int
+
+    @classmethod
+    def load(cls, path: Path) -> ArtifactManifest:
+        payload = json.loads(path.read_text())
+        try:
+            manifest = cls(
+                documents=int(payload["documents"]),
+                dimensions=int(payload["dimensions"]),
+                max_length=int(payload["max_length"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("artifact manifest is missing valid dimensions") from error
+        if min(manifest.documents, manifest.dimensions, manifest.max_length) < 1:
+            raise ValueError("artifact manifest values must be positive")
+        return manifest
+
+
 class SearchService:
     """Attach answer text and source links to a retriever's ranked IDs."""
 
@@ -67,20 +90,31 @@ class SearchService:
         *,
         checkpoint: Path,
         corpus_path: Path,
+        manifest_path: Path,
         document_ids_path: Path,
         embeddings_path: Path,
         device: str = "auto",
         depth: int = 100,
         rrf_k: int = 60,
     ) -> SearchService:
+        manifest = ArtifactManifest.load(manifest_path)
         corpus = pd.read_parquet(corpus_path)
         ids = corpus["answer_id"].astype(int).tolist()
         texts = corpus["text"].astype(str).tolist()
 
         bm25 = BM25Retriever()
         bm25.index(ids, texts)
-        dense = DenseRetriever(str(checkpoint), device=device, show_progress=False)
+        dense = DenseRetriever(
+            str(checkpoint),
+            device=device,
+            max_length=manifest.max_length,
+            show_progress=False,
+        )
         dense.load_index(document_ids_path, embeddings_path)
+        if manifest.documents != len(corpus) or manifest.documents != len(dense.document_ids):
+            raise ValueError("artifact manifest document count does not match the index")
+        if manifest.dimensions != dense.embeddings.shape[1]:
+            raise ValueError("artifact manifest dimensions do not match the embeddings")
         if set(dense.document_ids.tolist()) != set(ids):
             raise ValueError("precomputed index does not match the corpus")
 

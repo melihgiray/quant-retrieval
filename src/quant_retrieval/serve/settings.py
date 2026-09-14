@@ -12,6 +12,7 @@ from pathlib import Path
 class ServeSettings:
     model_path: Path = Path("checkpoints/minilm_tuned/epoch-3")
     corpus_path: Path = Path("data/processed/corpus.parquet")
+    manifest_path: Path = Path("artifacts/manifest.json")
     document_ids_path: Path = Path("artifacts/answer_ids.npy")
     embeddings_path: Path = Path("artifacts/embeddings_fp16.npy")
     device: str = "auto"
@@ -24,6 +25,7 @@ class ServeSettings:
         settings = cls(
             model_path=Path(values.get("MODEL_PATH", cls.model_path)),
             corpus_path=Path(values.get("CORPUS_PATH", cls.corpus_path)),
+            manifest_path=Path(values.get("MANIFEST_PATH", cls.manifest_path)),
             document_ids_path=Path(values.get("DOCUMENT_IDS_PATH", cls.document_ids_path)),
             embeddings_path=Path(values.get("EMBEDDINGS_PATH", cls.embeddings_path)),
             device=values.get("DEVICE", cls.device),

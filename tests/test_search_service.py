@@ -1,8 +1,11 @@
+import json
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
 from quant_retrieval.retrieval.base import SearchResult
-from quant_retrieval.serve.search import SearchService, make_snippet
+from quant_retrieval.serve.search import ArtifactManifest, SearchService, make_snippet
 
 
 class StubRetriever:
@@ -57,3 +60,18 @@ def test_snippet_collapses_whitespace_and_stops_at_a_word():
 
 def test_snippet_keeps_short_text_unchanged():
     assert make_snippet("short answer", max_chars=20) == "short answer"
+
+
+def test_artifact_manifest_loads_index_shape(tmp_path: Path):
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps({"documents": 100, "dimensions": 384, "max_length": 256}))
+
+    assert ArtifactManifest.load(path) == ArtifactManifest(100, 384, 256)
+
+
+def test_artifact_manifest_rejects_missing_shape(tmp_path: Path):
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps({"documents": 100}))
+
+    with pytest.raises(ValueError, match="dimensions"):
+        ArtifactManifest.load(path)
