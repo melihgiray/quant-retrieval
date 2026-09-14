@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from scripts import download_demo_assets as assets
+from scripts.start_demo import configure_asset_environment
 
 
 def fake_snapshot(output: Path, missing: str | None = None):
@@ -34,3 +35,14 @@ def test_download_rejects_an_incomplete_snapshot(tmp_path: Path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="manifest.json"):
         assets.download_demo_assets("owner/model", tmp_path, "abc123")
+
+
+def test_remote_snapshot_paths_configure_the_server(tmp_path: Path):
+    environ = {"DEVICE": "cpu"}
+
+    configure_asset_environment(tmp_path, environ)
+
+    assert environ["MODEL_PATH"] == str(tmp_path)
+    assert environ["CORPUS_PATH"] == str(tmp_path / "demo/corpus.parquet")
+    assert environ["EMBEDDINGS_PATH"] == str(tmp_path / "demo/embeddings_fp16.npy")
+    assert environ["DEVICE"] == "cpu"
