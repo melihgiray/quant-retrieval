@@ -14,16 +14,7 @@ from pathlib import Path
 
 from huggingface_hub import snapshot_download
 
-REQUIRED_FILES = (
-    "config.json",
-    "model.safetensors",
-    "tokenizer.json",
-    "tokenizer_config.json",
-    "demo/answer_ids.npy",
-    "demo/corpus.parquet",
-    "demo/embeddings_fp16.npy",
-    "demo/manifest.json",
-)
+from quant_retrieval.serve.artifacts import REQUIRED_FILES
 
 
 def download_demo_assets(repo_id: str, output: Path, revision: str = "main") -> Path:

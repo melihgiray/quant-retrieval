@@ -4,12 +4,14 @@ import pytest
 from scripts import download_demo_assets as assets
 from scripts.start_demo import configure_asset_environment
 
+from quant_retrieval.serve.artifacts import MODEL_FILES, REQUIRED_FILES, RETRIEVAL_FILES
+
 
 def fake_snapshot(output: Path, missing: str | None = None):
     def download(**kwargs):
         assert kwargs["repo_id"] == "owner/model"
         assert kwargs["revision"] == "abc123"
-        for relative in assets.REQUIRED_FILES:
+        for relative in REQUIRED_FILES:
             if relative == missing:
                 continue
             path = output / relative
@@ -26,7 +28,7 @@ def test_download_checks_and_returns_the_snapshot(tmp_path: Path, monkeypatch):
     downloaded = assets.download_demo_assets("owner/model", tmp_path, "abc123")
 
     assert downloaded == tmp_path
-    assert all((downloaded / relative).is_file() for relative in assets.REQUIRED_FILES)
+    assert all((downloaded / relative).is_file() for relative in REQUIRED_FILES)
 
 
 def test_download_rejects_an_incomplete_snapshot(tmp_path: Path, monkeypatch):
@@ -46,3 +48,9 @@ def test_remote_snapshot_paths_configure_the_server(tmp_path: Path):
     assert environ["CORPUS_PATH"] == str(tmp_path / "demo/corpus.parquet")
     assert environ["EMBEDDINGS_PATH"] == str(tmp_path / "demo/embeddings_fp16.npy")
     assert environ["DEVICE"] == "cpu"
+
+
+def test_snapshot_contract_places_only_retrieval_files_under_demo():
+    assert set(REQUIRED_FILES) == set(MODEL_FILES) | {
+        f"demo/{name}" for name in RETRIEVAL_FILES
+    }
