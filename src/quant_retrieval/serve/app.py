@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -14,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from quant_retrieval.serve.search import SearchService
+from quant_retrieval.serve.settings import ServeSettings
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -40,14 +40,15 @@ class HealthResponse(BaseModel):
 
 def service_from_environment() -> SearchService:
     """Build the service from paths that work locally and in the container."""
+    settings = ServeSettings.from_environment()
     return SearchService.from_artifacts(
-        checkpoint=Path(os.getenv("MODEL_PATH", "checkpoints/minilm_tuned/epoch-3")),
-        corpus_path=Path(os.getenv("CORPUS_PATH", "data/processed/corpus.parquet")),
-        document_ids_path=Path(os.getenv("DOCUMENT_IDS_PATH", "artifacts/answer_ids.npy")),
-        embeddings_path=Path(
-            os.getenv("EMBEDDINGS_PATH", "artifacts/embeddings_fp16.npy")
-        ),
-        device=os.getenv("DEVICE", "auto"),
+        checkpoint=settings.model_path,
+        corpus_path=settings.corpus_path,
+        document_ids_path=settings.document_ids_path,
+        embeddings_path=settings.embeddings_path,
+        device=settings.device,
+        depth=settings.depth,
+        rrf_k=settings.rrf_k,
     )
 
 
