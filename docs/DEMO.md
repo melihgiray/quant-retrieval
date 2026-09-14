@@ -47,6 +47,7 @@ demo/answer_ids.npy
 demo/corpus.parquet
 demo/embeddings_fp16.npy
 demo/manifest.json
+checksums.json
 ```
 
 Run against a published snapshot:

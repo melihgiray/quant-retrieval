@@ -14,7 +14,7 @@ from pathlib import Path
 
 from huggingface_hub import snapshot_download
 
-from quant_retrieval.serve.artifacts import REQUIRED_FILES
+from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
 
 
 def download_demo_assets(repo_id: str, output: Path, revision: str = "main") -> Path:
@@ -26,9 +26,7 @@ def download_demo_assets(repo_id: str, output: Path, revision: str = "main") -> 
             allow_patterns=list(REQUIRED_FILES),
         )
     )
-    missing = [relative for relative in REQUIRED_FILES if not (downloaded / relative).is_file()]
-    if missing:
-        raise RuntimeError(f"asset repository is missing files: {missing}")
+    verify_snapshot(downloaded)
     return downloaded
 
 

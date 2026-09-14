@@ -6,7 +6,7 @@ import argparse
 import shutil
 from pathlib import Path
 
-from quant_retrieval.serve.artifacts import MODEL_FILES, RETRIEVAL_FILES
+from quant_retrieval.serve.artifacts import MODEL_FILES, RETRIEVAL_FILES, write_checksums
 
 
 def prepare_demo_snapshot(
@@ -30,6 +30,7 @@ def prepare_demo_snapshot(
         destination = output / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
+    write_checksums(output)
     return output
 
 
