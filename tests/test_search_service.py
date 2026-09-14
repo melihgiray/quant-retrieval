@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from quant_retrieval.retrieval.base import SearchResult
-from quant_retrieval.serve.search import SearchService
+from quant_retrieval.serve.search import SearchService, make_snippet
 
 
 class StubRetriever:
@@ -49,3 +49,11 @@ def test_search_service_rejects_unknown_ranked_answers():
 
     with pytest.raises(RuntimeError, match="unknown answer 99"):
         service.search("delta")
+
+
+def test_snippet_collapses_whitespace_and_stops_at_a_word():
+    assert make_snippet("  delta\n hedge   explanation ", max_chars=16) == "delta hedge…"
+
+
+def test_snippet_keeps_short_text_unchanged():
+    assert make_snippet("short answer", max_chars=20) == "short answer"

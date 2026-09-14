@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -11,6 +12,17 @@ from quant_retrieval.retrieval.base import Retriever
 from quant_retrieval.retrieval.bm25 import BM25Retriever
 from quant_retrieval.retrieval.dense import DenseRetriever
 from quant_retrieval.retrieval.hybrid import HybridRetriever
+
+
+def make_snippet(text: str, max_chars: int = 600) -> str:
+    """Collapse whitespace and stop at a word boundary for browser responses."""
+    if max_chars < 2:
+        raise ValueError("max_chars must be at least 2")
+    compact = re.sub(r"\s+", " ", text).strip()
+    if len(compact) <= max_chars:
+        return compact
+    prefix = compact[: max_chars - 1].rsplit(" ", 1)[0]
+    return f"{prefix or compact[: max_chars - 1]}…"
 
 
 @dataclass(frozen=True)
@@ -84,7 +96,7 @@ class SearchService:
                     answer_id=result.document_id,
                     question_id=question_id,
                     score=result.score,
-                    text=text,
+                    text=make_snippet(text),
                     url=f"https://quant.stackexchange.com/a/{result.document_id}",
                 )
             )
