@@ -35,7 +35,7 @@ async function search(query) {
     if (!response.ok) throw new Error("Search failed");
     const payload = await response.json();
 
-    status.textContent = `${payload.results.length} answers for “${payload.query}”`;
+    status.textContent = `${payload.results.length} answers in ${payload.elapsed_ms} ms for “${payload.query}”`;
     results.replaceChildren(...payload.results.map(resultCard));
   } catch (error) {
     status.textContent = "Search is unavailable. Try again in a moment.";

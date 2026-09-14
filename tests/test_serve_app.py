@@ -34,7 +34,9 @@ def test_search_returns_ranked_answers():
         response = test_client.get("/search", params={"q": "  volatility  ", "k": 1})
 
     assert response.status_code == 200
-    assert response.json() == {
+    payload = response.json()
+    assert payload["elapsed_ms"] >= 0
+    assert {key: value for key, value in payload.items() if key != "elapsed_ms"} == {
         "query": "volatility",
         "results": [
             {

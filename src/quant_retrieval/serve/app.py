@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -27,6 +28,7 @@ class SearchHitResponse(BaseModel):
 
 class SearchResponse(BaseModel):
     query: str
+    elapsed_ms: float
     results: list[SearchHitResponse]
 
 
@@ -67,11 +69,14 @@ def create_app(service: SearchService | None = None) -> FastAPI:
         k: int = Query(default=10, ge=1, le=20),
     ) -> SearchResponse:
         try:
+            started = time.perf_counter()
             hits = request.app.state.search_service.search(q, k=k)
+            elapsed_ms = (time.perf_counter() - started) * 1000
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return SearchResponse(
             query=q.strip(),
+            elapsed_ms=round(elapsed_ms, 2),
             results=[SearchHitResponse(**hit.to_dict()) for hit in hits],
         )
 
