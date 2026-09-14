@@ -61,6 +61,17 @@ python scripts/start_demo.py \
 Pinning a commit instead of `main` keeps the model, corpus, and embedding matrix
 on one known version.
 
+Prepare and publish that repository with:
+
+```sh
+python scripts/prepare_demo_snapshot.py
+python scripts/publish_demo_snapshot.py OWNER/REPOSITORY --public
+```
+
+The publication command reads `~/.hf_token`, checks every snapshot checksum,
+and uploads the folder as one model repository commit. It defaults to private
+unless `--public` is passed.
+
 ## Container
 
 Build the image:
