@@ -32,6 +32,12 @@ class SearchResponse(BaseModel):
     results: list[SearchHitResponse]
 
 
+class HealthResponse(BaseModel):
+    ready: bool
+    documents: int
+    pipeline: str
+
+
 def service_from_environment() -> SearchService:
     """Build the service from paths that work locally and in the container."""
     return SearchService.from_artifacts(
@@ -58,9 +64,14 @@ def create_app(service: SearchService | None = None) -> FastAPI:
     def index() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html")
 
-    @app.get("/health")
-    def health(request: Request) -> dict[str, bool]:
-        return {"ready": hasattr(request.app.state, "search_service")}
+    @app.get("/health", response_model=HealthResponse)
+    def health(request: Request) -> HealthResponse:
+        search_service = request.app.state.search_service
+        return HealthResponse(
+            ready=True,
+            documents=search_service.document_count,
+            pipeline=search_service.pipeline,
+        )
 
     @app.get("/search", response_model=SearchResponse)
     def search(

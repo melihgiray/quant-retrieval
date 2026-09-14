@@ -26,7 +26,11 @@ def test_health_reports_a_loaded_service():
         response = test_client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"ready": True}
+    assert response.json() == {
+        "ready": True,
+        "documents": 1,
+        "pipeline": "bm25_dense_rrf",
+    }
 
 
 def test_search_returns_ranked_answers():

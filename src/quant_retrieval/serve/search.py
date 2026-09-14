@@ -53,6 +53,14 @@ class SearchService:
             for row in corpus.itertuples(index=False)
         }
 
+    @property
+    def document_count(self) -> int:
+        return len(self.answers)
+
+    @property
+    def pipeline(self) -> str:
+        return "bm25_dense_rrf"
+
     @classmethod
     def from_artifacts(
         cls,
