@@ -9,10 +9,11 @@ off-the-shelf embeddings on held-out questions the model never saw.
 
 Status: in progress. The dataset, the evaluation harness, both baselines, the
 fine-tuned model, a round of ablations, hybrid retrieval, and a cross-encoder
-reranker are all built and measured, and every comparison now carries a
-confidence interval from a paired bootstrap. A hosted demo is not started.
-Results land in RESULTS.md as they are produced, and no number appears there
-that did not come out of the harness.
+reranker are all built and measured. Every comparison now carries a confidence
+interval from a paired bootstrap. The local search page and its container setup
+are built. Publishing the model files and hosting the container remain. Results
+land in RESULTS.md as they are produced, and no number appears there that did
+not come out of the harness.
 
 ## Where it stands
 
@@ -90,6 +91,19 @@ committed numbers exactly. `./run_ablations.sh` takes run names and works
 through them in order.
 
     pytest
+
+### Search page
+
+After building the dataset, training the model, and exporting the index:
+
+    python scripts/start_demo.py
+
+The page runs at `http://localhost:7860`. It serves the measured hybrid pipeline,
+BM25 plus the tuned MiniLM encoder with reciprocal rank fusion. The reranker is
+left out because both trained versions reduced validation quality.
+
+[docs/DEMO.md](docs/DEMO.md) records the remote asset layout, container commands,
+environment settings, and deployment checks. There is no hosted URL yet.
 
 ## Data
 
