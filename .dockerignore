@@ -11,6 +11,7 @@ __pycache__
 artifacts
 checkpoints
 data
+demo_assets
 notebooks
 results
 tests

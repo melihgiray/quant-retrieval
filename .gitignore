@@ -2,6 +2,7 @@
 /data/
 /checkpoints/
 /artifacts/
+/demo_assets/
 *.log
 *.7z
 
