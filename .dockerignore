@@ -1,0 +1,16 @@
+.git
+.venv
+.env*
+__pycache__
+*.pyc
+*.egg-info
+*.md
+*.log
+*.7z
+
+artifacts
+checkpoints
+data
+notebooks
+results
+tests
