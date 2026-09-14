@@ -1,4 +1,7 @@
 import json
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
@@ -75,3 +78,29 @@ def test_artifact_manifest_rejects_missing_shape(tmp_path: Path):
 
     with pytest.raises(ValueError, match="dimensions"):
         ArtifactManifest.load(path)
+
+
+def test_search_service_serializes_shared_retriever_calls():
+    class ConcurrentProbe(StubRetriever):
+        def __init__(self):
+            self.state_lock = threading.Lock()
+            self.active = 0
+            self.max_active = 0
+
+        def search(self, query, k):
+            with self.state_lock:
+                self.active += 1
+                self.max_active = max(self.max_active, self.active)
+            time.sleep(0.03)
+            with self.state_lock:
+                self.active -= 1
+            return [SearchResult(document_id=20, score=0.75)]
+
+    retriever = ConcurrentProbe()
+    service = SearchService(retriever, corpus())
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(service.search, f"query {index}") for index in range(2)]
+        assert all(future.result() for future in futures)
+
+    assert retriever.max_active == 1

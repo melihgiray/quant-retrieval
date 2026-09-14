@@ -6,6 +6,7 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from threading import Lock
 
 import pandas as pd
 
@@ -71,6 +72,7 @@ class SearchService:
         if corpus["answer_id"].duplicated().any():
             raise ValueError("corpus answer IDs must be unique")
         self.retriever = retriever
+        self._search_lock = Lock()
         self.answers = {
             int(row.answer_id): (int(row.question_id), str(row.text))
             for row in corpus.itertuples(index=False)
@@ -128,8 +130,11 @@ class SearchService:
         if not 1 <= k <= 20:
             raise ValueError("k must be between 1 and 20")
 
+        with self._search_lock:
+            ranked = self.retriever.search(query, k)
+
         hits = []
-        for result in self.retriever.search(query, k):
+        for result in ranked:
             if result.document_id not in self.answers:
                 raise RuntimeError(f"retriever returned unknown answer {result.document_id}")
             question_id, text = self.answers[result.document_id]
