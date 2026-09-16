@@ -59,6 +59,25 @@ def test_search_service_rejects_unknown_ranked_answers():
         service.search("delta")
 
 
+@pytest.mark.parametrize(
+    ("results", "message"),
+    [
+        (
+            [SearchResult(document_id=20, score=1.0), SearchResult(document_id=20, score=0.5)],
+            "duplicate answer 20",
+        ),
+        ([SearchResult(document_id=20, score=float("nan"))], "non-finite score"),
+        ([SearchResult(document_id=20, score=float("inf"))], "non-finite score"),
+    ],
+)
+def test_search_service_rejects_invalid_retriever_output(results, message):
+    service = SearchService(StubRetriever(), corpus())
+    service.retriever.search = lambda query, k: results
+
+    with pytest.raises(RuntimeError, match=message):
+        service.search("delta")
+
+
 def test_search_service_validates_corpus_before_indexing(tmp_path: Path, monkeypatch):
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps({"documents": 2, "dimensions": 2, "max_length": 32}))

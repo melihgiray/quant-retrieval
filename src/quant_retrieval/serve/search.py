@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -158,7 +159,15 @@ class SearchService:
             ranked = self.retriever.search(query, k)
 
         hits = []
+        seen: set[int] = set()
         for result in ranked:
+            if result.document_id in seen:
+                raise RuntimeError(f"retriever returned duplicate answer {result.document_id}")
+            seen.add(result.document_id)
+            if not math.isfinite(result.score):
+                raise RuntimeError(
+                    f"retriever returned a non-finite score for {result.document_id}"
+                )
             if result.document_id not in self.answers:
                 raise RuntimeError(f"retriever returned unknown answer {result.document_id}")
             question_id, text = self.answers[result.document_id]
