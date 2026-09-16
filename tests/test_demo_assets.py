@@ -16,7 +16,12 @@ from quant_retrieval.serve.artifacts import (
 )
 
 
-def fake_snapshot(output: Path, missing: str | None = None, corrupt: str | None = None):
+def fake_snapshot(
+    output: Path,
+    missing: str | None = None,
+    corrupt: str | None = None,
+    checksum_contents: str | None = None,
+):
     def download(**kwargs):
         assert kwargs["repo_id"] == "owner/model"
         assert kwargs["revision"] == "abc123"
@@ -33,6 +38,8 @@ def fake_snapshot(output: Path, missing: str | None = None, corrupt: str | None 
                 (output / CHECKSUM_FILE).write_text("{}")
         if corrupt:
             (output / corrupt).write_bytes(b"changed after checksums")
+        if checksum_contents is not None:
+            (output / CHECKSUM_FILE).write_text(checksum_contents)
         return str(output)
 
     return download
@@ -60,6 +67,16 @@ def test_download_rejects_a_checksum_mismatch(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(assets, "snapshot_download", fake_snapshot(tmp_path, corrupt=corrupted))
 
     with pytest.raises(RuntimeError, match="embeddings_fp16.npy"):
+        assets.download_demo_assets("owner/model", tmp_path, "abc123")
+
+
+@pytest.mark.parametrize("contents", ["not json", "[]", '{"config.json": "abc"}'])
+def test_download_rejects_a_malformed_checksum_record(tmp_path: Path, monkeypatch, contents):
+    monkeypatch.setattr(
+        assets, "snapshot_download", fake_snapshot(tmp_path, checksum_contents=contents)
+    )
+
+    with pytest.raises(RuntimeError, match="checksum"):
         assets.download_demo_assets("owner/model", tmp_path, "abc123")
 
 

@@ -43,7 +43,12 @@ def verify_snapshot(root: Path) -> None:
     missing = [relative for relative in REQUIRED_FILES if not (root / relative).is_file()]
     if missing:
         raise RuntimeError(f"asset repository is missing files: {missing}")
-    expected = json.loads((root / CHECKSUM_FILE).read_text())
+    try:
+        expected = json.loads((root / CHECKSUM_FILE).read_text())
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise RuntimeError("asset checksum file is not valid JSON") from error
+    if not isinstance(expected, dict) or set(expected) != set(PAYLOAD_FILES):
+        raise RuntimeError("asset checksum file does not match the required payload")
     mismatched = [
         relative
         for relative in PAYLOAD_FILES
