@@ -16,6 +16,7 @@ than the difference between rank 50 and rank 60.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 
 from quant_retrieval.retrieval.base import Retriever, SearchResult
@@ -39,6 +40,13 @@ class HybridRetriever:
             raise ValueError("depth must be at least 1")
         if weights is not None and len(weights) != len(retrievers):
             raise ValueError("weights must have one entry per retriever")
+        if weights is not None:
+            try:
+                valid = all(math.isfinite(weight) and weight >= 0 for weight in weights)
+            except TypeError:
+                valid = False
+            if not valid or not any(weight > 0 for weight in weights):
+                raise ValueError("weights must be finite, nonnegative and not all zero")
         self.retrievers = list(retrievers)
         self.rrf_k = rrf_k
         # How deep to read from each retriever before fusing. A document one

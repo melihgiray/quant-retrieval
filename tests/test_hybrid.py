@@ -104,6 +104,10 @@ def test_depth_is_a_floor_not_a_cap():
         ({"rrf_k": 0}, "rrf_k"),
         ({"depth": 0}, "depth"),
         ({"weights": [1.0]}, "one entry per retriever"),
+        ({"weights": [-1.0, 1.0]}, "nonnegative"),
+        ({"weights": [float("nan"), 1.0]}, "finite"),
+        ({"weights": [float("inf"), 1.0]}, "finite"),
+        ({"weights": [0.0, 0.0]}, "not all zero"),
     ],
 )
 def test_invalid_settings_are_rejected(kwargs, message):
