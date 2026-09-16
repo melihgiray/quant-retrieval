@@ -47,3 +47,14 @@ def test_prepare_snapshot_checks_every_source_before_copying(tmp_path: Path):
         prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
 
     assert not output.exists()
+
+
+def test_prepare_snapshot_rejects_an_output_that_overwrites_sources(tmp_path: Path):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    original = (checkpoint / "config.json").read_bytes()
+
+    with pytest.raises(ValueError, match="overlaps source files"):
+        prepare_demo_snapshot(checkpoint, corpus, artifacts, checkpoint)
+
+    assert (checkpoint / "config.json").read_bytes() == original
+    assert not (checkpoint / CHECKSUM_FILE).exists()

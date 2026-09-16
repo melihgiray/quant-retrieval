@@ -25,6 +25,13 @@ def prepare_demo_snapshot(
     missing = [str(path) for path in sources.values() if not path.is_file()]
     if missing:
         raise FileNotFoundError(f"cannot prepare snapshot, missing files: {missing}")
+    collisions = [
+        relative
+        for relative, source in sources.items()
+        if (output / relative).resolve() == source.resolve()
+    ]
+    if collisions:
+        raise ValueError(f"snapshot output overlaps source files: {collisions}")
 
     for relative, source in sources.items():
         destination = output / relative
