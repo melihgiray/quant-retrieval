@@ -28,3 +28,22 @@ def test_bad_ann_inputs_fail_before_building_a_graph(tmp_path, vectors, ids, mes
 
     with pytest.raises(ValueError, match=message):
         ApproximateRetriever(path).index(ids, ["unused"] * len(ids))
+
+
+@pytest.mark.parametrize(
+    ("query", "message"),
+    [
+        (np.ones((1, 2)), "dimensions"),
+        (np.ones(3), "dimensions"),
+        (np.array([1.0, np.inf]), "finite"),
+        (np.zeros(2), "zero"),
+    ],
+)
+def test_bad_ann_queries_fail_before_faiss_search(tmp_path, query, message):
+    retriever = ApproximateRetriever(tmp_path / "vectors.npy")
+    retriever._index = object()
+    retriever._dimensions = 2
+    retriever.document_ids = np.array([1, 2])
+
+    with pytest.raises(ValueError, match=message):
+        retriever.search_vector(query, 2)

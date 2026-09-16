@@ -59,6 +59,7 @@ class ApproximateRetriever:
         self.exact = exact
         self.document_ids = np.array([], dtype=np.int64)
         self._index = None
+        self._dimensions: int | None = None
 
     def index(self, document_ids: list[int], texts: list[str]) -> None:  # noqa: ARG002
         """Load the prebuilt embeddings and build the graph.
@@ -98,6 +99,7 @@ class ApproximateRetriever:
             self._index.hnsw.efSearch = self.ef_search
         self._index.add(embeddings)
         self.document_ids = np.asarray(document_ids, dtype=np.int64)
+        self._dimensions = dimensions
 
     def search_vector(self, query: np.ndarray, k: int) -> list[SearchResult]:
         """Search with an already encoded query."""
@@ -105,6 +107,12 @@ class ApproximateRetriever:
             raise ValueError("k must be positive")
         if self._index is None:
             raise RuntimeError("index must be called before search")
+        if query.ndim != 1 or len(query) != self._dimensions:
+            raise ValueError("ANN query dimensions do not match the index")
+        if not np.issubdtype(query.dtype, np.number) or not np.isfinite(query).all():
+            raise ValueError("ANN query vector must contain finite numbers")
+        if not np.any(query):
+            raise ValueError("ANN query vector must not be zero")
 
         import faiss
 
