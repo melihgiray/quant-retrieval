@@ -57,6 +57,21 @@ def test_search_service_rejects_unknown_ranked_answers():
         service.search("delta")
 
 
+def test_search_service_validates_corpus_before_indexing(tmp_path: Path, monkeypatch):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"documents": 2, "dimensions": 2, "max_length": 32}))
+    monkeypatch.setattr(pd, "read_parquet", lambda path: corpus().drop(columns="text"))
+
+    with pytest.raises(ValueError, match="missing columns.*text"):
+        SearchService.from_artifacts(
+            checkpoint=tmp_path,
+            corpus_path=tmp_path / "corpus.parquet",
+            manifest_path=manifest_path,
+            document_ids_path=tmp_path / "ids.npy",
+            embeddings_path=tmp_path / "embeddings.npy",
+        )
+
+
 def test_snippet_collapses_whitespace_and_stops_at_a_word():
     assert make_snippet("  delta\n hedge   explanation ", max_chars=16) == "delta hedge…"
 

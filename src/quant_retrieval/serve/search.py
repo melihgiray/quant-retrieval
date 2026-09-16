@@ -73,18 +73,22 @@ class SearchService:
     """Attach answer text and source links to a retriever's ranked IDs."""
 
     def __init__(self, retriever: Retriever, corpus: pd.DataFrame) -> None:
-        required = {"answer_id", "question_id", "text"}
-        missing = required - set(corpus.columns)
-        if missing:
-            raise ValueError(f"corpus is missing columns: {sorted(missing)}")
-        if corpus["answer_id"].duplicated().any():
-            raise ValueError("corpus answer IDs must be unique")
+        self._validate_corpus(corpus)
         self.retriever = retriever
         self._search_lock = Lock()
         self.answers = {
             int(row.answer_id): (int(row.question_id), str(row.text))
             for row in corpus.itertuples(index=False)
         }
+
+    @staticmethod
+    def _validate_corpus(corpus: pd.DataFrame) -> None:
+        required = {"answer_id", "question_id", "text"}
+        missing = required - set(corpus.columns)
+        if missing:
+            raise ValueError(f"corpus is missing columns: {sorted(missing)}")
+        if corpus["answer_id"].duplicated().any():
+            raise ValueError("corpus answer IDs must be unique")
 
     @property
     def document_count(self) -> int:
@@ -109,6 +113,7 @@ class SearchService:
     ) -> SearchService:
         manifest = ArtifactManifest.load(manifest_path)
         corpus = pd.read_parquet(corpus_path)
+        cls._validate_corpus(corpus)
         ids = corpus["answer_id"].astype(int).tolist()
         texts = corpus["text"].astype(str).tolist()
 
