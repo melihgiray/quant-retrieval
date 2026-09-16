@@ -77,3 +77,14 @@ def test_browser_page_and_assets_are_served():
     assert 'fetch(`/search?' in script.text
     assert styles.status_code == 200
     assert "@media (max-width: 600px)" in styles.text
+
+
+def test_responses_set_browser_security_headers():
+    with client() as test_client:
+        response = test_client.get("/")
+
+    assert response.headers["content-security-policy"] == (
+        "default-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+    )
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["x-content-type-options"] == "nosniff"
