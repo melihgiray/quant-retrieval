@@ -71,6 +71,9 @@ python scripts/publish_demo_snapshot.py OWNER/REPOSITORY --public
 The publication command reads `~/.hf_token`, checks every snapshot checksum,
 and uploads only the listed model and retrieval files as one model repository
 commit. It defaults to private unless `--public` is passed.
+If the Hub repository already exists, its visibility must match the chosen
+option. The command checks this before uploading and does not change the
+repository's visibility for you.
 
 For a private repository, the local downloader accepts `--token-file PATH`.
 When running the container, set `HF_TOKEN` to a read-capable Hub token in the

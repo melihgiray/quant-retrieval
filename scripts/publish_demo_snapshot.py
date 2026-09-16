@@ -22,6 +22,14 @@ def publish_demo_snapshot(
     verify_snapshot(snapshot)
     client = api or HfApi(token=token)
     client.create_repo(repo_id=repo_id, repo_type="model", private=private, exist_ok=True)
+    repository = client.repo_info(repo_id=repo_id, repo_type="model")
+    if repository.private != private:
+        requested = "private" if private else "public"
+        actual = "private" if repository.private else "public"
+        raise RuntimeError(
+            f"asset repository is {actual}, but {requested} visibility was requested; "
+            "change the repository setting or choose the matching publication option"
+        )
     result = client.upload_folder(
         repo_id=repo_id,
         repo_type="model",
