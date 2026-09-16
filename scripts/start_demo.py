@@ -40,7 +40,12 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.asset_repo:
-        root = download_demo_assets(args.asset_repo, args.asset_dir, args.asset_revision)
+        root = download_demo_assets(
+            args.asset_repo,
+            args.asset_dir,
+            args.asset_revision,
+            token=os.getenv("HF_TOKEN"),
+        )
         configure_asset_environment(root)
     uvicorn.run("quant_retrieval.serve.app:app", host=args.host, port=args.port)
 

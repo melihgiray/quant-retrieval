@@ -72,6 +72,12 @@ The publication command reads `~/.hf_token`, checks every snapshot checksum,
 and uploads only the listed model and retrieval files as one model repository
 commit. It defaults to private unless `--public` is passed.
 
+For a private repository, the local downloader accepts `--token-file PATH`.
+When running the container, set `HF_TOKEN` to a read-capable Hub token in the
+container environment; for example, `-e HF_TOKEN` forwards an already-set
+variable without putting the token value in the command. A public repository
+does not require a token.
+
 ## Container
 
 Build the image:

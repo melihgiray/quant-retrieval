@@ -17,13 +17,16 @@ from huggingface_hub import snapshot_download
 from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
 
 
-def download_demo_assets(repo_id: str, output: Path, revision: str = "main") -> Path:
+def download_demo_assets(
+    repo_id: str, output: Path, revision: str = "main", *, token: str | None = None
+) -> Path:
     downloaded = Path(
         snapshot_download(
             repo_id=repo_id,
             revision=revision,
             local_dir=output,
             allow_patterns=list(REQUIRED_FILES),
+            token=token,
         )
     )
     verify_snapshot(downloaded)
@@ -35,8 +38,10 @@ def main() -> None:
     parser.add_argument("repo_id")
     parser.add_argument("--revision", default="main")
     parser.add_argument("--output", type=Path, default=Path("demo_assets"))
+    parser.add_argument("--token-file", type=Path)
     args = parser.parse_args()
-    path = download_demo_assets(args.repo_id, args.output, args.revision)
+    token = args.token_file.read_text().strip() if args.token_file else None
+    path = download_demo_assets(args.repo_id, args.output, args.revision, token=token)
     print(f"downloaded demo assets to {path}")
 
 

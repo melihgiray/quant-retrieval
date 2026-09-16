@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from scripts import download_demo_assets as assets
+from scripts import start_demo
 from scripts.start_demo import configure_asset_environment
 
 from quant_retrieval.serve.artifacts import (
@@ -54,6 +55,18 @@ def test_download_checks_and_returns_the_snapshot(tmp_path: Path, monkeypatch):
     assert all((downloaded / relative).is_file() for relative in REQUIRED_FILES)
 
 
+def test_download_passes_a_private_repository_token(tmp_path: Path, monkeypatch):
+    def download(**kwargs):
+        assert kwargs["token"] == "fixture-token"
+        return fake_snapshot(tmp_path)(**kwargs)
+
+    monkeypatch.setattr(assets, "snapshot_download", download)
+
+    assert assets.download_demo_assets(
+        "owner/model", tmp_path, "abc123", token="fixture-token"
+    ) == tmp_path
+
+
 def test_download_rejects_an_incomplete_snapshot(tmp_path: Path, monkeypatch):
     missing = "demo/manifest.json"
     monkeypatch.setattr(assets, "snapshot_download", fake_snapshot(tmp_path, missing))
@@ -89,6 +102,24 @@ def test_remote_snapshot_paths_configure_the_server(tmp_path: Path):
     assert environ["CORPUS_PATH"] == str(tmp_path / "demo/corpus.parquet")
     assert environ["EMBEDDINGS_PATH"] == str(tmp_path / "demo/embeddings_fp16.npy")
     assert environ["DEVICE"] == "cpu"
+
+
+def test_launcher_forwards_hub_token_without_printing_it(tmp_path: Path, monkeypatch):
+    calls = []
+
+    def download(repo_id, output, revision, *, token):
+        calls.append((repo_id, output, revision, token))
+        return tmp_path
+
+    monkeypatch.setattr(start_demo, "download_demo_assets", download)
+    monkeypatch.setattr(start_demo, "configure_asset_environment", lambda root: None)
+    monkeypatch.setattr(start_demo.uvicorn, "run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(sys, "argv", ["start_demo", "--asset-repo", "owner/model"])
+    monkeypatch.setenv("HF_TOKEN", "fixture-token")
+
+    start_demo.main()
+
+    assert calls == [("owner/model", Path("demo_assets"), "main", "fixture-token")]
 
 
 def test_documented_module_entry_point_starts_from_repo_root():
