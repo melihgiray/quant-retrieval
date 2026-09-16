@@ -91,6 +91,15 @@ def test_search_service_rejects_invalid_corpus_ids(column, values):
         SearchService(StubRetriever(), data)
 
 
+@pytest.mark.parametrize("invalid", [None, "   ", 123])
+def test_search_service_rejects_missing_or_nontext_answers(invalid):
+    data = corpus()
+    data["text"] = pd.Series([invalid, "volatility answer"], dtype=object)
+
+    with pytest.raises(ValueError, match="nonempty strings"):
+        SearchService(StubRetriever(), data)
+
+
 def test_search_service_checks_query_encoder_before_reporting_ready(tmp_path: Path, monkeypatch):
     class InvalidEncoder:
         def __init__(self, *args, **kwargs):

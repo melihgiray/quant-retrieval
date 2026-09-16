@@ -95,6 +95,8 @@ class SearchService:
                 or (values <= 0).any()
             ):
                 raise ValueError(f"corpus {name} values must be positive integers")
+        if not all(isinstance(text, str) and text.strip() for text in corpus["text"]):
+            raise ValueError("corpus text values must be nonempty strings")
         if corpus["answer_id"].duplicated().any():
             raise ValueError("corpus answer IDs must be unique")
 
