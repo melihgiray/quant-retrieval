@@ -63,6 +63,8 @@ def test_search_validates_query_and_result_count():
 
     assert blank.status_code == 422
     assert too_many.status_code == 422
+    assert blank.headers["cache-control"] == "no-store"
+    assert too_many.headers["cache-control"] == "no-store"
 
 
 def test_browser_page_and_assets_are_served():
