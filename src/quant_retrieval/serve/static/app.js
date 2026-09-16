@@ -2,6 +2,7 @@ const form = document.querySelector("#search-form");
 const input = document.querySelector("#query");
 const status = document.querySelector("#status");
 const results = document.querySelector("#results");
+const submit = form.querySelector('button[type="submit"]');
 let activeRequest = null;
 
 function resultCard(hit, index) {
@@ -36,6 +37,8 @@ async function search(query) {
   activeRequest?.abort();
   const controller = new AbortController();
   activeRequest = controller;
+  form.setAttribute("aria-busy", "true");
+  submit.disabled = true;
   status.textContent = "Searching the full corpus…";
   results.replaceChildren();
 
@@ -68,7 +71,11 @@ async function search(query) {
       status.textContent = "Search is unavailable. Try again in a moment.";
     }
   } finally {
-    if (activeRequest === controller) activeRequest = null;
+    if (activeRequest === controller) {
+      activeRequest = null;
+      form.removeAttribute("aria-busy");
+      submit.disabled = false;
+    }
   }
 }
 

@@ -13,7 +13,14 @@ function browserFixture(search = "") {
     replaceChildren(...children) { this.children = children; },
   };
   const input = { value: "" };
-  const form = { addEventListener() {} };
+  const submit = { disabled: false };
+  const attributes = new Map();
+  const form = {
+    addEventListener() {},
+    querySelector: () => submit,
+    setAttribute: (name, value) => attributes.set(name, value),
+    removeAttribute: (name) => attributes.delete(name),
+  };
   const elements = { "#search-form": form, "#query": input, "#status": status, "#results": results };
   const document = {
     querySelector: (selector) => elements[selector],
@@ -29,7 +36,7 @@ function browserFixture(search = "") {
   };
   const context = vm.createContext({ document, fetch, window, AbortController, URL, URLSearchParams });
   vm.runInContext(source, context);
-  return { context, requests, status, results, input, window };
+  return { context, requests, status, results, input, window, submit, attributes };
 }
 
 function response(query) {
@@ -101,4 +108,16 @@ test("a query in the page URL runs on load", async () => {
   browser.requests[0].resolve(response("delta hedging"));
   await new Promise((resolve) => setImmediate(resolve));
   assert.match(browser.status.textContent, /delta hedging/);
+});
+
+test("the search form exposes its busy state", async () => {
+  const browser = browserFixture();
+  const pending = vm.runInContext('search("gamma")', browser.context);
+  assert.equal(browser.submit.disabled, true);
+  assert.equal(browser.attributes.get("aria-busy"), "true");
+
+  browser.requests[0].resolve(response("gamma"));
+  await pending;
+  assert.equal(browser.submit.disabled, false);
+  assert.equal(browser.attributes.has("aria-busy"), false);
 });
