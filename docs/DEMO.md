@@ -69,8 +69,8 @@ python scripts/publish_demo_snapshot.py OWNER/REPOSITORY --public
 ```
 
 The publication command reads `~/.hf_token`, checks every snapshot checksum,
-and uploads the folder as one model repository commit. It defaults to private
-unless `--public` is passed.
+and uploads only the listed model and retrieval files as one model repository
+commit. It defaults to private unless `--public` is passed.
 
 ## Container
 

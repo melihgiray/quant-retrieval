@@ -8,7 +8,7 @@ from typing import Any
 
 from huggingface_hub import HfApi
 
-from quant_retrieval.serve.artifacts import verify_snapshot
+from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
 
 
 def publish_demo_snapshot(
@@ -26,6 +26,7 @@ def publish_demo_snapshot(
         repo_id=repo_id,
         repo_type="model",
         folder_path=str(snapshot),
+        allow_patterns=list(REQUIRED_FILES),
         commit_message="Publish search demo snapshot",
     )
     return str(result)

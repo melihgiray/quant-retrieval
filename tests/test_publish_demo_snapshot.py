@@ -2,7 +2,7 @@ from pathlib import Path
 
 from scripts.publish_demo_snapshot import publish_demo_snapshot
 
-from quant_retrieval.serve.artifacts import PAYLOAD_FILES, write_checksums
+from quant_retrieval.serve.artifacts import PAYLOAD_FILES, REQUIRED_FILES, write_checksums
 
 
 class FakeApi:
@@ -40,4 +40,5 @@ def test_publish_verifies_creates_and_uploads_one_model_repo(tmp_path: Path):
     }
     assert api.uploaded["folder_path"] == str(tmp_path)
     assert api.uploaded["repo_id"] == "owner/model"
+    assert api.uploaded["allow_patterns"] == list(REQUIRED_FILES)
     assert url.endswith("/commit/abc123")
