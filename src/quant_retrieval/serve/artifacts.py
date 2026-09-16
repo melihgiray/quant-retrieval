@@ -25,6 +25,18 @@ CHECKSUM_FILE = "checksums.json"
 REQUIRED_FILES = PAYLOAD_FILES + (CHECKSUM_FILE,)
 
 
+def linked_paths(root: Path, relatives: tuple[str, ...]) -> list[str]:
+    linked = []
+    for relative in relatives:
+        path = root
+        for part in Path(relative).parts:
+            path = path / part
+            if path.is_symlink():
+                linked.append(relative)
+                break
+    return linked
+
+
 def file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -40,6 +52,9 @@ def write_checksums(root: Path) -> dict[str, str]:
 
 
 def verify_snapshot(root: Path) -> None:
+    linked = linked_paths(root, REQUIRED_FILES)
+    if linked:
+        raise RuntimeError(f"asset repository contains linked files: {linked}")
     missing = [relative for relative in REQUIRED_FILES if not (root / relative).is_file()]
     if missing:
         raise RuntimeError(f"asset repository is missing files: {missing}")

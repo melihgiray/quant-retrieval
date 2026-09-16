@@ -6,7 +6,12 @@ import argparse
 import shutil
 from pathlib import Path
 
-from quant_retrieval.serve.artifacts import MODEL_FILES, RETRIEVAL_FILES, write_checksums
+from quant_retrieval.serve.artifacts import (
+    MODEL_FILES,
+    RETRIEVAL_FILES,
+    linked_paths,
+    write_checksums,
+)
 
 
 def prepare_demo_snapshot(
@@ -32,6 +37,9 @@ def prepare_demo_snapshot(
     ]
     if collisions:
         raise ValueError(f"snapshot output overlaps source files: {collisions}")
+    linked = linked_paths(output, tuple(sources))
+    if linked:
+        raise ValueError(f"snapshot output contains linked paths: {linked}")
 
     for relative, source in sources.items():
         destination = output / relative
