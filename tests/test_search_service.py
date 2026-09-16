@@ -74,6 +74,23 @@ def test_search_service_validates_corpus_before_indexing(tmp_path: Path, monkeyp
         )
 
 
+@pytest.mark.parametrize(
+    ("column", "values"),
+    [
+        ("answer_id", [10.5, 20.0]),
+        ("answer_id", [10, None]),
+        ("question_id", [0, 2]),
+        ("question_id", [True, False]),
+    ],
+)
+def test_search_service_rejects_invalid_corpus_ids(column, values):
+    data = corpus()
+    data[column] = values
+
+    with pytest.raises(ValueError, match=f"{column} values must be positive integers"):
+        SearchService(StubRetriever(), data)
+
+
 def test_search_service_checks_query_encoder_before_reporting_ready(tmp_path: Path, monkeypatch):
     class InvalidEncoder:
         def __init__(self, *args, **kwargs):

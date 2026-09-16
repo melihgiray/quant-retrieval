@@ -87,6 +87,14 @@ class SearchService:
         missing = required - set(corpus.columns)
         if missing:
             raise ValueError(f"corpus is missing columns: {sorted(missing)}")
+        for name in ("answer_id", "question_id"):
+            values = corpus[name]
+            if (
+                not pd.api.types.is_integer_dtype(values.dtype)
+                or values.isna().any()
+                or (values <= 0).any()
+            ):
+                raise ValueError(f"corpus {name} values must be positive integers")
         if corpus["answer_id"].duplicated().any():
             raise ValueError("corpus answer IDs must be unique")
 
