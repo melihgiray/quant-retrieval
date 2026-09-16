@@ -81,3 +81,23 @@ def test_dense_retriever_rejects_misaligned_precomputed_index(tmp_path: Path):
 
     with pytest.raises(ValueError, match="same length"):
         DenseRetriever("unused").load_index(ids_path, embeddings_path)
+
+
+@pytest.mark.parametrize(
+    ("ids", "vectors", "message"),
+    [
+        ([1, 1], [[1.0, 0.0], [0.0, 1.0]], "unique"),
+        ([1, 2], [[1.0, np.nan], [0.0, 1.0]], "finite"),
+        ([1, 2], [[], []], "dimension"),
+    ],
+)
+def test_dense_retriever_rejects_invalid_precomputed_values(
+    tmp_path: Path, ids, vectors, message
+):
+    ids_path = tmp_path / "answer_ids.npy"
+    embeddings_path = tmp_path / "embeddings.npy"
+    np.save(ids_path, np.array(ids, dtype=np.int64))
+    np.save(embeddings_path, np.array(vectors, dtype=np.float32))
+
+    with pytest.raises(ValueError, match=message):
+        DenseRetriever("unused").load_index(ids_path, embeddings_path)

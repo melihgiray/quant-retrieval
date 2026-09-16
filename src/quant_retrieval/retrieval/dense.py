@@ -69,10 +69,16 @@ class DenseRetriever:
             raise ValueError("document IDs and embeddings must have the same length")
         if not len(document_ids):
             raise ValueError("cannot load an empty index")
+        if embeddings.shape[1] == 0:
+            raise ValueError("embeddings must have at least one dimension")
         if not np.issubdtype(document_ids.dtype, np.integer):
             raise ValueError("document IDs must be integers")
         if not np.issubdtype(embeddings.dtype, np.floating):
             raise ValueError("embeddings must be floating point")
+        if len(np.unique(document_ids)) != len(document_ids):
+            raise ValueError("document IDs must be unique")
+        if not np.isfinite(embeddings).all():
+            raise ValueError("embeddings must be finite")
         self.document_ids = document_ids
         self.embeddings = embeddings
 
