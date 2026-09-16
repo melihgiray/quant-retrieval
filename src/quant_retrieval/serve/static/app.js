@@ -2,6 +2,7 @@ const form = document.querySelector("#search-form");
 const input = document.querySelector("#query");
 const status = document.querySelector("#status");
 const results = document.querySelector("#results");
+let activeRequest = null;
 
 function resultCard(hit, index) {
   const article = document.createElement("article");
@@ -26,19 +27,28 @@ function resultCard(hit, index) {
 }
 
 async function search(query) {
+  activeRequest?.abort();
+  const controller = new AbortController();
+  activeRequest = controller;
   status.textContent = "Searching the full corpus…";
   results.replaceChildren();
 
   try {
     const parameters = new URLSearchParams({ q: query, k: "10" });
-    const response = await fetch(`/search?${parameters}`);
+    const response = await fetch(`/search?${parameters}`, { signal: controller.signal });
+    if (controller.signal.aborted) return;
     if (!response.ok) throw new Error("Search failed");
     const payload = await response.json();
+    if (controller.signal.aborted) return;
 
     status.textContent = `${payload.results.length} answers in ${payload.elapsed_ms} ms for “${payload.query}”`;
     results.replaceChildren(...payload.results.map(resultCard));
   } catch (error) {
-    status.textContent = "Search is unavailable. Try again in a moment.";
+    if (!controller.signal.aborted) {
+      status.textContent = "Search is unavailable. Try again in a moment.";
+    }
+  } finally {
+    if (activeRequest === controller) activeRequest = null;
   }
 }
 
