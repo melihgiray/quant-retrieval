@@ -37,6 +37,7 @@ def test_settings_read_deployment_overrides():
 
 
 @pytest.mark.parametrize("name", ["RETRIEVAL_DEPTH", "RRF_K"])
-def test_settings_reject_nonpositive_retrieval_parameters(name):
-    with pytest.raises(ValueError, match="positive"):
-        ServeSettings.from_environment({name: "0"})
+@pytest.mark.parametrize("value", ["0", "-2", "not-a-number", "1.5"])
+def test_settings_reject_invalid_retrieval_parameters(name, value):
+    with pytest.raises(ValueError, match=f"{name} must be a positive integer"):
+        ServeSettings.from_environment({name: value})

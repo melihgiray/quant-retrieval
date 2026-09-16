@@ -8,6 +8,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def _positive_setting(values: Mapping[str, str], name: str, default: int) -> int:
+    try:
+        parsed = int(values.get(name, default))
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{name} must be a positive integer") from error
+    if parsed < 1:
+        raise ValueError(f"{name} must be a positive integer")
+    return parsed
+
+
 @dataclass(frozen=True)
 class ServeSettings:
     model_path: Path = Path("checkpoints/minilm_tuned/epoch-3")
@@ -29,11 +39,7 @@ class ServeSettings:
             document_ids_path=Path(values.get("DOCUMENT_IDS_PATH", cls.document_ids_path)),
             embeddings_path=Path(values.get("EMBEDDINGS_PATH", cls.embeddings_path)),
             device=values.get("DEVICE", cls.device),
-            depth=int(values.get("RETRIEVAL_DEPTH", cls.depth)),
-            rrf_k=int(values.get("RRF_K", cls.rrf_k)),
+            depth=_positive_setting(values, "RETRIEVAL_DEPTH", cls.depth),
+            rrf_k=_positive_setting(values, "RRF_K", cls.rrf_k),
         )
-        if settings.depth < 1:
-            raise ValueError("RETRIEVAL_DEPTH must be positive")
-        if settings.rrf_k < 1:
-            raise ValueError("RRF_K must be positive")
         return settings
