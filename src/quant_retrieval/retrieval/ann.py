@@ -46,6 +46,8 @@ class ApproximateRetriever:
     ) -> None:
         if neighbours < 1:
             raise ValueError("neighbours must be at least 1")
+        if ef_construction < 1:
+            raise ValueError("ef_construction must be at least 1")
         if ef_search < 1:
             raise ValueError("ef_search must be at least 1")
         self.embeddings_path = Path(embeddings_path)
@@ -65,14 +67,23 @@ class ApproximateRetriever:
         embeddings must already exist, written by scripts/export_index.py, and
         their order must match `document_ids`.
         """
-        import faiss
-
-        embeddings = np.load(self.embeddings_path).astype(np.float32, copy=False)
+        embeddings = np.load(self.embeddings_path)
+        if embeddings.ndim != 2 or embeddings.shape[1] < 1:
+            raise ValueError("ANN embeddings must be a nonempty two-dimensional matrix")
+        if not len(document_ids):
+            raise ValueError("cannot index an empty corpus")
         if len(embeddings) != len(document_ids):
             raise ValueError(
                 f"{self.embeddings_path} holds {len(embeddings)} vectors "
                 f"but the corpus has {len(document_ids)} documents"
             )
+        if len(set(document_ids)) != len(document_ids):
+            raise ValueError("ANN document IDs must be unique")
+        if not np.issubdtype(embeddings.dtype, np.floating) or not np.isfinite(embeddings).all():
+            raise ValueError("ANN embeddings must be finite floating point values")
+        import faiss
+
+        embeddings = embeddings.astype(np.float32, copy=False)
         embeddings = np.ascontiguousarray(embeddings)
         faiss.normalize_L2(embeddings)
 
