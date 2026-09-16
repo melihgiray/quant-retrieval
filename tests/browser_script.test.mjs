@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 const source = readFileSync(new URL("../src/quant_retrieval/serve/static/app.js", import.meta.url), "utf8");
 
-function browserFixture() {
+function browserFixture(search = "") {
   const requests = [];
   const status = { textContent: "" };
   const results = {
@@ -21,9 +21,15 @@ function browserFixture() {
     createElement: () => ({ append() {} }),
   };
   const fetch = (url, options) => new Promise((resolve) => requests.push({ url, options, resolve }));
-  const context = vm.createContext({ document, fetch, AbortController, URLSearchParams });
+  const window = {
+    location: new URL(`https://demo.example/${search}`),
+    history: {
+      replaceState(state, title, url) { window.location = new URL(url); },
+    },
+  };
+  const context = vm.createContext({ document, fetch, window, AbortController, URL, URLSearchParams });
   vm.runInContext(source, context);
-  return { context, requests, status, results };
+  return { context, requests, status, results, input, window };
 }
 
 function response(query) {
@@ -77,4 +83,22 @@ test("an empty result gets a useful status", async () => {
 
   assert.match(browser.status.textContent, /No answers found/);
   assert.equal(browser.results.children.length, 0);
+});
+
+test("a successful search is stored in the page URL", async () => {
+  const browser = browserFixture();
+  const pending = vm.runInContext('search("risk neutral pricing")', browser.context);
+  browser.requests[0].resolve(response("risk neutral pricing"));
+  await pending;
+
+  assert.equal(browser.window.location.search, "?q=risk+neutral+pricing");
+});
+
+test("a query in the page URL runs on load", async () => {
+  const browser = browserFixture("?q=delta+hedging");
+  assert.equal(browser.input.value, "delta hedging");
+  assert.match(browser.requests[0].url, /q=delta\+hedging/);
+  browser.requests[0].resolve(response("delta hedging"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(browser.status.textContent, /delta hedging/);
 });

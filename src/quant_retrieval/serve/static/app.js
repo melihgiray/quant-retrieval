@@ -26,6 +26,12 @@ function resultCard(hit, index) {
   return article;
 }
 
+function rememberQuery(query) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("q", query);
+  window.history.replaceState(null, "", url);
+}
+
 async function search(query) {
   activeRequest?.abort();
   const controller = new AbortController();
@@ -50,9 +56,11 @@ async function search(query) {
     if (controller.signal.aborted) return;
 
     if (payload.results.length === 0) {
+      rememberQuery(payload.query);
       status.textContent = `No answers found for “${payload.query}”. Try a different question.`;
       return;
     }
+    rememberQuery(payload.query);
     status.textContent = `${payload.results.length} answers in ${payload.elapsed_ms} ms for “${payload.query}”`;
     results.replaceChildren(...payload.results.map(resultCard));
   } catch (error) {
@@ -76,3 +84,9 @@ document.querySelectorAll("[data-query]").forEach((button) => {
     search(input.value);
   });
 });
+
+const initialQuery = new URLSearchParams(window.location.search).get("q")?.trim();
+if (initialQuery) {
+  input.value = initialQuery;
+  search(initialQuery);
+}
