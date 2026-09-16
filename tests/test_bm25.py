@@ -58,6 +58,18 @@ def test_index_rejects_invalid_inputs():
         BM25Retriever().index([1, 1], ["a", "b"])
 
 
+@pytest.mark.parametrize("document_ids", [[0], [-1], [1.5], [True]])
+def test_index_requires_positive_integer_document_ids(document_ids):
+    with pytest.raises(ValueError, match="positive integers"):
+        BM25Retriever().index(document_ids, ["delta"])
+
+
+@pytest.mark.parametrize("text", [None, 12, ["delta"]])
+def test_index_requires_string_documents(text):
+    with pytest.raises(ValueError, match="texts must be strings"):
+        BM25Retriever().index([1], [text])
+
+
 def test_search_requires_an_index_and_positive_k():
     retriever = BM25Retriever()
     with pytest.raises(RuntimeError, match="index"):

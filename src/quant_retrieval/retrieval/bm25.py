@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
+from numbers import Integral
 
 import numpy as np
 from scipy import sparse
@@ -38,8 +39,17 @@ class BM25Retriever:
             raise ValueError("document_ids and texts must have the same length")
         if not document_ids:
             raise ValueError("cannot index an empty corpus")
+        if any(
+            isinstance(document_id, bool)
+            or not isinstance(document_id, Integral)
+            or document_id <= 0
+            for document_id in document_ids
+        ):
+            raise ValueError("document IDs must be positive integers")
         if len(set(document_ids)) != len(document_ids):
             raise ValueError("document IDs must be unique")
+        if any(not isinstance(text, str) for text in texts):
+            raise ValueError("document texts must be strings")
 
         token_counts = [Counter(tokenize(text)) for text in texts]
         terms = sorted({term for counts in token_counts for term in counts})
