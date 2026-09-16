@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from numbers import Integral
 from pathlib import Path
 
 import numpy as np
@@ -52,6 +53,13 @@ class DenseRetriever:
             raise ValueError("document_ids and texts must have the same length")
         if not document_ids:
             raise ValueError("cannot index an empty corpus")
+        if any(
+            isinstance(document_id, bool)
+            or not isinstance(document_id, Integral)
+            or document_id <= 0
+            for document_id in document_ids
+        ):
+            raise ValueError("document IDs must be positive integers")
         if len(set(document_ids)) != len(document_ids):
             raise ValueError("document IDs must be unique")
         self.document_ids = np.asarray(document_ids, dtype=np.int64)
@@ -73,6 +81,8 @@ class DenseRetriever:
             raise ValueError("embeddings must have at least one dimension")
         if not np.issubdtype(document_ids.dtype, np.integer):
             raise ValueError("document IDs must be integers")
+        if np.any(document_ids <= 0):
+            raise ValueError("document IDs must be positive")
         if not np.issubdtype(embeddings.dtype, np.floating):
             raise ValueError("embeddings must be floating point")
         if len(np.unique(document_ids)) != len(document_ids):

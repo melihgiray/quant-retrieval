@@ -59,6 +59,13 @@ def test_dense_retriever_rejects_invalid_inputs():
         retriever.search("query", 10)
 
 
+@pytest.mark.parametrize("document_ids", [[0], [-1], [1.5], [True]])
+def test_dense_index_requires_positive_integer_document_ids(document_ids):
+    retriever = DenseRetriever("unused")
+    with pytest.raises(ValueError, match="positive integers"):
+        retriever.index(document_ids, ["delta"])
+
+
 def test_dense_retriever_loads_a_memory_mapped_index(tmp_path: Path):
     ids_path = tmp_path / "answer_ids.npy"
     embeddings_path = tmp_path / "embeddings.npy"
@@ -80,6 +87,16 @@ def test_dense_retriever_rejects_misaligned_precomputed_index(tmp_path: Path):
     np.save(embeddings_path, np.ones((1, 3), dtype=np.float32))
 
     with pytest.raises(ValueError, match="same length"):
+        DenseRetriever("unused").load_index(ids_path, embeddings_path)
+
+
+def test_dense_retriever_rejects_nonpositive_precomputed_ids(tmp_path: Path):
+    ids_path = tmp_path / "answer_ids.npy"
+    embeddings_path = tmp_path / "embeddings.npy"
+    np.save(ids_path, np.array([0, 2], dtype=np.int64))
+    np.save(embeddings_path, np.ones((2, 3), dtype=np.float32))
+
+    with pytest.raises(ValueError, match="positive"):
         DenseRetriever("unused").load_index(ids_path, embeddings_path)
 
 
