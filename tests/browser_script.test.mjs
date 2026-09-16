@@ -51,3 +51,30 @@ test("an older response cannot replace newer search results", async () => {
   assert.match(browser.status.textContent, /second/);
   assert.equal(browser.results.children.length, 1);
 });
+
+test("a rejected question is not reported as a service outage", async () => {
+  const browser = browserFixture();
+  const pending = vm.runInContext('search("invalid")', browser.context);
+  browser.requests[0].resolve({
+    ok: false,
+    status: 422,
+    json: async () => ({ detail: "query must not be empty" }),
+  });
+  await pending;
+
+  assert.equal(browser.status.textContent, "query must not be empty");
+  assert.equal(browser.results.children.length, 0);
+});
+
+test("an empty result gets a useful status", async () => {
+  const browser = browserFixture();
+  const pending = vm.runInContext('search("unknown")', browser.context);
+  browser.requests[0].resolve({
+    ok: true,
+    json: async () => ({ query: "unknown", elapsed_ms: 1, results: [] }),
+  });
+  await pending;
+
+  assert.match(browser.status.textContent, /No answers found/);
+  assert.equal(browser.results.children.length, 0);
+});

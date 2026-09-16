@@ -37,10 +37,22 @@ async function search(query) {
     const parameters = new URLSearchParams({ q: query, k: "10" });
     const response = await fetch(`/search?${parameters}`, { signal: controller.signal });
     if (controller.signal.aborted) return;
+    if (response.status === 422) {
+      const problem = await response.json();
+      if (controller.signal.aborted) return;
+      status.textContent = typeof problem.detail === "string"
+        ? problem.detail
+        : "Check your question and try again.";
+      return;
+    }
     if (!response.ok) throw new Error("Search failed");
     const payload = await response.json();
     if (controller.signal.aborted) return;
 
+    if (payload.results.length === 0) {
+      status.textContent = `No answers found for “${payload.query}”. Try a different question.`;
+      return;
+    }
     status.textContent = `${payload.results.length} answers in ${payload.elapsed_ms} ms for “${payload.query}”`;
     results.replaceChildren(...payload.results.map(resultCard));
   } catch (error) {
