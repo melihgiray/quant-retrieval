@@ -96,7 +96,7 @@ through them in order.
 
 After building the dataset, training the model, and exporting the index:
 
-    python scripts/start_demo.py
+    python -m scripts.start_demo
 
 The page runs at `http://localhost:7860`. It serves the measured hybrid pipeline,
 BM25 plus the tuned MiniLM encoder with reciprocal rank fusion. The reranker is

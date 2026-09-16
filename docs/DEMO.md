@@ -19,7 +19,7 @@ artifacts/manifest.json
 Start the server:
 
 ```sh
-python scripts/start_demo.py
+python -m scripts.start_demo
 ```
 
 Then check the loaded pipeline and run a query:
@@ -53,7 +53,7 @@ checksums.json
 Run against a published snapshot:
 
 ```sh
-python scripts/start_demo.py \
+python -m scripts.start_demo \
   --asset-repo OWNER/REPOSITORY \
   --asset-revision COMMIT_SHA
 ```

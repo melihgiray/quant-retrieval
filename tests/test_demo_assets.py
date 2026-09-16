@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -70,6 +72,16 @@ def test_remote_snapshot_paths_configure_the_server(tmp_path: Path):
     assert environ["CORPUS_PATH"] == str(tmp_path / "demo/corpus.parquet")
     assert environ["EMBEDDINGS_PATH"] == str(tmp_path / "demo/embeddings_fp16.npy")
     assert environ["DEVICE"] == "cpu"
+
+
+def test_documented_module_entry_point_starts_from_repo_root():
+    completed = subprocess.run(
+        [sys.executable, "-m", "scripts.start_demo", "--help"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "--asset-repo" in completed.stdout
 
 
 def test_snapshot_contract_places_only_retrieval_files_under_demo():

@@ -1,4 +1,8 @@
-"""Start the search demo with local files or a remote asset snapshot."""
+"""Start the search demo with local files or a remote asset snapshot.
+
+Run from the repository root with ``python -m scripts.start_demo`` so the
+launcher and downloader share the same import path locally and in the image.
+"""
 
 from __future__ import annotations
 
