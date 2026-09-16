@@ -89,6 +89,9 @@ class DenseRetriever:
             raise ValueError("document IDs must be unique")
         if not np.isfinite(embeddings).all():
             raise ValueError("embeddings must be finite")
+        norms = np.linalg.norm(embeddings.astype(np.float32), axis=1)
+        if not np.allclose(norms, 1.0, atol=1e-2, rtol=0):
+            raise ValueError("embeddings must be unit normalized")
         self.document_ids = document_ids
         self.embeddings = embeddings
 

@@ -106,6 +106,7 @@ def test_dense_retriever_rejects_nonpositive_precomputed_ids(tmp_path: Path):
         ([1, 1], [[1.0, 0.0], [0.0, 1.0]], "unique"),
         ([1, 2], [[1.0, np.nan], [0.0, 1.0]], "finite"),
         ([1, 2], [[], []], "dimension"),
+        ([1, 2], [[2.0, 0.0], [0.0, 1.0]], "unit normalized"),
     ],
 )
 def test_dense_retriever_rejects_invalid_precomputed_values(
