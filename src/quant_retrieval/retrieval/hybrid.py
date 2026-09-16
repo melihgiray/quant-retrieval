@@ -65,7 +65,11 @@ class HybridRetriever:
 
         fused: dict[int, float] = {}
         for retriever, weight in zip(self.retrievers, self.weights, strict=True):
+            seen: set[int] = set()
             for rank, result in enumerate(retriever.search(query, max(k, self.depth))):
+                if result.document_id in seen:
+                    continue
+                seen.add(result.document_id)
                 contribution = weight / (self.rrf_k + rank + 1)
                 fused[result.document_id] = fused.get(result.document_id, 0.0) + contribution
 

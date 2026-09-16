@@ -40,6 +40,16 @@ def test_documents_only_one_retriever_found_still_appear():
     assert {r.document_id for r in retriever.search("q", 2)} == {1, 2}
 
 
+def test_a_branch_cannot_count_the_same_document_twice():
+    repeated = fuse([1, 1, 2], [2], rrf_k=1).search("q", 2)
+    single = fuse([1, 2], [2], rrf_k=1).search("q", 2)
+
+    assert repeated[0].document_id == 2
+    assert {hit.document_id: hit.score for hit in repeated}[1] == pytest.approx(
+        {hit.document_id: hit.score for hit in single}[1]
+    )
+
+
 def test_a_small_rrf_k_sharpens_the_top_of_the_ranking():
     # With k=1 the first place contributes 1/2 and second 1/3, a wide gap. With
     # k=1000 they are nearly equal, so agreement further down matters more.
