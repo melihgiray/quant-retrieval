@@ -78,6 +78,17 @@ def test_search_service_rejects_invalid_retriever_output(results, message):
         service.search("delta")
 
 
+def test_search_service_rejects_more_results_than_requested():
+    service = SearchService(StubRetriever(), corpus())
+    service.retriever.search = lambda query, k: [
+        SearchResult(document_id=10, score=1.0),
+        SearchResult(document_id=20, score=0.5),
+    ]
+
+    with pytest.raises(RuntimeError, match="2 answers for a limit of 1"):
+        service.search("delta", k=1)
+
+
 def test_search_service_validates_corpus_before_indexing(tmp_path: Path, monkeypatch):
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps({"documents": 2, "dimensions": 2, "max_length": 32}))

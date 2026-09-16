@@ -157,6 +157,8 @@ class SearchService:
 
         with self._search_lock:
             ranked = self.retriever.search(query, k)
+        if len(ranked) > k:
+            raise RuntimeError(f"retriever returned {len(ranked)} answers for a limit of {k}")
 
         hits = []
         seen: set[int] = set()
