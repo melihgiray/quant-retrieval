@@ -80,6 +80,19 @@ def test_artifact_manifest_rejects_missing_shape(tmp_path: Path):
         ArtifactManifest.load(path)
 
 
+@pytest.mark.parametrize(
+    "contents",
+    ["not JSON", "[]", '{"documents": 1.5, "dimensions": 384, "max_length": 256}',
+     '{"documents": true, "dimensions": 384, "max_length": 256}'],
+)
+def test_artifact_manifest_rejects_invalid_records(tmp_path: Path, contents: str):
+    path = tmp_path / "manifest.json"
+    path.write_text(contents)
+
+    with pytest.raises(ValueError, match="manifest"):
+        ArtifactManifest.load(path)
+
+
 def test_search_service_serializes_shared_retriever_calls():
     class ConcurrentProbe(StubRetriever):
         def __init__(self):

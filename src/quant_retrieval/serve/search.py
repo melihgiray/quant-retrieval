@@ -47,12 +47,20 @@ class ArtifactManifest:
 
     @classmethod
     def load(cls, path: Path) -> ArtifactManifest:
-        payload = json.loads(path.read_text())
         try:
+            payload = json.loads(path.read_text())
+        except (UnicodeError, json.JSONDecodeError) as error:
+            raise ValueError("artifact manifest is not valid JSON") from error
+        try:
+            if not isinstance(payload, dict) or any(
+                type(payload.get(name)) is not int
+                for name in ("documents", "dimensions", "max_length")
+            ):
+                raise ValueError("artifact manifest is missing valid dimensions")
             manifest = cls(
-                documents=int(payload["documents"]),
-                dimensions=int(payload["dimensions"]),
-                max_length=int(payload["max_length"]),
+                documents=payload["documents"],
+                dimensions=payload["dimensions"],
+                max_length=payload["max_length"],
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("artifact manifest is missing valid dimensions") from error
