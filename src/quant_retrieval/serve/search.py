@@ -132,6 +132,7 @@ class SearchService:
             raise ValueError("artifact manifest dimensions do not match the embeddings")
         if set(dense.document_ids.tolist()) != set(ids):
             raise ValueError("precomputed index does not match the corpus")
+        dense.validate_query_encoder()
 
         retriever = HybridRetriever([bm25, dense], depth=depth, rrf_k=rrf_k)
         return cls(retriever, corpus)

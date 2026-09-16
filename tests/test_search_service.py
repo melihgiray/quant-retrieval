@@ -4,10 +4,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from quant_retrieval.retrieval.base import SearchResult
+from quant_retrieval.serve import search as serve_search
 from quant_retrieval.serve.search import ArtifactManifest, SearchService, make_snippet
 
 
@@ -63,6 +65,33 @@ def test_search_service_validates_corpus_before_indexing(tmp_path: Path, monkeyp
     monkeypatch.setattr(pd, "read_parquet", lambda path: corpus().drop(columns="text"))
 
     with pytest.raises(ValueError, match="missing columns.*text"):
+        SearchService.from_artifacts(
+            checkpoint=tmp_path,
+            corpus_path=tmp_path / "corpus.parquet",
+            manifest_path=manifest_path,
+            document_ids_path=tmp_path / "ids.npy",
+            embeddings_path=tmp_path / "embeddings.npy",
+        )
+
+
+def test_search_service_checks_query_encoder_before_reporting_ready(tmp_path: Path, monkeypatch):
+    class InvalidEncoder:
+        def __init__(self, *args, **kwargs):
+            self.document_ids = np.array([10, 20])
+            self.embeddings = np.ones((2, 2), dtype=np.float32)
+
+        def load_index(self, *args):
+            pass
+
+        def validate_query_encoder(self):
+            raise ValueError("query encoder dimensions do not match the embeddings")
+
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"documents": 2, "dimensions": 2, "max_length": 32}))
+    monkeypatch.setattr(pd, "read_parquet", lambda path: corpus())
+    monkeypatch.setattr(serve_search, "DenseRetriever", InvalidEncoder)
+
+    with pytest.raises(ValueError, match="encoder dimensions"):
         SearchService.from_artifacts(
             checkpoint=tmp_path,
             corpus_path=tmp_path / "corpus.parquet",

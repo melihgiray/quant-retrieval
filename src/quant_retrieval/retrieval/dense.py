@@ -82,6 +82,14 @@ class DenseRetriever:
         self.document_ids = document_ids
         self.embeddings = embeddings
 
+    def validate_query_encoder(self) -> None:
+        """Load the model and check its output against the stored index."""
+        if not len(self.document_ids):
+            raise RuntimeError("load the index before validating the query encoder")
+        query_vector = self._encode(["index dimension check"])[0]
+        if query_vector.shape != (self.embeddings.shape[1],):
+            raise ValueError("query encoder dimensions do not match the embeddings")
+
     def search(self, query: str, k: int) -> list[SearchResult]:
         if k <= 0:
             raise ValueError("k must be positive")

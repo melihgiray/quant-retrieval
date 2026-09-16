@@ -101,3 +101,15 @@ def test_dense_retriever_rejects_invalid_precomputed_values(
 
     with pytest.raises(ValueError, match=message):
         DenseRetriever("unused").load_index(ids_path, embeddings_path)
+
+
+def test_dense_retriever_checks_query_dimension_before_serving():
+    retriever = DenseRetriever("unused", show_progress=False)
+    retriever.document_ids = np.array([1])
+    retriever.embeddings = np.array([[1.0, 0.0]], dtype=np.float32)
+    retriever._encode = MethodType(
+        lambda self, texts: np.array([[1.0, 0.0, 0.0]], dtype=np.float32), retriever
+    )
+
+    with pytest.raises(ValueError, match="encoder dimensions"):
+        retriever.validate_query_encoder()

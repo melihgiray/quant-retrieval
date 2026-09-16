@@ -31,7 +31,9 @@ curl --get http://localhost:7860/search \
   --data "k=3"
 ```
 
-The health response reports readiness, `bm25_dense_rrf`, and 26,152 documents.
+Startup loads the query encoder and checks its output against the stored index
+before health can report readiness. The health response then reports
+`bm25_dense_rrf` and 26,152 documents.
 
 ## Remote asset layout
 
