@@ -13,6 +13,7 @@ import argparse
 from pathlib import Path
 
 from huggingface_hub import snapshot_download
+from scripts.hub_auth import read_token_file
 
 from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
 
@@ -40,7 +41,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("demo_assets"))
     parser.add_argument("--token-file", type=Path)
     args = parser.parse_args()
-    token = args.token_file.read_text().strip() if args.token_file else None
+    token = read_token_file(args.token_file) if args.token_file else None
     path = download_demo_assets(args.repo_id, args.output, args.revision, token=token)
     print(f"downloaded demo assets to {path}")
 

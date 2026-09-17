@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from huggingface_hub import HfApi
+from scripts.hub_auth import read_token_file
 
 from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
 
@@ -48,9 +49,7 @@ def main() -> None:
     parser.add_argument("--public", action="store_true")
     args = parser.parse_args()
 
-    token = args.token_file.read_text().strip()
-    if not token:
-        raise RuntimeError(f"token file is empty: {args.token_file}")
+    token = read_token_file(args.token_file)
     url = publish_demo_snapshot(
         args.repo_id,
         args.snapshot,
