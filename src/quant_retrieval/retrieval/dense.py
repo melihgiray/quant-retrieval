@@ -62,6 +62,8 @@ class DenseRetriever:
             raise ValueError("document IDs must be positive integers")
         if len(set(document_ids)) != len(document_ids):
             raise ValueError("document IDs must be unique")
+        if any(not isinstance(text, str) or not text.strip() for text in texts):
+            raise ValueError("document texts must be nonempty strings")
         self.document_ids = np.asarray(document_ids, dtype=np.int64)
         self.embeddings = self._encode(texts)
 

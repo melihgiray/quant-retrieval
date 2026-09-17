@@ -66,6 +66,13 @@ def test_dense_index_requires_positive_integer_document_ids(document_ids):
         retriever.index(document_ids, ["delta"])
 
 
+@pytest.mark.parametrize("text", [None, 12, "   "])
+def test_dense_index_requires_nonempty_string_documents(text):
+    retriever = DenseRetriever("unused")
+    with pytest.raises(ValueError, match="nonempty strings"):
+        retriever.index([1], [text])
+
+
 def test_dense_retriever_loads_a_memory_mapped_index(tmp_path: Path):
     ids_path = tmp_path / "answer_ids.npy"
     embeddings_path = tmp_path / "embeddings.npy"
