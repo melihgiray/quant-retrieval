@@ -49,7 +49,13 @@ def file_sha256(path: Path) -> str:
 
 def write_checksums(root: Path) -> dict[str, str]:
     checksums = {relative: file_sha256(root / relative) for relative in PAYLOAD_FILES}
-    (root / CHECKSUM_FILE).write_text(json.dumps(checksums, indent=2, sort_keys=True) + "\n")
+    destination = root / CHECKSUM_FILE
+    temporary = root / f".{CHECKSUM_FILE}.tmp"
+    try:
+        temporary.write_text(json.dumps(checksums, indent=2, sort_keys=True) + "\n")
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
     return checksums
 
 

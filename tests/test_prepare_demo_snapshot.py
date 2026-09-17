@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,10 @@ def test_prepare_snapshot_copies_the_complete_contract(tmp_path: Path):
     assert all((output / relative).is_file() for relative in REQUIRED_FILES)
     assert (output / "demo/corpus.parquet").read_bytes() == b"corpus"
     assert (output / CHECKSUM_FILE).is_file()
+    assert not (output / f".{CHECKSUM_FILE}.tmp").exists()
+    assert set(json.loads((output / CHECKSUM_FILE).read_text())) == set(REQUIRED_FILES) - {
+        CHECKSUM_FILE
+    }
     verify_snapshot(output)
 
 
