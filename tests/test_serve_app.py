@@ -90,3 +90,21 @@ def test_responses_set_browser_security_headers():
     )
     assert response.headers["referrer-policy"] == "no-referrer"
     assert response.headers["x-content-type-options"] == "nosniff"
+
+
+def test_large_search_responses_are_compressed():
+    corpus = pd.DataFrame(
+        {"answer_id": [20], "question_id": [2], "text": ["volatility " * 100]}
+    )
+    compressed_client = TestClient(create_app(SearchService(StubRetriever(), corpus)))
+
+    with compressed_client as test_client:
+        response = test_client.get(
+            "/search",
+            params={"q": "volatility", "k": 1},
+            headers={"Accept-Encoding": "gzip"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers["content-encoding"] == "gzip"
+    assert response.json()["results"][0]["text"].startswith("volatility")
