@@ -59,6 +59,15 @@ def test_dense_retriever_rejects_invalid_inputs():
         retriever.search("query", 10)
 
 
+@pytest.mark.parametrize("query", [None, 12, "   "])
+def test_dense_search_requires_a_nonempty_string_query(query):
+    retriever = DenseRetriever("unused")
+    retriever.document_ids = np.array([1])
+    retriever.embeddings = np.array([[1.0, 0.0]], dtype=np.float32)
+    with pytest.raises(ValueError, match="nonempty string"):
+        retriever.search(query, 1)
+
+
 @pytest.mark.parametrize("document_ids", [[0], [-1], [1.5], [True]])
 def test_dense_index_requires_positive_integer_document_ids(document_ids):
     retriever = DenseRetriever("unused")

@@ -77,3 +77,11 @@ def test_search_requires_an_index_and_positive_k():
     retriever.index([1], ["delta"])
     with pytest.raises(ValueError, match="positive"):
         retriever.search("delta", 0)
+
+
+@pytest.mark.parametrize("query", [None, 12, "   "])
+def test_search_requires_a_nonempty_string_query(query):
+    retriever = BM25Retriever()
+    retriever.index([1], ["delta"])
+    with pytest.raises(ValueError, match="nonempty string"):
+        retriever.search(query, 1)

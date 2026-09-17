@@ -89,6 +89,8 @@ class BM25Retriever:
     def search(self, query: str, k: int) -> list[SearchResult]:
         if k <= 0:
             raise ValueError("k must be positive")
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("query must be a nonempty string")
         if self.weights.shape[0] == 0:
             raise RuntimeError("index must be called before search")
 
