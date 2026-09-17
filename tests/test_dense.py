@@ -138,3 +138,20 @@ def test_dense_retriever_checks_query_dimension_before_serving():
 
     with pytest.raises(ValueError, match="encoder dimensions"):
         retriever.validate_query_encoder()
+
+
+@pytest.mark.parametrize(
+    ("vector", "message"),
+    [
+        (np.array([np.nan, 0.0], dtype=np.float32), "finite"),
+        (np.array([2.0, 0.0], dtype=np.float32), "unit normalized"),
+    ],
+)
+def test_dense_retriever_checks_query_vector_values_before_serving(vector, message):
+    retriever = DenseRetriever("unused", show_progress=False)
+    retriever.document_ids = np.array([1])
+    retriever.embeddings = np.array([[1.0, 0.0]], dtype=np.float32)
+    retriever._encode = MethodType(lambda self, texts: np.array([vector]), retriever)
+
+    with pytest.raises(ValueError, match=message):
+        retriever.validate_query_encoder()

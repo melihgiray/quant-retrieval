@@ -102,8 +102,15 @@ class DenseRetriever:
         if not len(self.document_ids):
             raise RuntimeError("load the index before validating the query encoder")
         query_vector = self._encode(["index dimension check"])[0]
+        self._validate_query_vector(query_vector)
+
+    def _validate_query_vector(self, query_vector: np.ndarray) -> None:
         if query_vector.shape != (self.embeddings.shape[1],):
             raise ValueError("query encoder dimensions do not match the embeddings")
+        if not np.isfinite(query_vector).all():
+            raise ValueError("query encoder output must be finite")
+        if not np.isclose(np.linalg.norm(query_vector), 1.0, atol=1e-4, rtol=0):
+            raise ValueError("query encoder output must be unit normalized")
 
     def search(self, query: str, k: int) -> list[SearchResult]:
         if k <= 0:
@@ -112,6 +119,7 @@ class DenseRetriever:
             raise RuntimeError("index must be called before search")
 
         query_embedding = self._encode([query])[0]
+        self._validate_query_vector(query_embedding)
         scores = self.embeddings @ query_embedding
         limit = min(k, len(scores))
         candidates = np.argpartition(scores, -limit)[-limit:]
