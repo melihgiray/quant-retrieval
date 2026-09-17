@@ -82,6 +82,8 @@ def test_browser_page_and_assets_are_served():
     assert styles.status_code == 200
     assert styles.headers["cache-control"] == "public, max-age=3600"
     assert "@media (max-width: 600px)" in styles.text
+    assert "button:focus-visible" in styles.text
+    assert "button:disabled" in styles.text
 
 
 def test_responses_set_browser_security_headers():

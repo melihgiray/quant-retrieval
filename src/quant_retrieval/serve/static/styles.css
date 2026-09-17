@@ -31,6 +31,10 @@ header {
 }
 
 a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
 .wordmark { color: var(--text); font-weight: 700; text-decoration: none; letter-spacing: -.02em; }
 .repo { color: var(--muted); font-size: .9rem; }
 
@@ -53,6 +57,7 @@ input {
 }
 input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgb(155 232 189 / 12%); }
 .search-box button { padding: 0 24px; border: 0; border-radius: 8px; background: var(--accent); color: #07110c; font-weight: 700; cursor: pointer; }
+.search-box button:disabled { cursor: wait; opacity: .7; }
 
 .examples { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; margin-top: 16px; color: var(--muted); font-size: .84rem; }
 .examples button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
