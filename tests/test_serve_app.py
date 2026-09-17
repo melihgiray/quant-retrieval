@@ -76,6 +76,8 @@ def test_browser_page_and_assets_are_served():
     assert page.status_code == 200
     assert page.headers["cache-control"] == "no-cache"
     assert "Search 26,152 quant answers" in page.text
+    assert 'role="status"' in page.text
+    assert 'aria-atomic="true"' in page.text
     assert script.status_code == 200
     assert script.headers["cache-control"] == "public, max-age=3600"
     assert 'fetch(`/search?' in script.text
