@@ -74,10 +74,13 @@ def test_browser_page_and_assets_are_served():
         styles = test_client.get("/static/styles.css")
 
     assert page.status_code == 200
+    assert page.headers["cache-control"] == "no-cache"
     assert "Search 26,152 quant answers" in page.text
     assert script.status_code == 200
+    assert script.headers["cache-control"] == "public, max-age=3600"
     assert 'fetch(`/search?' in script.text
     assert styles.status_code == 200
+    assert styles.headers["cache-control"] == "public, max-age=3600"
     assert "@media (max-width: 600px)" in styles.text
 
 

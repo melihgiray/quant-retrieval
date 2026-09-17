@@ -69,6 +69,10 @@ def create_app(service: SearchService | None = None) -> FastAPI:
         response = await call_next(request)
         if request.url.path in {"/health", "/search"}:
             response.headers["Cache-Control"] = "no-store"
+        elif request.url.path == "/":
+            response.headers["Cache-Control"] = "no-cache"
+        elif request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "public, max-age=3600"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; base-uri 'none'; frame-ancestors 'none'"
         )
