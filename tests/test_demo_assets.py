@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -90,6 +91,21 @@ def test_download_rejects_a_malformed_checksum_record(tmp_path: Path, monkeypatc
     )
 
     with pytest.raises(RuntimeError, match="checksum"):
+        assets.download_demo_assets("owner/model", tmp_path, "abc123")
+
+
+@pytest.mark.parametrize("digest", ["abc", "g" * 64, 123])
+def test_download_rejects_invalid_checksum_values(tmp_path: Path, monkeypatch, digest):
+    def download(**kwargs):
+        path = Path(fake_snapshot(tmp_path)(**kwargs))
+        checksums = write_checksums(path)
+        checksums["config.json"] = digest
+        (path / CHECKSUM_FILE).write_text(json.dumps(checksums))
+        return str(path)
+
+    monkeypatch.setattr(assets, "snapshot_download", download)
+
+    with pytest.raises(RuntimeError, match="invalid SHA-256"):
         assets.download_demo_assets("owner/model", tmp_path, "abc123")
 
 

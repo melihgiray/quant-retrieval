@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 MODEL_FILES = (
@@ -23,6 +24,7 @@ RETRIEVAL_FILES = (
 PAYLOAD_FILES = MODEL_FILES + tuple(f"demo/{name}" for name in RETRIEVAL_FILES)
 CHECKSUM_FILE = "checksums.json"
 REQUIRED_FILES = PAYLOAD_FILES + (CHECKSUM_FILE,)
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
 def linked_paths(root: Path, relatives: tuple[str, ...]) -> list[str]:
@@ -64,6 +66,13 @@ def verify_snapshot(root: Path) -> None:
         raise RuntimeError("asset checksum file is not valid JSON") from error
     if not isinstance(expected, dict) or set(expected) != set(PAYLOAD_FILES):
         raise RuntimeError("asset checksum file does not match the required payload")
+    invalid = [
+        relative
+        for relative, digest in expected.items()
+        if not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None
+    ]
+    if invalid:
+        raise RuntimeError(f"asset checksum file contains invalid SHA-256 values: {invalid}")
     mismatched = [
         relative
         for relative in PAYLOAD_FILES
