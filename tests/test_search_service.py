@@ -89,6 +89,17 @@ def test_search_service_rejects_more_results_than_requested():
         service.search("delta", k=1)
 
 
+def test_search_service_rejects_out_of_order_scores():
+    service = SearchService(StubRetriever(), corpus())
+    service.retriever.search = lambda query, k: [
+        SearchResult(document_id=10, score=0.5),
+        SearchResult(document_id=20, score=1.0),
+    ]
+
+    with pytest.raises(RuntimeError, match="descending score order"):
+        service.search("delta", k=2)
+
+
 def test_search_service_validates_corpus_before_indexing(tmp_path: Path, monkeypatch):
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps({"documents": 2, "dimensions": 2, "max_length": 32}))

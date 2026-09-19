@@ -162,6 +162,7 @@ class SearchService:
 
         hits = []
         seen: set[int] = set()
+        previous_score = math.inf
         for result in ranked:
             if result.document_id in seen:
                 raise RuntimeError(f"retriever returned duplicate answer {result.document_id}")
@@ -170,6 +171,9 @@ class SearchService:
                 raise RuntimeError(
                     f"retriever returned a non-finite score for {result.document_id}"
                 )
+            if result.score > previous_score:
+                raise RuntimeError("retriever results are not in descending score order")
+            previous_score = result.score
             if result.document_id not in self.answers:
                 raise RuntimeError(f"retriever returned unknown answer {result.document_id}")
             question_id, text = self.answers[result.document_id]
