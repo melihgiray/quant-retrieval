@@ -41,6 +41,9 @@ def prepare_demo_snapshot(
     missing = [str(path) for path in sources.values() if not path.is_file()]
     if missing:
         raise FileNotFoundError(f"cannot prepare snapshot, missing files: {missing}")
+    linked_sources = [relative for relative, source in sources.items() if source.is_symlink()]
+    if linked_sources:
+        raise ValueError(f"snapshot sources contain linked files: {linked_sources}")
     collisions = [
         relative
         for relative, source in sources.items()

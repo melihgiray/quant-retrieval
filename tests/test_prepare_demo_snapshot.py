@@ -89,6 +89,19 @@ def test_prepare_snapshot_rejects_an_output_file(tmp_path: Path):
     assert output.read_text() == "keep me"
 
 
+def test_prepare_snapshot_rejects_linked_source_files(tmp_path: Path):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    target = checkpoint / "config.json"
+    target.unlink()
+    target.symlink_to(corpus)
+    output = tmp_path / "output"
+
+    with pytest.raises(ValueError, match="sources contain linked files.*config.json"):
+        prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
+
+    assert not output.exists()
+
+
 def test_prepare_snapshot_rejects_a_linked_output_directory(tmp_path: Path):
     checkpoint, corpus, artifacts = source_files(tmp_path)
     output = tmp_path / "output"
