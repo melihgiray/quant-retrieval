@@ -48,8 +48,8 @@ class BM25Retriever:
             raise ValueError("document IDs must be positive integers")
         if len(set(document_ids)) != len(document_ids):
             raise ValueError("document IDs must be unique")
-        if any(not isinstance(text, str) for text in texts):
-            raise ValueError("document texts must be strings")
+        if any(not isinstance(text, str) or not text.strip() for text in texts):
+            raise ValueError("document texts must be nonempty strings")
 
         token_counts = [Counter(tokenize(text)) for text in texts]
         terms = sorted({term for counts in token_counts for term in counts})

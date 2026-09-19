@@ -64,9 +64,9 @@ def test_index_requires_positive_integer_document_ids(document_ids):
         BM25Retriever().index(document_ids, ["delta"])
 
 
-@pytest.mark.parametrize("text", [None, 12, ["delta"]])
-def test_index_requires_string_documents(text):
-    with pytest.raises(ValueError, match="texts must be strings"):
+@pytest.mark.parametrize("text", [None, 12, ["delta"], "   "])
+def test_index_requires_nonempty_string_documents(text):
+    with pytest.raises(ValueError, match="nonempty strings"):
         BM25Retriever().index([1], [text])
 
 
