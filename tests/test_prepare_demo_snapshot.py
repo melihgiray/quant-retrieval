@@ -102,6 +102,17 @@ def test_prepare_snapshot_rejects_linked_source_files(tmp_path: Path):
     assert not output.exists()
 
 
+def test_prepare_snapshot_rejects_empty_source_files(tmp_path: Path):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    (artifacts / "answer_ids.npy").write_bytes(b"")
+    output = tmp_path / "output"
+
+    with pytest.raises(ValueError, match="sources contain empty files.*answer_ids.npy"):
+        prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
+
+    assert not output.exists()
+
+
 def test_prepare_snapshot_rejects_a_linked_output_directory(tmp_path: Path):
     checkpoint, corpus, artifacts = source_files(tmp_path)
     output = tmp_path / "output"

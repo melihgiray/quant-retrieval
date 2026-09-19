@@ -44,6 +44,9 @@ def prepare_demo_snapshot(
     linked_sources = [relative for relative, source in sources.items() if source.is_symlink()]
     if linked_sources:
         raise ValueError(f"snapshot sources contain linked files: {linked_sources}")
+    empty_sources = [relative for relative, source in sources.items() if source.stat().st_size == 0]
+    if empty_sources:
+        raise ValueError(f"snapshot sources contain empty files: {empty_sources}")
     collisions = [
         relative
         for relative, source in sources.items()
