@@ -104,6 +104,7 @@ test("a successful search is stored in the page URL", async () => {
   await pending;
 
   assert.equal(browser.window.location.search, "?q=risk+neutral+pricing");
+  assert.match(browser.status.textContent, /^1 answer in/);
 });
 
 test("a query in the page URL runs on load", async () => {

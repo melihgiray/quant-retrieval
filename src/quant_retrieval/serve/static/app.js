@@ -65,7 +65,8 @@ async function search(query) {
       return;
     }
     rememberQuery(payload.query);
-    status.textContent = `${payload.results.length} answers in ${payload.elapsed_ms} ms for “${payload.query}”`;
+    const noun = payload.results.length === 1 ? "answer" : "answers";
+    status.textContent = `${payload.results.length} ${noun} in ${payload.elapsed_ms} ms for “${payload.query}”`;
     results.replaceChildren(...payload.results.map(resultCard));
   } catch (error) {
     if (!controller.signal.aborted) {
