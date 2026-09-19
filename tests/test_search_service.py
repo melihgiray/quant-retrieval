@@ -191,12 +191,25 @@ def test_artifact_manifest_loads_export_commit(tmp_path: Path):
                 "documents": 100,
                 "dimensions": 384,
                 "max_length": 256,
-                "commit": "abc123",
+                "commit": "abc1234",
             }
         )
     )
 
-    assert ArtifactManifest.load(path).commit == "abc123"
+    assert ArtifactManifest.load(path).commit == "abc1234"
+
+
+@pytest.mark.parametrize("commit", ["", "not-a-commit", "ABC1234", "a" * 41])
+def test_artifact_manifest_rejects_invalid_export_commits(tmp_path: Path, commit: str):
+    path = tmp_path / "manifest.json"
+    path.write_text(
+        json.dumps(
+            {"documents": 100, "dimensions": 384, "max_length": 256, "commit": commit}
+        )
+    )
+
+    with pytest.raises(ValueError, match="hexadecimal git revision"):
+        ArtifactManifest.load(path)
 
 
 def test_artifact_manifest_rejects_missing_shape(tmp_path: Path):

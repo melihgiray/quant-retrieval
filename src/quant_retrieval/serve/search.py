@@ -16,6 +16,8 @@ from quant_retrieval.retrieval.bm25 import BM25Retriever
 from quant_retrieval.retrieval.dense import DenseRetriever
 from quant_retrieval.retrieval.hybrid import HybridRetriever
 
+COMMIT_PATTERN = re.compile(r"[0-9a-f]{7,40}")
+
 
 def make_snippet(text: str, max_chars: int = 600) -> str:
     """Collapse whitespace and stop at a word boundary for browser responses."""
@@ -70,9 +72,10 @@ class ArtifactManifest:
         if min(manifest.documents, manifest.dimensions, manifest.max_length) < 1:
             raise ValueError("artifact manifest values must be positive")
         if manifest.commit is not None and (
-            not isinstance(manifest.commit, str) or not manifest.commit.strip()
+            not isinstance(manifest.commit, str)
+            or COMMIT_PATTERN.fullmatch(manifest.commit) is None
         ):
-            raise ValueError("artifact manifest commit must be a nonempty string")
+            raise ValueError("artifact manifest commit must be a hexadecimal git revision")
         return manifest
 
 
