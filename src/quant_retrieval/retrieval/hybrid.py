@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from numbers import Integral
 
 from quant_retrieval.retrieval.base import Retriever, SearchResult
 
@@ -65,8 +66,18 @@ class HybridRetriever:
 
         fused: dict[int, float] = {}
         for retriever, weight in zip(self.retrievers, self.weights, strict=True):
+            requested = max(k, self.depth)
+            ranking = retriever.search(query, requested)
+            if len(ranking) > requested:
+                raise RuntimeError("a child retriever returned more results than requested")
             seen: set[int] = set()
-            for rank, result in enumerate(retriever.search(query, max(k, self.depth))):
+            for rank, result in enumerate(ranking):
+                if (
+                    isinstance(result.document_id, bool)
+                    or not isinstance(result.document_id, Integral)
+                    or result.document_id <= 0
+                ):
+                    raise RuntimeError("a child retriever returned an invalid document ID")
                 if result.document_id in seen:
                     continue
                 seen.add(result.document_id)

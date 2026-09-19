@@ -108,6 +108,22 @@ def test_depth_is_a_floor_not_a_cap():
     assert len(retriever.search("q", 6)) == 6
 
 
+def test_fusion_rejects_invalid_child_document_ids():
+    retriever = fuse([-1], [2])
+    with pytest.raises(RuntimeError, match="invalid document ID"):
+        retriever.search("q", 2)
+
+
+def test_fusion_rejects_a_child_that_ignores_the_requested_depth():
+    class OversizedRetriever(ScriptedRetriever):
+        def search(self, query, k):
+            return [SearchResult(document_id=index + 1, score=1.0) for index in range(k + 1)]
+
+    retriever = HybridRetriever([OversizedRetriever([]), ScriptedRetriever([1])], depth=2)
+    with pytest.raises(RuntimeError, match="more results than requested"):
+        retriever.search("q", 1)
+
+
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
