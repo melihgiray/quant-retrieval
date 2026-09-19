@@ -21,6 +21,8 @@ def prepare_demo_snapshot(
     artifacts: Path,
     output: Path,
 ) -> Path:
+    if output.exists() and not output.is_dir():
+        raise ValueError(f"snapshot output must be a directory: {output}")
     resolved_output = output.resolve()
     nested_sources = [
         str(source_root)
