@@ -150,6 +150,15 @@ def test_harness_rejects_invalid_qrel_answer_ids(invalid):
         evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
 
 
+@pytest.mark.parametrize("invalid", [0, 3, 1.5])
+def test_harness_rejects_invalid_qrel_grades(invalid):
+    corpus, queries, qrels = small_dataset()
+    qrels["grade"] = pd.Series([invalid, 2, 2])
+
+    with pytest.raises(ValueError, match=r"qrel grades must be integers in \{1, 2\}"):
+        evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
+
+
 @pytest.mark.parametrize(
     ("frame_name", "column"),
     [("corpus", "text"), ("queries", "split"), ("qrels", "grade")],
