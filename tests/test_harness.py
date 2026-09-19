@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from quant_retrieval.eval.harness import evaluate_retriever
 from quant_retrieval.eval.results import build_result_record, write_result
@@ -69,6 +70,21 @@ def test_harness_rejects_queries_without_judgements():
         assert "20" in str(error)
     else:
         raise AssertionError("expected a ValueError")
+
+
+@pytest.mark.parametrize(
+    ("frame_name", "column"),
+    [("corpus", "text"), ("queries", "split"), ("qrels", "grade")],
+)
+def test_harness_reports_missing_input_columns(frame_name, column):
+    corpus, queries, qrels = small_dataset()
+    frames = {"corpus": corpus, "queries": queries, "qrels": qrels}
+    frames[frame_name] = frames[frame_name].drop(columns=column)
+
+    with pytest.raises(ValueError, match=f"{frame_name} is missing columns.*{column}"):
+        evaluate_retriever(
+            KeywordRetriever(), frames["corpus"], frames["queries"], frames["qrels"]
+        )
 
 
 def test_result_record_and_writer_keep_provenance(tmp_path: Path):

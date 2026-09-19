@@ -13,6 +13,12 @@ from quant_retrieval.eval.metrics import aggregate_metrics, per_query_metrics
 from quant_retrieval.retrieval.base import Retriever
 
 
+def _require_columns(frame: pd.DataFrame, name: str, required: set[str]) -> None:
+    missing = required - set(frame.columns)
+    if missing:
+        raise ValueError(f"{name} is missing columns: {sorted(missing)}")
+
+
 def evaluate_retriever(
     retriever: Retriever,
     corpus: pd.DataFrame,
@@ -25,6 +31,9 @@ def evaluate_retriever(
     """Index the full corpus, retrieve one ranking per query, and score it."""
     if max_results < 100:
         raise ValueError("max_results must be at least 100 for Recall@100")
+    _require_columns(corpus, "corpus", {"answer_id", "text"})
+    _require_columns(queries, "queries", {"question_id", "text", "split"})
+    _require_columns(qrels, "qrels", {"question_id", "answer_id", "grade"})
     selected_queries = queries.loc[queries["split"] == split]
     if selected_queries.empty:
         raise ValueError(f"split {split!r} contains no queries")
