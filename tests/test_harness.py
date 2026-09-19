@@ -61,6 +61,13 @@ def test_harness_rejects_cutoff_below_reported_recall():
         raise AssertionError("expected a ValueError")
 
 
+def test_harness_rejects_an_empty_corpus():
+    corpus, queries, qrels = small_dataset()
+
+    with pytest.raises(ValueError, match="corpus must contain at least one document"):
+        evaluate_retriever(KeywordRetriever(), corpus.iloc[0:0], queries, qrels)
+
+
 def test_harness_rejects_queries_without_judgements():
     corpus, queries, qrels = small_dataset()
     qrels = qrels[qrels["question_id"] != 20]

@@ -35,6 +35,8 @@ def evaluate_retriever(
     _require_columns(corpus, "corpus", {"answer_id", "text"})
     _require_columns(queries, "queries", {"question_id", "text", "split"})
     _require_columns(qrels, "qrels", {"question_id", "answer_id", "grade"})
+    if corpus.empty:
+        raise ValueError("corpus must contain at least one document")
     selected_queries = queries.loc[queries["split"] == split]
     if selected_queries.empty:
         raise ValueError(f"split {split!r} contains no queries")
