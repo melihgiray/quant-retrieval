@@ -45,6 +45,12 @@ def evaluate_retriever(
         raise ValueError("query IDs must be positive integers")
     if selected_queries["question_id"].duplicated().any():
         raise ValueError(f"split {split!r} contains duplicate question IDs")
+    if (
+        not pd.api.types.is_integer_dtype(corpus["answer_id"].dtype)
+        or corpus["answer_id"].isna().any()
+        or (corpus["answer_id"] <= 0).any()
+    ):
+        raise ValueError("corpus answer IDs must be positive integers")
     if corpus["answer_id"].duplicated().any():
         raise ValueError("corpus contains duplicate answer IDs")
     selected_ids = set(selected_queries["question_id"])
