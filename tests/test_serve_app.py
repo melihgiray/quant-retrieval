@@ -97,6 +97,10 @@ def test_responses_set_browser_security_headers():
     )
     assert response.headers["referrer-policy"] == "no-referrer"
     assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["permissions-policy"] == (
+        "camera=(), geolocation=(), microphone=()"
+    )
+    assert response.headers["cross-origin-opener-policy"] == "same-origin"
 
 
 def test_large_search_responses_are_compressed():
