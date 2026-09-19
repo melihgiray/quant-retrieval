@@ -58,3 +58,8 @@ def test_publish_rejects_an_existing_repo_with_different_visibility(tmp_path: Pa
         publish_demo_snapshot("owner/model", snapshot(tmp_path), private=False, api=api)
 
     assert api.uploaded is None
+
+
+def test_publish_rejects_an_empty_repository_id(tmp_path: Path):
+    with pytest.raises(ValueError, match="repo_id must not be empty"):
+        publish_demo_snapshot("  ", snapshot(tmp_path), api=FakeApi())

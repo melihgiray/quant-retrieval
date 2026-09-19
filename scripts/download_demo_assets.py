@@ -13,7 +13,7 @@ import argparse
 from pathlib import Path
 
 from huggingface_hub import snapshot_download
-from scripts.hub_auth import read_token_file
+from scripts.hub_auth import nonempty_hub_value, read_token_file
 
 from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
 
@@ -21,6 +21,7 @@ from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
 def download_demo_assets(
     repo_id: str, output: Path, revision: str = "main", *, token: str | None = None
 ) -> Path:
+    repo_id = nonempty_hub_value(repo_id, "repo_id")
     downloaded = Path(
         snapshot_download(
             repo_id=repo_id,

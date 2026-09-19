@@ -57,6 +57,12 @@ def test_download_checks_and_returns_the_snapshot(tmp_path: Path, monkeypatch):
     assert all((downloaded / relative).is_file() for relative in REQUIRED_FILES)
 
 
+@pytest.mark.parametrize("repo_id", ["", "  ", "\n"])
+def test_download_rejects_an_empty_repository_id(tmp_path: Path, repo_id):
+    with pytest.raises(ValueError, match="repo_id must not be empty"):
+        assets.download_demo_assets(repo_id, tmp_path)
+
+
 def test_download_passes_a_private_repository_token(tmp_path: Path, monkeypatch):
     def download(**kwargs):
         assert kwargs["token"] == "fixture-token"

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from huggingface_hub import HfApi
-from scripts.hub_auth import read_token_file
+from scripts.hub_auth import nonempty_hub_value, read_token_file
 
 from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
 
@@ -20,6 +20,7 @@ def publish_demo_snapshot(
     token: str | None = None,
     api: Any | None = None,
 ) -> str:
+    repo_id = nonempty_hub_value(repo_id, "repo_id")
     verify_snapshot(snapshot)
     client = api or HfApi(token=token)
     client.create_repo(repo_id=repo_id, repo_type="model", private=private, exist_ok=True)
