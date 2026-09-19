@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from numbers import Real
 from typing import Any
 
 import numpy as np
@@ -100,6 +101,11 @@ def evaluate_retriever(
         latencies_ms.append((time.perf_counter() - search_started) * 1000)
         if len(results) > max_results:
             raise ValueError("retriever returned more results than requested")
+        if any(
+            not isinstance(result.score, Real) or not np.isfinite(result.score)
+            for result in results
+        ):
+            raise ValueError("retriever returned non-finite or non-numeric scores")
         ranking = [result.document_id for result in results]
         if len(set(ranking)) != len(ranking):
             raise ValueError("retriever returned duplicate document IDs")

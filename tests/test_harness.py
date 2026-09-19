@@ -212,6 +212,16 @@ def test_harness_rejects_rankings_beyond_the_requested_cutoff():
         evaluate_retriever(retriever, corpus, queries, qrels)
 
 
+@pytest.mark.parametrize("score", [float("nan"), float("inf"), "high"])
+def test_harness_rejects_invalid_result_scores(score):
+    corpus, queries, qrels = small_dataset()
+    retriever = KeywordRetriever()
+    retriever.search = lambda query, k: [SearchResult(document_id=1, score=score)]
+
+    with pytest.raises(ValueError, match="non-finite or non-numeric scores"):
+        evaluate_retriever(retriever, corpus, queries, qrels)
+
+
 def test_result_record_and_writer_keep_provenance(tmp_path: Path):
     evaluation = {
         "metrics": {"mrr_at_10": 0.5},
