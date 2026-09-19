@@ -64,8 +64,9 @@ class DenseRetriever:
             raise ValueError("document IDs must be unique")
         if any(not isinstance(text, str) or not text.strip() for text in texts):
             raise ValueError("document texts must be nonempty strings")
+        encoded = self._encode(texts)
         self.document_ids = np.asarray(document_ids, dtype=np.int64)
-        self.embeddings = self._encode(texts)
+        self.embeddings = encoded
 
     def load_index(self, document_ids_path: Path, embeddings_path: Path) -> None:
         """Load a precomputed corpus index without copying it into memory."""

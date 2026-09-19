@@ -82,6 +82,23 @@ def test_dense_index_requires_nonempty_string_documents(text):
         retriever.index([1], [text])
 
 
+def test_failed_dense_reindex_keeps_the_previous_index():
+    retriever = DenseRetriever("unused")
+    retriever.document_ids = np.array([1])
+    retriever.embeddings = np.array([[1.0, 0.0]], dtype=np.float32)
+
+    def fail_encode(self, texts):
+        raise RuntimeError("encoder failed")
+
+    retriever._encode = MethodType(fail_encode, retriever)
+
+    with pytest.raises(RuntimeError, match="encoder failed"):
+        retriever.index([2], ["gamma"])
+
+    assert retriever.document_ids.tolist() == [1]
+    assert retriever.embeddings.tolist() == [[1.0, 0.0]]
+
+
 def test_dense_retriever_loads_a_memory_mapped_index(tmp_path: Path):
     ids_path = tmp_path / "answer_ids.npy"
     embeddings_path = tmp_path / "embeddings.npy"
