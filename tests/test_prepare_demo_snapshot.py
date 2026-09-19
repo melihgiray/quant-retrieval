@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from scripts import prepare_demo_snapshot as snapshot_script
 from scripts.prepare_demo_snapshot import prepare_demo_snapshot
 
 from quant_retrieval.serve.artifacts import (
@@ -101,3 +102,26 @@ def test_verify_snapshot_rejects_linked_payload_files(tmp_path: Path):
 
     with pytest.raises(RuntimeError, match="linked files"):
         verify_snapshot(output)
+
+
+def test_failed_snapshot_copy_removes_a_stale_checksum(tmp_path: Path, monkeypatch):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    output = tmp_path / "output"
+    output.mkdir()
+    (output / CHECKSUM_FILE).write_text("stale")
+    real_copy = snapshot_script.shutil.copy2
+    calls = 0
+
+    def interrupted_copy(source, destination):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("copy interrupted")
+        return real_copy(source, destination)
+
+    monkeypatch.setattr(snapshot_script.shutil, "copy2", interrupted_copy)
+
+    with pytest.raises(OSError, match="copy interrupted"):
+        prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
+
+    assert not (output / CHECKSUM_FILE).exists()

@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 
 from quant_retrieval.serve.artifacts import (
+    CHECKSUM_FILE,
     MODEL_FILES,
     RETRIEVAL_FILES,
     linked_paths,
@@ -41,6 +42,7 @@ def prepare_demo_snapshot(
     if linked:
         raise ValueError(f"snapshot output contains linked paths: {linked}")
 
+    (output / CHECKSUM_FILE).unlink(missing_ok=True)
     for relative, source in sources.items():
         destination = output / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
