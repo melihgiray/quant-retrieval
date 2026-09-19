@@ -25,7 +25,10 @@ function browserFixture(search = "") {
   const document = {
     querySelector: (selector) => elements[selector],
     querySelectorAll: () => [],
-    createElement: () => ({ append() {} }),
+    createElement: () => ({
+      children: [],
+      append(...children) { this.children.push(...children); },
+    }),
   };
   const fetch = (url, options) => new Promise((resolve) => requests.push({ url, options, resolve }));
   const window = {
@@ -120,4 +123,16 @@ test("the search form exposes its busy state", async () => {
   await pending;
   assert.equal(browser.submit.disabled, false);
   assert.equal(browser.attributes.has("aria-busy"), false);
+});
+
+test("answer links cannot control the search page", () => {
+  const browser = browserFixture();
+  const card = vm.runInContext(
+    'resultCard({ answer_id: 10, text: "answer", url: "https://example.com/10" }, 0)',
+    browser.context,
+  );
+  const link = card.children[1].children[1];
+
+  assert.equal(link.target, "_blank");
+  assert.equal(link.rel, "noopener noreferrer");
 });

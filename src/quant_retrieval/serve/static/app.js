@@ -19,7 +19,7 @@ function resultCard(hit, index) {
   const link = document.createElement("a");
   link.href = hit.url;
   link.target = "_blank";
-  link.rel = "noreferrer";
+  link.rel = "noopener noreferrer";
   link.textContent = `Read answer ${hit.answer_id} on Quant Stack Exchange`;
 
   content.append(answer, link);
