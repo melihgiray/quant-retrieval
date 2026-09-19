@@ -89,6 +89,15 @@ def test_harness_rejects_invalid_query_ids(invalid):
         evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
 
 
+@pytest.mark.parametrize("invalid", [None, 12, "   "])
+def test_harness_rejects_invalid_query_text(invalid):
+    corpus, queries, qrels = small_dataset()
+    queries["text"] = pd.Series([invalid, "volatility", "gamma"], dtype=object)
+
+    with pytest.raises(ValueError, match="query texts must be nonempty strings"):
+        evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
+
+
 def test_harness_rejects_duplicate_corpus_ids():
     corpus, queries, qrels = small_dataset()
     corpus = pd.concat([corpus, corpus.iloc[[0]]], ignore_index=True)

@@ -43,6 +43,10 @@ def evaluate_retriever(
         or (selected_queries["question_id"] <= 0).any()
     ):
         raise ValueError("query IDs must be positive integers")
+    if not all(
+        isinstance(text, str) and text.strip() for text in selected_queries["text"]
+    ):
+        raise ValueError("query texts must be nonempty strings")
     if selected_queries["question_id"].duplicated().any():
         raise ValueError(f"split {split!r} contains duplicate question IDs")
     if (
