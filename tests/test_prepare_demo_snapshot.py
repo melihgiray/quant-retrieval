@@ -66,6 +66,18 @@ def test_prepare_snapshot_rejects_an_output_that_overwrites_sources(tmp_path: Pa
     assert not (checkpoint / CHECKSUM_FILE).exists()
 
 
+@pytest.mark.parametrize("source_name", ["checkpoint", "artifacts"])
+def test_prepare_snapshot_rejects_output_nested_in_a_source(tmp_path: Path, source_name):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    source = {"checkpoint": checkpoint, "artifacts": artifacts}[source_name]
+    output = source / "snapshot"
+
+    with pytest.raises(ValueError, match="nested inside source directories"):
+        prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
+
+    assert not output.exists()
+
+
 def test_prepare_snapshot_rejects_a_linked_output_directory(tmp_path: Path):
     checkpoint, corpus, artifacts = source_files(tmp_path)
     output = tmp_path / "output"

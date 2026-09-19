@@ -21,6 +21,14 @@ def prepare_demo_snapshot(
     artifacts: Path,
     output: Path,
 ) -> Path:
+    resolved_output = output.resolve()
+    nested_sources = [
+        str(source_root)
+        for source_root in (checkpoint.resolve(), artifacts.resolve())
+        if resolved_output != source_root and resolved_output.is_relative_to(source_root)
+    ]
+    if nested_sources:
+        raise ValueError(f"snapshot output is nested inside source directories: {nested_sources}")
     sources = {name: checkpoint / name for name in MODEL_FILES}
     sources.update(
         {
