@@ -31,6 +31,7 @@ def test_health_reports_a_loaded_service():
         "ready": True,
         "documents": 1,
         "pipeline": "bm25_dense_rrf",
+        "artifact_commit": None,
     }
 
 

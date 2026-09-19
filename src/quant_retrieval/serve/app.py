@@ -37,6 +37,7 @@ class HealthResponse(BaseModel):
     ready: bool
     documents: int
     pipeline: str
+    artifact_commit: str | None
 
 
 def service_from_environment() -> SearchService:
@@ -93,6 +94,7 @@ def create_app(service: SearchService | None = None) -> FastAPI:
             ready=True,
             documents=search_service.document_count,
             pipeline=search_service.pipeline,
+            artifact_commit=search_service.artifact_commit,
         )
 
     @app.get("/search", response_model=SearchResponse)

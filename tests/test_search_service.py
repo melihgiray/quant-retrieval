@@ -183,6 +183,22 @@ def test_artifact_manifest_loads_index_shape(tmp_path: Path):
     assert ArtifactManifest.load(path) == ArtifactManifest(100, 384, 256)
 
 
+def test_artifact_manifest_loads_export_commit(tmp_path: Path):
+    path = tmp_path / "manifest.json"
+    path.write_text(
+        json.dumps(
+            {
+                "documents": 100,
+                "dimensions": 384,
+                "max_length": 256,
+                "commit": "abc123",
+            }
+        )
+    )
+
+    assert ArtifactManifest.load(path).commit == "abc123"
+
+
 def test_artifact_manifest_rejects_missing_shape(tmp_path: Path):
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps({"documents": 100}))

@@ -45,6 +45,7 @@ class ArtifactManifest:
     documents: int
     dimensions: int
     max_length: int
+    commit: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> ArtifactManifest:
@@ -62,20 +63,32 @@ class ArtifactManifest:
                 documents=payload["documents"],
                 dimensions=payload["dimensions"],
                 max_length=payload["max_length"],
+                commit=payload.get("commit"),
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("artifact manifest is missing valid dimensions") from error
         if min(manifest.documents, manifest.dimensions, manifest.max_length) < 1:
             raise ValueError("artifact manifest values must be positive")
+        if manifest.commit is not None and (
+            not isinstance(manifest.commit, str) or not manifest.commit.strip()
+        ):
+            raise ValueError("artifact manifest commit must be a nonempty string")
         return manifest
 
 
 class SearchService:
     """Attach answer text and source links to a retriever's ranked IDs."""
 
-    def __init__(self, retriever: Retriever, corpus: pd.DataFrame) -> None:
+    def __init__(
+        self,
+        retriever: Retriever,
+        corpus: pd.DataFrame,
+        *,
+        artifact_commit: str | None = None,
+    ) -> None:
         self._validate_corpus(corpus)
         self.retriever = retriever
+        self.artifact_commit = artifact_commit
         self._search_lock = Lock()
         self.answers = {
             int(row.answer_id): (int(row.question_id), str(row.text))
@@ -146,7 +159,7 @@ class SearchService:
         dense.validate_query_encoder()
 
         retriever = HybridRetriever([bm25, dense], depth=depth, rrf_k=rrf_k)
-        return cls(retriever, corpus)
+        return cls(retriever, corpus, artifact_commit=manifest.commit)
 
     def search(self, query: str, k: int = 10) -> list[SearchHit]:
         query = query.strip()
