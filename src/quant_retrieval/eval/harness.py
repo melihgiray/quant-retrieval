@@ -39,6 +39,7 @@ def evaluate_retriever(
         raise ValueError(f"split {split!r} contains no queries")
 
     document_ids = corpus["answer_id"].astype(int).tolist()
+    document_id_set = set(document_ids)
     document_texts = corpus["text"].tolist()
     index_started = time.perf_counter()
     retriever.index(document_ids, document_texts)
@@ -50,7 +51,17 @@ def evaluate_retriever(
         search_started = time.perf_counter()
         results = retriever.search(row.text, max_results)
         latencies_ms.append((time.perf_counter() - search_started) * 1000)
-        rankings[int(row.question_id)] = [result.document_id for result in results]
+        if len(results) > max_results:
+            raise ValueError("retriever returned more results than requested")
+        ranking = [result.document_id for result in results]
+        if len(set(ranking)) != len(ranking):
+            raise ValueError("retriever returned duplicate document IDs")
+        unknown = [
+            document_id for document_id in ranking if document_id not in document_id_set
+        ]
+        if unknown:
+            raise ValueError(f"retriever returned unknown document IDs: {unknown[:5]}")
+        rankings[int(row.question_id)] = ranking
 
     qrel_map = _qrels_for_queries(qrels, set(rankings))
     if set(qrel_map) != set(rankings):

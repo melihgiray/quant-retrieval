@@ -87,6 +87,36 @@ def test_harness_reports_missing_input_columns(frame_name, column):
         )
 
 
+@pytest.mark.parametrize(
+    ("results", "message"),
+    [
+        (
+            [SearchResult(document_id=1, score=1.0), SearchResult(document_id=1, score=0.5)],
+            "duplicate document IDs",
+        ),
+        ([SearchResult(document_id=999, score=1.0)], "unknown document IDs"),
+    ],
+)
+def test_harness_rejects_invalid_rankings(results, message):
+    corpus, queries, qrels = small_dataset()
+    retriever = KeywordRetriever()
+    retriever.search = lambda query, k: results
+
+    with pytest.raises(ValueError, match=message):
+        evaluate_retriever(retriever, corpus, queries, qrels)
+
+
+def test_harness_rejects_rankings_beyond_the_requested_cutoff():
+    corpus, queries, qrels = small_dataset()
+    retriever = KeywordRetriever()
+    retriever.search = lambda query, k: [
+        SearchResult(document_id=1, score=1.0) for _ in range(k + 1)
+    ]
+
+    with pytest.raises(ValueError, match="more results than requested"):
+        evaluate_retriever(retriever, corpus, queries, qrels)
+
+
 def test_result_record_and_writer_keep_provenance(tmp_path: Path):
     evaluation = {
         "metrics": {"mrr_at_10": 0.5},
