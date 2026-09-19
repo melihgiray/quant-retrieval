@@ -222,6 +222,18 @@ def test_harness_rejects_invalid_result_scores(score):
         evaluate_retriever(retriever, corpus, queries, qrels)
 
 
+def test_harness_rejects_results_out_of_score_order():
+    corpus, queries, qrels = small_dataset()
+    retriever = KeywordRetriever()
+    retriever.search = lambda query, k: [
+        SearchResult(document_id=1, score=0.2),
+        SearchResult(document_id=2, score=0.8),
+    ]
+
+    with pytest.raises(ValueError, match="ordered by descending score"):
+        evaluate_retriever(retriever, corpus, queries, qrels)
+
+
 def test_result_record_and_writer_keep_provenance(tmp_path: Path):
     evaluation = {
         "metrics": {"mrr_at_10": 0.5},

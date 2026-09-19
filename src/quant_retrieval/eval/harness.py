@@ -106,6 +106,11 @@ def evaluate_retriever(
             for result in results
         ):
             raise ValueError("retriever returned non-finite or non-numeric scores")
+        if any(
+            left.score < right.score
+            for left, right in zip(results, results[1:], strict=False)
+        ):
+            raise ValueError("retriever results must be ordered by descending score")
         ranking = [result.document_id for result in results]
         if len(set(ranking)) != len(ranking):
             raise ValueError("retriever returned duplicate document IDs")
