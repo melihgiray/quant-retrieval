@@ -88,6 +88,14 @@ def test_harness_rejects_duplicate_corpus_ids():
         evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
 
 
+def test_harness_rejects_duplicate_relevance_pairs():
+    corpus, queries, qrels = small_dataset()
+    qrels = pd.concat([qrels, qrels.iloc[[0]]], ignore_index=True)
+
+    with pytest.raises(ValueError, match="duplicate question and answer pairs"):
+        evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
+
+
 @pytest.mark.parametrize(
     ("frame_name", "column"),
     [("corpus", "text"), ("queries", "split"), ("qrels", "grade")],
