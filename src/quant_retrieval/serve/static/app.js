@@ -29,8 +29,9 @@ function resultCard(hit, index) {
 
 function rememberQuery(query) {
   const url = new URL(window.location.href);
+  if (url.searchParams.get("q") === query) return;
   url.searchParams.set("q", query);
-  window.history.replaceState(null, "", url);
+  window.history.pushState(null, "", url);
 }
 
 async function search(query) {
@@ -92,8 +93,18 @@ document.querySelectorAll("[data-query]").forEach((button) => {
   });
 });
 
-const initialQuery = new URLSearchParams(window.location.search).get("q")?.trim();
-if (initialQuery) {
-  input.value = initialQuery;
-  search(initialQuery);
+function restoreQueryFromLocation() {
+  const query = new URLSearchParams(window.location.search).get("q")?.trim();
+  if (query) {
+    input.value = query;
+    search(query);
+  } else {
+    activeRequest?.abort();
+    input.value = "";
+    status.textContent = "";
+    results.replaceChildren();
+  }
 }
+
+window.addEventListener("popstate", restoreQueryFromLocation);
+restoreQueryFromLocation();

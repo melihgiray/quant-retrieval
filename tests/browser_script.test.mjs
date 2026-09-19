@@ -21,6 +21,7 @@ function browserFixture(search = "") {
     setAttribute: (name, value) => attributes.set(name, value),
     removeAttribute: (name) => attributes.delete(name),
   };
+  const listeners = {};
   const elements = { "#search-form": form, "#query": input, "#status": status, "#results": results };
   const document = {
     querySelector: (selector) => elements[selector],
@@ -34,12 +35,13 @@ function browserFixture(search = "") {
   const window = {
     location: new URL(`https://demo.example/${search}`),
     history: {
-      replaceState(state, title, url) { window.location = new URL(url); },
+      pushState(state, title, url) { window.location = new URL(url); },
     },
+    addEventListener: (name, listener) => { listeners[name] = listener; },
   };
   const context = vm.createContext({ document, fetch, window, AbortController, URL, URLSearchParams });
   vm.runInContext(source, context);
-  return { context, requests, status, results, input, window, submit, attributes };
+  return { context, requests, status, results, input, window, submit, attributes, listeners };
 }
 
 function response(query) {
@@ -135,4 +137,19 @@ test("answer links cannot control the search page", () => {
 
   assert.equal(link.target, "_blank");
   assert.equal(link.rel, "noopener noreferrer");
+});
+
+test("history navigation restores its query", async () => {
+  const browser = browserFixture();
+  const first = vm.runInContext('search("delta")', browser.context);
+  browser.requests[0].resolve(response("delta"));
+  await first;
+
+  browser.window.location = new URL("https://demo.example/?q=gamma");
+  browser.listeners.popstate();
+  assert.equal(browser.input.value, "gamma");
+  assert.match(browser.requests[1].url, /q=gamma/);
+  browser.requests[1].resolve(response("gamma"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(browser.status.textContent, /gamma/);
 });
