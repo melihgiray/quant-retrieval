@@ -80,6 +80,15 @@ def test_harness_rejects_duplicate_query_ids_in_a_split():
         evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
 
 
+@pytest.mark.parametrize("invalid", [0, -1, 10.5])
+def test_harness_rejects_invalid_query_ids(invalid):
+    corpus, queries, qrels = small_dataset()
+    queries["question_id"] = pd.Series([invalid, 20, 30])
+
+    with pytest.raises(ValueError, match="query IDs must be positive integers"):
+        evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
+
+
 def test_harness_rejects_duplicate_corpus_ids():
     corpus, queries, qrels = small_dataset()
     corpus = pd.concat([corpus, corpus.iloc[[0]]], ignore_index=True)
