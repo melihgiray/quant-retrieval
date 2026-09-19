@@ -41,6 +41,7 @@ def test_search_returns_ranked_answers():
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"
+    assert response.headers["server-timing"].startswith("search;dur=")
     payload = response.json()
     assert payload["elapsed_ms"] >= 0
     assert {key: value for key, value in payload.items() if key != "elapsed_ms"} == {

@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -100,6 +100,7 @@ def create_app(service: SearchService | None = None) -> FastAPI:
     @app.get("/search", response_model=SearchResponse)
     def search(
         request: Request,
+        response: Response,
         q: str = Query(min_length=1, max_length=1000),
         k: int = Query(default=10, ge=1, le=20),
     ) -> SearchResponse:
@@ -109,6 +110,7 @@ def create_app(service: SearchService | None = None) -> FastAPI:
             elapsed_ms = (time.perf_counter() - started) * 1000
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+        response.headers["Server-Timing"] = f"search;dur={elapsed_ms:.2f}"
         return SearchResponse(
             query=q.strip(),
             elapsed_ms=round(elapsed_ms, 2),
