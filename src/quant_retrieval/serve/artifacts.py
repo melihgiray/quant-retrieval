@@ -68,6 +68,9 @@ def verify_snapshot(root: Path) -> None:
     missing = [relative for relative in REQUIRED_FILES if not (root / relative).is_file()]
     if missing:
         raise RuntimeError(f"asset repository is missing files: {missing}")
+    empty = [relative for relative in PAYLOAD_FILES if (root / relative).stat().st_size == 0]
+    if empty:
+        raise RuntimeError(f"asset repository contains empty files: {empty}")
     try:
         expected = json.loads((root / CHECKSUM_FILE).read_text())
     except (UnicodeError, json.JSONDecodeError) as error:

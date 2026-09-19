@@ -11,6 +11,7 @@ from quant_retrieval.serve.artifacts import (
     REQUIRED_FILES,
     RETRIEVAL_FILES,
     verify_snapshot,
+    write_checksums,
 )
 
 
@@ -148,6 +149,16 @@ def test_verify_snapshot_rejects_linked_payload_files(tmp_path: Path):
     target.symlink_to(checkpoint / "config.json")
 
     with pytest.raises(RuntimeError, match="linked files"):
+        verify_snapshot(output)
+
+
+def test_verify_snapshot_rejects_empty_payload_files(tmp_path: Path):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    output = prepare_demo_snapshot(checkpoint, corpus, artifacts, tmp_path / "output")
+    (output / "demo/corpus.parquet").write_bytes(b"")
+    write_checksums(output)
+
+    with pytest.raises(RuntimeError, match="contains empty files.*corpus.parquet"):
         verify_snapshot(output)
 
 
