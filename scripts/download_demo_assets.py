@@ -22,6 +22,7 @@ def download_demo_assets(
     repo_id: str, output: Path, revision: str = "main", *, token: str | None = None
 ) -> Path:
     repo_id = nonempty_hub_value(repo_id, "repo_id")
+    revision = nonempty_hub_value(revision, "revision")
     downloaded = Path(
         snapshot_download(
             repo_id=repo_id,

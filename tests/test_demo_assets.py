@@ -63,6 +63,12 @@ def test_download_rejects_an_empty_repository_id(tmp_path: Path, repo_id):
         assets.download_demo_assets(repo_id, tmp_path)
 
 
+@pytest.mark.parametrize("revision", ["", "  ", "\n"])
+def test_download_rejects_an_empty_revision(tmp_path: Path, revision):
+    with pytest.raises(ValueError, match="revision must not be empty"):
+        assets.download_demo_assets("owner/model", tmp_path, revision)
+
+
 def test_download_passes_a_private_repository_token(tmp_path: Path, monkeypatch):
     def download(**kwargs):
         assert kwargs["token"] == "fixture-token"
