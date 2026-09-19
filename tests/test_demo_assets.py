@@ -69,6 +69,16 @@ def test_download_rejects_an_empty_revision(tmp_path: Path, revision):
         assets.download_demo_assets("owner/model", tmp_path, revision)
 
 
+def test_download_rejects_an_output_file(tmp_path: Path):
+    output = tmp_path / "assets"
+    output.write_text("keep me")
+
+    with pytest.raises(ValueError, match="asset output must be a directory"):
+        assets.download_demo_assets("owner/model", output)
+
+    assert output.read_text() == "keep me"
+
+
 def test_download_passes_a_private_repository_token(tmp_path: Path, monkeypatch):
     def download(**kwargs):
         assert kwargs["token"] == "fixture-token"

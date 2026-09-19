@@ -23,6 +23,8 @@ def download_demo_assets(
 ) -> Path:
     repo_id = nonempty_hub_value(repo_id, "repo_id")
     revision = nonempty_hub_value(revision, "revision")
+    if output.exists() and not output.is_dir():
+        raise ValueError(f"asset output must be a directory: {output}")
     downloaded = Path(
         snapshot_download(
             repo_id=repo_id,
