@@ -159,6 +159,14 @@ def test_harness_rejects_invalid_qrel_grades(invalid):
         evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
 
 
+def test_harness_rejects_qrels_for_answers_outside_the_corpus():
+    corpus, queries, qrels = small_dataset()
+    qrels.loc[qrels["question_id"] == 10, "answer_id"] = 999
+
+    with pytest.raises(ValueError, match="qrels reference unknown answer IDs.*999"):
+        evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
+
+
 @pytest.mark.parametrize(
     ("frame_name", "column"),
     [("corpus", "text"), ("queries", "split"), ("qrels", "grade")],

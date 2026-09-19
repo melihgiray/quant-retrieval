@@ -84,6 +84,9 @@ def evaluate_retriever(
 
     document_ids = corpus["answer_id"].astype(int).tolist()
     document_id_set = set(document_ids)
+    unknown_qrel_ids = sorted(set(selected_qrels["answer_id"]) - document_id_set)
+    if unknown_qrel_ids:
+        raise ValueError(f"qrels reference unknown answer IDs: {unknown_qrel_ids[:5]}")
     document_texts = corpus["text"].tolist()
     index_started = time.perf_counter()
     retriever.index(document_ids, document_texts)
