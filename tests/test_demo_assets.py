@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from scripts import download_demo_assets as assets
 from scripts import start_demo
-from scripts.start_demo import configure_asset_environment, valid_port
+from scripts.start_demo import configure_asset_environment, nonempty_value, valid_port
 
 from quant_retrieval.serve.artifacts import (
     CHECKSUM_FILE,
@@ -129,6 +129,16 @@ def test_launcher_accepts_a_valid_port():
 def test_launcher_rejects_an_invalid_port(value):
     with pytest.raises(argparse.ArgumentTypeError, match="1 to 65535"):
         valid_port(value)
+
+
+def test_launcher_trims_nonempty_string_settings():
+    assert nonempty_value(" owner/model ") == "owner/model"
+
+
+@pytest.mark.parametrize("value", ["", "  ", "\n"])
+def test_launcher_rejects_empty_string_settings(value):
+    with pytest.raises(argparse.ArgumentTypeError, match="must not be empty"):
+        nonempty_value(value)
 
 
 def test_launcher_forwards_hub_token_without_printing_it(tmp_path: Path, monkeypatch):

@@ -25,6 +25,13 @@ def valid_port(value: str) -> int:
     return port
 
 
+def nonempty_value(value: str) -> str:
+    value = value.strip()
+    if not value:
+        raise argparse.ArgumentTypeError("value must not be empty")
+    return value
+
+
 def configure_asset_environment(
     root: Path, environ: MutableMapping[str, str] | None = None
 ) -> None:
@@ -42,10 +49,14 @@ def configure_asset_environment(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--host", type=nonempty_value, default="0.0.0.0")
     parser.add_argument("--port", type=valid_port, default=valid_port(os.getenv("PORT", "7860")))
-    parser.add_argument("--asset-repo", default=os.getenv("ASSET_REPO"))
-    parser.add_argument("--asset-revision", default=os.getenv("ASSET_REVISION", "main"))
+    parser.add_argument("--asset-repo", type=nonempty_value, default=os.getenv("ASSET_REPO"))
+    parser.add_argument(
+        "--asset-revision",
+        type=nonempty_value,
+        default=os.getenv("ASSET_REVISION", "main"),
+    )
     parser.add_argument("--asset-dir", type=Path, default=Path("demo_assets"))
     args = parser.parse_args()
 
