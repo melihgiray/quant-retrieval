@@ -15,6 +15,16 @@ import uvicorn
 from scripts.download_demo_assets import download_demo_assets
 
 
+def valid_port(value: str) -> int:
+    try:
+        port = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("port must be an integer from 1 to 65535") from error
+    if not 1 <= port <= 65535:
+        raise argparse.ArgumentTypeError("port must be an integer from 1 to 65535")
+    return port
+
+
 def configure_asset_environment(
     root: Path, environ: MutableMapping[str, str] | None = None
 ) -> None:
@@ -33,7 +43,7 @@ def configure_asset_environment(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "7860")))
+    parser.add_argument("--port", type=valid_port, default=valid_port(os.getenv("PORT", "7860")))
     parser.add_argument("--asset-repo", default=os.getenv("ASSET_REPO"))
     parser.add_argument("--asset-revision", default=os.getenv("ASSET_REVISION", "main"))
     parser.add_argument("--asset-dir", type=Path, default=Path("demo_assets"))

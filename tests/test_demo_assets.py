@@ -1,3 +1,4 @@
+import argparse
 import json
 import subprocess
 import sys
@@ -6,7 +7,7 @@ from pathlib import Path
 import pytest
 from scripts import download_demo_assets as assets
 from scripts import start_demo
-from scripts.start_demo import configure_asset_environment
+from scripts.start_demo import configure_asset_environment, valid_port
 
 from quant_retrieval.serve.artifacts import (
     CHECKSUM_FILE,
@@ -118,6 +119,16 @@ def test_remote_snapshot_paths_configure_the_server(tmp_path: Path):
     assert environ["CORPUS_PATH"] == str(tmp_path / "demo/corpus.parquet")
     assert environ["EMBEDDINGS_PATH"] == str(tmp_path / "demo/embeddings_fp16.npy")
     assert environ["DEVICE"] == "cpu"
+
+
+def test_launcher_accepts_a_valid_port():
+    assert valid_port("7860") == 7860
+
+
+@pytest.mark.parametrize("value", ["not-a-port", "0", "65536", "-1"])
+def test_launcher_rejects_an_invalid_port(value):
+    with pytest.raises(argparse.ArgumentTypeError, match="1 to 65535"):
+        valid_port(value)
 
 
 def test_launcher_forwards_hub_token_without_printing_it(tmp_path: Path, monkeypatch):
