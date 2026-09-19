@@ -67,6 +67,12 @@ def evaluate_retriever(
         or (qrels["question_id"] <= 0).any()
     ):
         raise ValueError("qrel question IDs must be positive integers")
+    if (
+        not pd.api.types.is_integer_dtype(qrels["answer_id"].dtype)
+        or qrels["answer_id"].isna().any()
+        or (qrels["answer_id"] <= 0).any()
+    ):
+        raise ValueError("qrel answer IDs must be positive integers")
     if selected_qrels.duplicated(["question_id", "answer_id"]).any():
         raise ValueError("qrels contain duplicate question and answer pairs")
 
