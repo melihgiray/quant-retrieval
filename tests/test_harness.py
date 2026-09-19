@@ -72,6 +72,14 @@ def test_harness_rejects_queries_without_judgements():
         raise AssertionError("expected a ValueError")
 
 
+def test_harness_rejects_duplicate_query_ids_in_a_split():
+    corpus, queries, qrels = small_dataset()
+    queries = pd.concat([queries, queries.iloc[[0]]], ignore_index=True)
+
+    with pytest.raises(ValueError, match="duplicate question IDs"):
+        evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
+
+
 @pytest.mark.parametrize(
     ("frame_name", "column"),
     [("corpus", "text"), ("queries", "split"), ("qrels", "grade")],
