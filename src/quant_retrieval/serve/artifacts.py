@@ -28,6 +28,8 @@ SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
 def linked_paths(root: Path, relatives: tuple[str, ...]) -> list[str]:
+    if root.is_symlink():
+        return list(relatives)
     linked = []
     for relative in relatives:
         path = root

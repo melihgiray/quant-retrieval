@@ -79,6 +79,19 @@ def test_prepare_snapshot_rejects_a_linked_output_directory(tmp_path: Path):
     assert not list(outside.iterdir())
 
 
+def test_prepare_snapshot_rejects_a_linked_output_root(tmp_path: Path):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    output = tmp_path / "output"
+    output.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="linked paths"):
+        prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
+
+    assert not list(outside.iterdir())
+
+
 def test_verify_snapshot_rejects_linked_payload_files(tmp_path: Path):
     checkpoint, corpus, artifacts = source_files(tmp_path)
     output = prepare_demo_snapshot(checkpoint, corpus, artifacts, tmp_path / "output")
