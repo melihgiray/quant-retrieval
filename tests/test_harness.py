@@ -132,6 +132,15 @@ def test_harness_rejects_duplicate_relevance_pairs():
         evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
 
 
+@pytest.mark.parametrize("invalid", [0, -1, 10.5])
+def test_harness_rejects_invalid_qrel_question_ids(invalid):
+    corpus, queries, qrels = small_dataset()
+    qrels["question_id"] = pd.Series([invalid, 20, 30])
+
+    with pytest.raises(ValueError, match="qrel question IDs must be positive integers"):
+        evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
+
+
 @pytest.mark.parametrize(
     ("frame_name", "column"),
     [("corpus", "text"), ("queries", "split"), ("qrels", "grade")],

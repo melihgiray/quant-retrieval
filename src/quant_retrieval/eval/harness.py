@@ -61,6 +61,12 @@ def evaluate_retriever(
         raise ValueError("corpus texts must be nonempty strings")
     selected_ids = set(selected_queries["question_id"])
     selected_qrels = qrels[qrels["question_id"].isin(selected_ids)]
+    if (
+        not pd.api.types.is_integer_dtype(qrels["question_id"].dtype)
+        or qrels["question_id"].isna().any()
+        or (qrels["question_id"] <= 0).any()
+    ):
+        raise ValueError("qrel question IDs must be positive integers")
     if selected_qrels.duplicated(["question_id", "answer_id"]).any():
         raise ValueError("qrels contain duplicate question and answer pairs")
 
