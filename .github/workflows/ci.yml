@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[ann,dev]"
+      - name: Run Python tests
+        run: pytest -p no:cacheprovider
+      - name: Check Python style
+        run: ruff check src tests scripts
+      - name: Run browser-script tests
+        run: node --test tests/browser_script.test.mjs
