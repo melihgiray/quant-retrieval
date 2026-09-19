@@ -39,6 +39,8 @@ def evaluate_retriever(
         raise ValueError(f"split {split!r} contains no queries")
     if selected_queries["question_id"].duplicated().any():
         raise ValueError(f"split {split!r} contains duplicate question IDs")
+    if corpus["answer_id"].duplicated().any():
+        raise ValueError("corpus contains duplicate answer IDs")
 
     document_ids = corpus["answer_id"].astype(int).tolist()
     document_id_set = set(document_ids)
