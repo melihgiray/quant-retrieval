@@ -234,6 +234,18 @@ def test_harness_rejects_results_out_of_score_order():
         evaluate_retriever(retriever, corpus, queries, qrels)
 
 
+@pytest.mark.parametrize("document_id", [0, -1, 1.5, True])
+def test_harness_rejects_invalid_result_document_ids(document_id):
+    corpus, queries, qrels = small_dataset()
+    retriever = KeywordRetriever()
+    retriever.search = lambda query, k: [
+        SearchResult(document_id=document_id, score=1.0)
+    ]
+
+    with pytest.raises(ValueError, match="document IDs must be positive integers"):
+        evaluate_retriever(retriever, corpus, queries, qrels)
+
+
 def test_result_record_and_writer_keep_provenance(tmp_path: Path):
     evaluation = {
         "metrics": {"mrr_at_10": 0.5},

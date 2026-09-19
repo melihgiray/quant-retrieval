@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
-from numbers import Real
+from numbers import Integral, Real
 from typing import Any
 
 import numpy as np
@@ -111,6 +111,13 @@ def evaluate_retriever(
             for left, right in zip(results, results[1:], strict=False)
         ):
             raise ValueError("retriever results must be ordered by descending score")
+        if any(
+            isinstance(result.document_id, bool)
+            or not isinstance(result.document_id, Integral)
+            or result.document_id <= 0
+            for result in results
+        ):
+            raise ValueError("retriever document IDs must be positive integers")
         ranking = [result.document_id for result in results]
         if len(set(ranking)) != len(ranking):
             raise ValueError("retriever returned duplicate document IDs")
