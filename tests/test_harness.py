@@ -115,6 +115,15 @@ def test_harness_rejects_invalid_corpus_ids(invalid):
         evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
 
 
+@pytest.mark.parametrize("invalid", [None, 12, "   "])
+def test_harness_rejects_invalid_corpus_text(invalid):
+    corpus, queries, qrels = small_dataset()
+    corpus["text"] = pd.Series([invalid, "gamma hedge", "volatility"], dtype=object)
+
+    with pytest.raises(ValueError, match="corpus texts must be nonempty strings"):
+        evaluate_retriever(KeywordRetriever(), corpus, queries, qrels)
+
+
 def test_harness_rejects_duplicate_relevance_pairs():
     corpus, queries, qrels = small_dataset()
     qrels = pd.concat([qrels, qrels.iloc[[0]]], ignore_index=True)

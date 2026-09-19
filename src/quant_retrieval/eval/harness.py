@@ -57,6 +57,8 @@ def evaluate_retriever(
         raise ValueError("corpus answer IDs must be positive integers")
     if corpus["answer_id"].duplicated().any():
         raise ValueError("corpus contains duplicate answer IDs")
+    if not all(isinstance(text, str) and text.strip() for text in corpus["text"]):
+        raise ValueError("corpus texts must be nonempty strings")
     selected_ids = set(selected_queries["question_id"])
     selected_qrels = qrels[qrels["question_id"].isin(selected_ids)]
     if selected_qrels.duplicated(["question_id", "answer_id"]).any():
