@@ -62,12 +62,36 @@ artifact revision before searching. It requires nonempty results with unique
 positive IDs, finite descending scores, answer text and valid answer links.
 Success prints both response objects as JSON; failure exits with a nonzero
 status and an error. The timeout applies to socket operations, not total startup
-time. It does not retry, wake a sleeping deployment or measure cold starts.
+time. It does not retry or wait for a sleeping deployment to become ready.
+An HTTP request may trigger the hosting provider's wake-up behavior.
+
+To keep a timestamped report and enforce a response-time budget:
+
+```sh
+python -m scripts.check_demo http://localhost:7860 \
+  --max-search-ms 5000 --out /tmp/demo-check.json
+```
+
+Choose the limit for your deployment. `search_roundtrip_ms` measures one HTTP
+search request, including response reading and JSON decoding. It excludes the
+health request and is separate from the server's `elapsed_ms` field. Exceeding
+the limit fails the check after the response arrives; `--timeout` still controls
+stalled socket operations. This single sample is not a latency benchmark.
+
+Only successful checks replace the report. The file records the UTC check time,
+URL, query and settings along with both responses. Failed checks leave an older
+report intact, so inspect its timestamp and the command's exit status before
+treating it as current evidence.
 
 This check verifies the HTTP response contract. Read the returned answers to
 assess relevance, and use the evaluation harness for retrieval quality. The
 command is covered by offline response tests and the application's test client;
 that does not establish that a hosted deployment is live.
+
+The browser cancels a search after 30 seconds and enables the form for another
+attempt. A late response cannot overwrite the timeout message or a newer
+search. Cancelling the browser request does not guarantee cancellation of work
+already running on the server.
 
 ## Remote asset layout
 
