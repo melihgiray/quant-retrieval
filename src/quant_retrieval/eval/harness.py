@@ -30,6 +30,8 @@ def evaluate_retriever(
     max_results: int = 100,
 ) -> dict[str, Any]:
     """Index the full corpus, retrieve one ranking per query, and score it."""
+    if isinstance(max_results, bool) or not isinstance(max_results, Integral):
+        raise ValueError("max_results must be an integer")
     if max_results < 100:
         raise ValueError("max_results must be at least 100 for Recall@100")
     _require_columns(corpus, "corpus", {"answer_id", "text"})
@@ -84,6 +86,10 @@ def evaluate_retriever(
         raise ValueError("qrel grades must be integers in {1, 2}")
     if selected_qrels.duplicated(["question_id", "answer_id"]).any():
         raise ValueError("qrels contain duplicate question and answer pairs")
+    qrel_map = _qrels_for_queries(selected_qrels, selected_ids)
+    if set(qrel_map) != selected_ids:
+        missing = sorted(selected_ids - set(qrel_map))[:5]
+        raise ValueError(f"queries have no relevance judgements: {missing}")
 
     document_ids = corpus["answer_id"].astype(int).tolist()
     document_id_set = set(document_ids)
@@ -129,11 +135,6 @@ def evaluate_retriever(
         if unknown:
             raise ValueError(f"retriever returned unknown document IDs: {unknown[:5]}")
         rankings[int(row.question_id)] = ranking
-
-    qrel_map = _qrels_for_queries(qrels, set(rankings))
-    if set(qrel_map) != set(rankings):
-        missing = sorted(set(rankings) - set(qrel_map))[:5]
-        raise ValueError(f"queries have no relevance judgements: {missing}")
 
     return {
         "metrics": aggregate_metrics(rankings, qrel_map),

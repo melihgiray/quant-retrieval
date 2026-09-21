@@ -273,3 +273,20 @@ def test_result_record_and_writer_keep_provenance(tmp_path: Path):
     assert record["commit"] == "abc123"
     assert record["config"] == {"seed": 17}
     assert '"mrr_at_10": 0.5' in output.read_text()
+
+
+@pytest.mark.parametrize("cutoff", [100.5, "100", True])
+def test_harness_checks_cutoff_type_before_indexing(cutoff):
+    corpus, queries, qrels = small_dataset()
+    retriever = KeywordRetriever()
+    with pytest.raises(ValueError, match="max_results must be an integer"):
+        evaluate_retriever(retriever, corpus, queries, qrels, max_results=cutoff)
+    assert not hasattr(retriever, "documents")
+
+
+def test_missing_judgements_fail_before_building_an_index():
+    corpus, queries, qrels = small_dataset()
+    retriever = KeywordRetriever()
+    with pytest.raises(ValueError, match="no relevance judgements.*20"):
+        evaluate_retriever(retriever, corpus, queries, qrels[qrels["question_id"] != 20])
+    assert not hasattr(retriever, "documents")
