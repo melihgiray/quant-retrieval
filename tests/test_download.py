@@ -1,5 +1,6 @@
 import io
 
+import py7zr
 import pytest
 
 from quant_retrieval.data import download
@@ -77,3 +78,36 @@ def test_empty_or_invalid_response_preserves_archive(tmp_path, monkeypatch, head
     with pytest.raises(OSError):
         download.download_dump(target, force=True)
     assert target.read_bytes() == b"old"
+
+
+@pytest.mark.parametrize("member", ["../Posts.xml", "/Posts.xml", "", ".", "..\\Posts.xml"])
+def test_extraction_rejects_unsafe_member_paths_before_creating_output(tmp_path, member):
+    output = tmp_path / "extracted"
+    with pytest.raises(ValueError, match="inside the destination"):
+        download.extract_dump(tmp_path / "missing.7z", output, (member,))
+    assert not output.exists()
+
+
+def test_extraction_cannot_follow_a_link_outside_destination(tmp_path):
+    output = tmp_path / "output"
+    output.mkdir()
+    outside = tmp_path / "keep.xml"
+    outside.write_text("keep me")
+    (output / "Posts.xml").symlink_to(outside)
+    with pytest.raises(ValueError, match="inside the destination"):
+        download.extract_dump(tmp_path / "missing.7z", output, ("Posts.xml",))
+    assert outside.read_text() == "keep me"
+
+
+def test_extraction_unpacks_requested_xml_only(tmp_path):
+    source = tmp_path / "Posts.xml"
+    source.write_text("<posts />")
+    archive = tmp_path / "dump.7z"
+    with py7zr.SevenZipFile(archive, mode="w") as handle:
+        handle.write(source, arcname="Posts.xml")
+        handle.write(source, arcname="Unused.xml")
+    output = tmp_path / "output"
+    paths = download.extract_dump(archive, output, ("Posts.xml",))
+    assert paths == [output / "Posts.xml"]
+    assert paths[0].read_text() == "<posts />"
+    assert not (output / "Unused.xml").exists()

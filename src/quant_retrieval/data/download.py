@@ -99,6 +99,14 @@ def extract_dump(
     archive: Path, dest_dir: Path, members: tuple[str, ...] = WANTED_MEMBERS
 ) -> list[Path]:
     """Extract the wanted XML files. Returns the paths that now exist on disk."""
+    root = dest_dir.resolve()
+    for name in members:
+        relative = Path(name)
+        if (
+            not name or name == "." or relative.is_absolute() or ".." in relative.parts
+            or "\\" in name or not (dest_dir / relative).resolve().is_relative_to(root)
+        ):
+            raise ValueError(f"archive member must stay inside the destination: {name!r}")
     dest_dir.mkdir(parents=True, exist_ok=True)
     with py7zr.SevenZipFile(archive, mode="r") as zf:
         present = set(zf.getnames())
