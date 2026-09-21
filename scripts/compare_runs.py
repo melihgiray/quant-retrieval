@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 from quant_retrieval.eval.metrics import METRIC_NAMES
@@ -20,16 +21,28 @@ from quant_retrieval.eval.significance import format_difference, paired_bootstra
 
 def load_per_query(path: Path, metric: str) -> dict[int, float]:
     result = json.loads(path.read_text())
-    per_query = result.get("per_query")
-    if not per_query:
+    per_query = result.get("per_query") if isinstance(result, dict) else None
+    if not isinstance(per_query, dict) or not per_query:
         raise SystemExit(
             f"{path} has no per_query block. It was written before per-query scores "
             "were kept, so rerun that evaluation before comparing it."
         )
-    missing = next((key for key, scores in per_query.items() if metric not in scores), None)
-    if missing is not None:
-        raise SystemExit(f"{path} has no {metric!r} for query {missing}")
-    return {int(query_id): scores[metric] for query_id, scores in per_query.items()}
+    loaded = {}
+    for query_id, scores in per_query.items():
+        if not query_id.isascii() or not query_id.isdecimal() or str(int(query_id)) != query_id:
+            raise SystemExit(f"{path} has an invalid query ID: {query_id!r}")
+        if int(query_id) < 1:
+            raise SystemExit(f"{path} has an invalid query ID: {query_id!r}")
+        if not isinstance(scores, dict) or metric not in scores:
+            raise SystemExit(f"{path} has no {metric!r} for query {query_id}")
+        value = scores[metric]
+        if (
+            isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value) or not 0 <= value <= 1
+        ):
+            raise SystemExit(f"{path} has an invalid {metric!r} score for query {query_id}")
+        loaded[int(query_id)] = value
+    return loaded
 
 
 def main() -> None:
