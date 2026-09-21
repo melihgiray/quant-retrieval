@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from quant_retrieval.eval.results import write_result
+from quant_retrieval.eval.results import build_result_record, write_result
 
 
 def test_result_replacement_failure_preserves_previous_record(tmp_path, monkeypatch):
@@ -34,3 +34,13 @@ def test_nonfinite_results_cannot_replace_valid_metrics(tmp_path, score):
     with pytest.raises(ValueError, match="JSON compliant"):
         write_result({"metrics": {"ndcg": score}}, target)
     assert json.loads(target.read_text())["metrics"]["ndcg"] == 0.5
+
+
+def test_record_captures_configuration_before_the_next_experiment():
+    config = {"model": {"depth": 10}}
+    evaluation = {"metrics": {"ndcg": 0.5}, "timing": {}, "counts": {}}
+    record = build_result_record("first", "tiny", "val", config, evaluation, commit="abc")
+    config["model"]["depth"] = 100
+    evaluation["metrics"]["ndcg"] = 0.9
+    assert record["config"]["model"]["depth"] == 10
+    assert record["metrics"]["ndcg"] == 0.5

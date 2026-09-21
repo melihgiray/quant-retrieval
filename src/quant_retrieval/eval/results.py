@@ -6,6 +6,7 @@ import json
 import platform
 import subprocess
 import tempfile
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -27,10 +28,10 @@ def build_result_record(
         "split": split,
         "commit": commit or current_commit(),
         "created_at": datetime.now(UTC).isoformat(),
-        "config": config,
-        "metrics": evaluation["metrics"],
-        "timing": evaluation["timing"],
-        "counts": evaluation["counts"],
+        "config": deepcopy(config),
+        "metrics": deepcopy(evaluation["metrics"]),
+        "timing": deepcopy(evaluation["timing"]),
+        "counts": deepcopy(evaluation["counts"]),
         # Kept so two runs can be compared question by question. Averages alone
         # cannot say whether a difference is larger than the spread.
         "per_query": {
