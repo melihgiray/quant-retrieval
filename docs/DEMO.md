@@ -35,6 +35,40 @@ Startup loads the query encoder and checks its output against the stored index
 before health can report readiness. The health response then reports
 `bm25_dense_rrf` and 26,152 documents.
 
+## Check a running deployment
+
+Run the repeatable readiness and search check from the repository root:
+
+```sh
+python -m scripts.check_demo http://localhost:7860
+```
+
+For a hosted instance, replace the base URL with its HTTPS address. To check
+which exported index it loaded, pass the exact `commit` value from the index's
+`manifest.json`:
+
+```sh
+python -m scripts.check_demo https://YOUR-DEPLOYMENT.example \
+  --expected-commit EXPORT_SOURCE_COMMIT \
+  --query "How do I calculate implied volatility?" \
+  --k 3 --timeout 60
+```
+
+The export source commit identifies the code that produced the index. It is
+different from the Hub snapshot revision passed as `--asset-revision`.
+
+The command checks readiness, the hybrid pipeline, document count and optional
+artifact revision before searching. It requires nonempty results with unique
+positive IDs, finite descending scores, answer text and valid answer links.
+Success prints both response objects as JSON; failure exits with a nonzero
+status and an error. The timeout applies to socket operations, not total startup
+time. It does not retry, wake a sleeping deployment or measure cold starts.
+
+This check verifies the HTTP response contract. Read the returned answers to
+assess relevance, and use the evaluation harness for retrieval quality. The
+command is covered by offline response tests and the application's test client;
+that does not establish that a hosted deployment is live.
+
 ## Remote asset layout
 
 The deployment downloader expects one Hub model repository with transformer
