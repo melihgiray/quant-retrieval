@@ -30,6 +30,23 @@ def test_comparison_loads_valid_query_scores(tmp_path):
     assert load_per_query(path, "ndcg_at_10") == {12: 0.5}
 
 
+@pytest.mark.parametrize("contents", [
+    b'[]', b'{', b'\xff',
+    b'{"per_query":{"1":{"ndcg_at_10":0.1},"1":{"ndcg_at_10":0.9}}}',
+])
+def test_comparison_rejects_malformed_or_ambiguous_json(tmp_path, contents):
+    path = tmp_path / "run.json"
+    path.write_bytes(contents)
+    with pytest.raises(SystemExit, match="run.json"):
+        load_per_query(path, "ndcg_at_10")
+
+
+@pytest.mark.parametrize("counts", [None, [], 3])
+def test_comparison_reports_malformed_counts(counts):
+    with pytest.raises(SystemExit, match="counts object"):
+        validate_comparable_runs({**run_record(), "counts": counts}, run_record())
+
+
 def run_record():
     return {"split": "val", "counts": {"queries": 1, "corpus_documents": 10, "max_results": 100}}
 

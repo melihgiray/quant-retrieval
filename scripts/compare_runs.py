@@ -22,8 +22,26 @@ from quant_retrieval.eval.results import write_result
 from quant_retrieval.eval.significance import format_difference, paired_bootstrap
 
 
+def parse_record(contents: bytes, path: Path) -> dict:
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key: {key!r}")
+            result[key] = value
+        return result
+
+    try:
+        record = json.loads(contents, object_pairs_hook=unique_object)
+    except (ValueError, UnicodeError) as error:
+        raise SystemExit(f"{path} is not a valid result record: {error}") from error
+    if not isinstance(record, dict):
+        raise SystemExit(f"{path} result record must be an object")
+    return record
+
+
 def load_per_query(path: Path, metric: str, *, record: dict | None = None) -> dict[int, float]:
-    result = json.loads(path.read_text()) if record is None else record
+    result = parse_record(path.read_bytes(), path) if record is None else record
     per_query = result.get("per_query") if isinstance(result, dict) else None
     if not isinstance(per_query, dict) or not per_query:
         raise SystemExit(
@@ -32,7 +50,10 @@ def load_per_query(path: Path, metric: str, *, record: dict | None = None) -> di
         )
     loaded = {}
     for query_id, scores in per_query.items():
-        if not query_id.isascii() or not query_id.isdecimal() or str(int(query_id)) != query_id:
+        if (
+            not isinstance(query_id, str) or not query_id.isascii()
+            or not query_id.isdecimal() or str(int(query_id)) != query_id
+        ):
             raise SystemExit(f"{path} has an invalid query ID: {query_id!r}")
         if int(query_id) < 1:
             raise SystemExit(f"{path} has an invalid query ID: {query_id!r}")
@@ -41,7 +62,7 @@ def load_per_query(path: Path, metric: str, *, record: dict | None = None) -> di
         value = scores[metric]
         if (
             isinstance(value, bool) or not isinstance(value, (int, float))
-            or not math.isfinite(value) or not 0 <= value <= 1
+            or not 0 <= value <= 1 or not math.isfinite(value)
         ):
             raise SystemExit(f"{path} has an invalid {metric!r} score for query {query_id}")
         loaded[int(query_id)] = value
@@ -49,6 +70,11 @@ def load_per_query(path: Path, metric: str, *, record: dict | None = None) -> di
 
 
 def validate_comparable_runs(baseline: dict, candidate: dict) -> None:
+    for record in (baseline, candidate):
+        if not isinstance(record.get("split"), str) or not record["split"].strip():
+            raise SystemExit("comparison requires a named split string")
+        if not isinstance(record.get("counts"), dict):
+            raise SystemExit("comparison requires a counts object")
     if not baseline.get("split") or baseline.get("split") != candidate.get("split"):
         raise SystemExit("comparison requires runs from the same named split")
     for name in ("corpus_documents", "max_results", "queries"):
@@ -83,8 +109,8 @@ def main() -> None:
 
     baseline_bytes = args.baseline.read_bytes()
     candidate_bytes = args.candidate.read_bytes()
-    baseline_record = json.loads(baseline_bytes)
-    candidate_record = json.loads(candidate_bytes)
+    baseline_record = parse_record(baseline_bytes, args.baseline)
+    candidate_record = parse_record(candidate_bytes, args.candidate)
     baseline = load_per_query(args.baseline, args.metric, record=baseline_record)
     candidate = load_per_query(args.candidate, args.metric, record=candidate_record)
     validate_comparable_runs(baseline_record, candidate_record)
