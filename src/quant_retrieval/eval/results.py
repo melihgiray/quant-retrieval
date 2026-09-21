@@ -46,7 +46,7 @@ def build_result_record(
 
 
 def write_result(record: dict[str, Any], path: Path) -> None:
-    serialized = json.dumps(record, indent=2, sort_keys=True) + "\n"
+    serialized = json.dumps(record, indent=2, sort_keys=True, allow_nan=False) + "\n"
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
