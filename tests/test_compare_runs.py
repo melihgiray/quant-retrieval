@@ -49,6 +49,24 @@ def test_matching_evaluation_conditions_are_comparable():
     validate_comparable_runs(run_record(), run_record())
 
 
+@pytest.mark.parametrize("field", ["corpus", "queries", "qrels"])
+def test_comparison_rejects_changed_data_even_when_counts_match(field):
+    hashes = {key: "a" * 64 for key in ("corpus", "queries", "qrels")}
+    baseline = {**run_record(), "dataset_sha256": hashes}
+    candidate = {**run_record(), "dataset_sha256": {**hashes, field: "b" * 64}}
+    with pytest.raises(SystemExit, match="fingerprints differ"):
+        validate_comparable_runs(baseline, candidate)
+    validate_comparable_runs(baseline, baseline)
+
+
+def test_comparison_cannot_mix_fingerprinted_and_legacy_records():
+    baseline = {**run_record(), "dataset_sha256": {key: "a" * 64 for key in (
+        "corpus", "queries", "qrels"
+    )}}
+    with pytest.raises(SystemExit, match="complete dataset fingerprints"):
+        validate_comparable_runs(baseline, run_record())
+
+
 def test_comparison_command_records_reproduction_inputs(tmp_path, monkeypatch):
     baseline = tmp_path / "baseline.json"
     candidate = tmp_path / "candidate.json"
@@ -65,6 +83,7 @@ def test_comparison_command_records_reproduction_inputs(tmp_path, monkeypatch):
     assert record["confidence"] == 0.8
     assert record["iterations"] == 20
     assert record["split"] == "val"
+    assert record["dataset_identity_verified"] is False
     assert record["source_sha256"]["baseline"] == hashlib.sha256(baseline.read_bytes()).hexdigest()
 
     report_path = next(output.glob("*.json"))

@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 
 from quant_retrieval.eval.metrics import METRIC_NAMES
@@ -55,6 +56,18 @@ def validate_comparable_runs(baseline: dict, candidate: dict) -> None:
         right = candidate.get("counts", {}).get(name)
         if type(left) is not int or left < 1 or left != right:
             raise SystemExit(f"comparison requires matching positive {name} counts")
+    left_hashes, right_hashes = baseline.get("dataset_sha256"), candidate.get("dataset_sha256")
+    if left_hashes is None and right_hashes is None:
+        return
+    for hashes in (left_hashes, right_hashes):
+        if (
+            not isinstance(hashes, dict) or set(hashes) != {"corpus", "queries", "qrels"}
+            or any(not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None
+                   for value in hashes.values())
+        ):
+            raise SystemExit("comparison requires complete dataset fingerprints in both runs")
+    if left_hashes != right_hashes:
+        raise SystemExit("comparison dataset fingerprints differ; rerun on identical data")
 
 
 def main() -> None:
@@ -89,6 +102,8 @@ def main() -> None:
         "metric": args.metric,
         "seed": args.seed,
         "split": baseline_record["split"],
+        "dataset_sha256": baseline_record.get("dataset_sha256"),
+        "dataset_identity_verified": baseline_record.get("dataset_sha256") is not None,
         "source_sha256": {
             "baseline": hashlib.sha256(baseline_bytes).hexdigest(),
             "candidate": hashlib.sha256(candidate_bytes).hexdigest(),
