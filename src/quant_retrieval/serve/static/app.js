@@ -27,14 +27,15 @@ function resultCard(hit, index) {
   return article;
 }
 
-function rememberQuery(query) {
+function rememberQuery(query, replaceHistory = false) {
   const url = new URL(window.location.href);
   if (url.searchParams.get("q") === query) return;
   url.searchParams.set("q", query);
-  window.history.pushState(null, "", url);
+  if (replaceHistory) window.history.replaceState(null, "", url);
+  else window.history.pushState(null, "", url);
 }
 
-async function search(query) {
+async function search(query, { replaceHistory = false } = {}) {
   activeRequest?.abort();
   const controller = new AbortController();
   activeRequest = controller;
@@ -60,11 +61,11 @@ async function search(query) {
     if (controller.signal.aborted) return;
 
     if (payload.results.length === 0) {
-      rememberQuery(payload.query);
+      rememberQuery(payload.query, replaceHistory);
       status.textContent = `No answers found for “${payload.query}”. Try a different question.`;
       return;
     }
-    rememberQuery(payload.query);
+    rememberQuery(payload.query, replaceHistory);
     const noun = payload.results.length === 1 ? "answer" : "answers";
     status.textContent = `${payload.results.length} ${noun} in ${payload.elapsed_ms} ms for “${payload.query}”`;
     results.replaceChildren(...payload.results.map(resultCard));
@@ -98,7 +99,7 @@ function restoreQueryFromLocation() {
   const query = new URLSearchParams(window.location.search).get("q")?.trim();
   if (query) {
     input.value = query;
-    search(query);
+    search(query, { replaceHistory: true });
   } else {
     activeRequest?.abort();
     activeRequest = null;

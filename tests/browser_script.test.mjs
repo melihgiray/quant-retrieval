@@ -35,7 +35,10 @@ function browserFixture(search = "") {
   const window = {
     location: new URL(`https://demo.example/${search}`),
     history: {
-      pushState(state, title, url) { window.location = new URL(url); },
+      pushes: 0,
+      replacements: 0,
+      pushState(state, title, url) { this.pushes++; window.location = new URL(url); },
+      replaceState(state, title, url) { this.replacements++; window.location = new URL(url); },
     },
     addEventListener: (name, listener) => { listeners[name] = listener; },
   };
@@ -169,4 +172,20 @@ test("returning to the blank page releases the form before a request settles", a
   await pending;
   assert.equal(browser.status.textContent, "");
   assert.equal(browser.results.children.length, 0);
+});
+
+test("normalizing a restored query does not append another history entry", async () => {
+  const browser = browserFixture("?q=%20delta%20");
+  browser.requests[0].resolve(response("delta"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(browser.window.location.search, "?q=delta");
+  assert.equal(browser.window.history.pushes, 0);
+  assert.equal(browser.window.history.replacements, 1);
+
+  browser.window.location = new URL("https://demo.example/?q=%20gamma%20");
+  browser.listeners.popstate();
+  browser.requests[1].resolve(response("gamma"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(browser.window.history.pushes, 0);
+  assert.equal(browser.window.history.replacements, 2);
 });
