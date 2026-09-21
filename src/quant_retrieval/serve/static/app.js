@@ -101,6 +101,9 @@ function restoreQueryFromLocation() {
     search(query);
   } else {
     activeRequest?.abort();
+    activeRequest = null;
+    form.removeAttribute("aria-busy");
+    submit.disabled = false;
     input.value = "";
     status.textContent = "";
     results.replaceChildren();

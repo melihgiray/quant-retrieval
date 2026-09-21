@@ -154,3 +154,19 @@ test("history navigation restores its query", async () => {
   await new Promise((resolve) => setImmediate(resolve));
   assert.match(browser.status.textContent, /gamma/);
 });
+
+test("returning to the blank page releases the form before a request settles", async () => {
+  const browser = browserFixture();
+  const pending = vm.runInContext('search("slow query")', browser.context);
+  browser.window.location = new URL("https://demo.example/");
+  browser.listeners.popstate();
+  assert.equal(browser.requests[0].options.signal.aborted, true);
+  assert.equal(browser.submit.disabled, false);
+  assert.equal(browser.attributes.has("aria-busy"), false);
+  assert.equal(browser.status.textContent, "");
+
+  browser.requests[0].resolve(response("slow query"));
+  await pending;
+  assert.equal(browser.status.textContent, "");
+  assert.equal(browser.results.children.length, 0);
+});
