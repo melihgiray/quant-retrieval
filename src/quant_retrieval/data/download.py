@@ -9,6 +9,7 @@ and the extraction separate so a failed extraction does not mean fetching
 from __future__ import annotations
 
 import json
+import math
 import tempfile
 import urllib.request
 from dataclasses import dataclass
@@ -38,17 +39,21 @@ class DumpInfo:
         path.write_text(json.dumps(self.__dict__, indent=2) + "\n")
 
 
-def download_dump(dest: Path, url: str = DUMP_URL, force: bool = False) -> DumpInfo:
+def download_dump(
+    dest: Path, url: str = DUMP_URL, force: bool = False, *, timeout: float = 30.0
+) -> DumpInfo:
     """Download the archive to `dest`, skipping the transfer if it is already there.
 
     Returns the archive metadata, including the server's Last-Modified date. That
     date is the dump date and belongs in docs/DATA.md, since Stack Exchange
     republishes these quarterly and the counts move.
     """
+    if isinstance(timeout, bool) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("download timeout must be positive and finite")
     dest.parent.mkdir(parents=True, exist_ok=True)
 
     request = urllib.request.Request(url, headers={"User-Agent": "quant-retrieval/0.1"})
-    with urllib.request.urlopen(request) as response:  # noqa: S310 (fixed https URL)
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
         expected = int(response.headers.get("Content-Length", 0))
         last_modified = response.headers.get("Last-Modified")
 

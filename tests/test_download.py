@@ -42,3 +42,20 @@ def test_connection_failure_leaves_no_partial_archive(tmp_path, monkeypatch):
     with pytest.raises(OSError, match="connection lost"):
         download.download_dump(tmp_path / "dump.7z")
     assert list(tmp_path.iterdir()) == []
+
+
+def test_download_uses_a_socket_timeout(tmp_path, monkeypatch):
+    def open_response(request, *, timeout):
+        assert timeout == 4.5
+        return Response()
+
+    monkeypatch.setattr(download.urllib.request, "urlopen", open_response)
+    download.download_dump(tmp_path / "dump.7z", timeout=4.5)
+
+
+@pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan"), True])
+def test_download_rejects_invalid_timeouts_before_creating_directories(tmp_path, timeout):
+    target = tmp_path / "new" / "dump.7z"
+    with pytest.raises(ValueError, match="timeout must be positive and finite"):
+        download.download_dump(target, timeout=timeout)
+    assert not target.parent.exists()
