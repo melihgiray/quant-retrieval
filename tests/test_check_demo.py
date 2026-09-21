@@ -1,5 +1,7 @@
 import io
 import json
+import sys
+from datetime import datetime
 
 import pytest
 from scripts import check_demo
@@ -75,3 +77,21 @@ def test_probe_accepts_the_actual_app_contract(monkeypatch):
         report = check_demo.check_demo("http://testserver", query="volatility")
     assert report["health"]["documents"] == 1
     assert report["search"]["results"][0]["answer_id"] == 20
+
+
+def test_probe_saves_successful_reports_and_preserves_them_on_failure(tmp_path, monkeypatch):
+    target = tmp_path / "report.json"
+    monkeypatch.setattr(sys, "argv", [
+        "check_demo", "https://demo.example", "--query", "delta", "--out", str(target)
+    ])
+    responses(monkeypatch, [health(), search()])
+    check_demo.main()
+    original = target.read_bytes()
+    record = json.loads(original)
+    assert record["request"]["base_url"] == "https://demo.example"
+    assert record["request"]["query"] == "delta"
+    assert datetime.fromisoformat(record["checked_at"]).utcoffset().total_seconds() == 0
+    responses(monkeypatch, [{**health(), "ready": False}])
+    with pytest.raises(SystemExit, match="demo check failed"):
+        check_demo.main()
+    assert target.read_bytes() == original

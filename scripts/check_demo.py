@@ -6,7 +6,11 @@ import argparse
 import json
 import math
 import urllib.request
+from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlencode, urlsplit
+
+from quant_retrieval.eval.results import write_result
 
 
 def _finite_number(value: object) -> bool:
@@ -83,7 +87,13 @@ def check_demo(
             raise ValueError("search hit has an unexpected answer URL")
         seen.add(answer_id)
         previous = score
-    return {"health": health, "search": search}
+    return {
+        "checked_at": datetime.now(UTC).isoformat(),
+        "request": {"base_url": base_url, "query": query.strip(), "k": k,
+                    "timeout": timeout, "expected_commit": expected_commit},
+        "health": health,
+        "search": search,
+    }
 
 
 def main() -> None:
@@ -93,12 +103,15 @@ def main() -> None:
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--expected-commit")
+    parser.add_argument("--out", type=Path, help="save a successful check as an atomic JSON report")
     args = parser.parse_args()
     try:
         report = check_demo(
             args.base_url, query=args.query, k=args.k, timeout=args.timeout,
             expected_commit=args.expected_commit,
         )
+        if args.out is not None:
+            write_result(report, args.out)
     except (OSError, ValueError) as error:
         raise SystemExit(f"demo check failed: {error}") from error
     print(json.dumps(report, indent=2, allow_nan=False))
