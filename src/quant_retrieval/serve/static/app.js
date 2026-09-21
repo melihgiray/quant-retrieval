@@ -39,6 +39,15 @@ async function search(query, { replaceHistory = false } = {}) {
   activeRequest?.abort();
   const controller = new AbortController();
   activeRequest = controller;
+  const timeout = window.setTimeout(() => {
+    if (activeRequest !== controller) return;
+    controller.abort();
+    activeRequest = null;
+    form.removeAttribute("aria-busy");
+    submit.disabled = false;
+    status.textContent = "Search took too long. Please try again.";
+  }, 30000);
+  controller.signal.addEventListener("abort", () => window.clearTimeout(timeout), { once: true });
   form.setAttribute("aria-busy", "true");
   submit.disabled = true;
   status.textContent = "Searching the full corpus…";
@@ -74,6 +83,7 @@ async function search(query, { replaceHistory = false } = {}) {
       status.textContent = "Search is unavailable. Try again in a moment.";
     }
   } finally {
+    window.clearTimeout(timeout);
     if (activeRequest === controller) {
       activeRequest = null;
       form.removeAttribute("aria-busy");

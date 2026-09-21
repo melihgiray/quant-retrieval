@@ -7,6 +7,8 @@ const source = readFileSync(new URL("../src/quant_retrieval/serve/static/app.js"
 
 function browserFixture(search = "") {
   const requests = [];
+  const timers = new Map();
+  let nextTimer = 0;
   const status = { textContent: "" };
   const results = {
     children: [],
@@ -33,6 +35,12 @@ function browserFixture(search = "") {
   };
   const fetch = (url, options) => new Promise((resolve) => requests.push({ url, options, resolve }));
   const window = {
+    setTimeout(callback, milliseconds) {
+      const id = ++nextTimer;
+      timers.set(id, { callback, milliseconds });
+      return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
     location: new URL(`https://demo.example/${search}`),
     history: {
       pushes: 0,
@@ -44,7 +52,7 @@ function browserFixture(search = "") {
   };
   const context = vm.createContext({ document, fetch, window, AbortController, URL, URLSearchParams });
   vm.runInContext(source, context);
-  return { context, requests, status, results, input, window, submit, attributes, listeners };
+  return { context, requests, status, results, input, window, submit, attributes, listeners, timers };
 }
 
 function response(query) {
@@ -129,6 +137,38 @@ test("the search form exposes its busy state", async () => {
   await pending;
   assert.equal(browser.submit.disabled, false);
   assert.equal(browser.attributes.has("aria-busy"), false);
+  assert.equal(browser.timers.size, 0);
+});
+
+test("a stalled search times out and ignores its late response", async () => {
+  const browser = browserFixture();
+  const pending = vm.runInContext('search("slow")', browser.context);
+  const timer = [...browser.timers.values()][0];
+  assert.equal(timer.milliseconds, 30000);
+  timer.callback();
+  assert.match(browser.status.textContent, /took too long/);
+  assert.equal(browser.submit.disabled, false);
+  assert.equal(browser.timers.size, 0);
+  assert.equal(browser.requests[0].options.signal.aborted, true);
+  browser.requests[0].resolve(response("slow"));
+  await pending;
+  assert.match(browser.status.textContent, /took too long/);
+  assert.equal(browser.results.children.length, 0);
+});
+
+test("superseding a search removes its timeout", async () => {
+  const browser = browserFixture();
+  const first = vm.runInContext('search("first")', browser.context);
+  const oldTimer = [...browser.timers.values()][0];
+  const second = vm.runInContext('search("second")', browser.context);
+  assert.equal(browser.timers.size, 1);
+  oldTimer.callback();
+  assert.equal(browser.submit.disabled, true);
+  browser.requests[1].resolve(response("second"));
+  browser.requests[0].resolve(response("first"));
+  await Promise.all([first, second]);
+  assert.match(browser.status.textContent, /second/);
+  assert.equal(browser.timers.size, 0);
 });
 
 test("answer links cannot control the search page", () => {
