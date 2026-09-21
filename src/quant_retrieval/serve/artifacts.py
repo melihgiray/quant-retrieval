@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import tempfile
 from pathlib import Path
 
 MODEL_FILES = (
@@ -52,12 +53,17 @@ def file_sha256(path: Path) -> str:
 def write_checksums(root: Path) -> dict[str, str]:
     checksums = {relative: file_sha256(root / relative) for relative in PAYLOAD_FILES}
     destination = root / CHECKSUM_FILE
-    temporary = root / f".{CHECKSUM_FILE}.tmp"
+    temporary = None
     try:
-        temporary.write_text(json.dumps(checksums, indent=2, sort_keys=True) + "\n")
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=root, prefix=f".{CHECKSUM_FILE}.", delete=False
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(json.dumps(checksums, indent=2, sort_keys=True) + "\n")
         temporary.replace(destination)
     finally:
-        temporary.unlink(missing_ok=True)
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return checksums
 
 

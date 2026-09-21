@@ -1,5 +1,7 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 from scripts import prepare_demo_snapshot as snapshot_script
@@ -183,3 +185,37 @@ def test_failed_snapshot_copy_removes_a_stale_checksum(tmp_path: Path, monkeypat
         prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
 
     assert not (output / CHECKSUM_FILE).exists()
+
+
+def test_concurrent_checksum_writers_do_not_share_temporary_files(tmp_path, monkeypatch):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    output = prepare_demo_snapshot(checkpoint, corpus, artifacts, tmp_path / "output")
+    barrier = Barrier(2)
+    replace = Path.replace
+
+    def coordinated_replace(self, target):
+        barrier.wait(timeout=5)
+        return replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", coordinated_replace)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first = executor.submit(write_checksums, output)
+        second = executor.submit(write_checksums, output)
+        assert first.result() == second.result()
+    verify_snapshot(output)
+    assert list(output.glob(".checksums.json.*")) == []
+
+
+def test_checksum_replace_failure_preserves_previous_record(tmp_path, monkeypatch):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    output = prepare_demo_snapshot(checkpoint, corpus, artifacts, tmp_path / "output")
+    original = (output / CHECKSUM_FILE).read_bytes()
+
+    def fail_replace(self, target):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    with pytest.raises(OSError, match="replace failed"):
+        write_checksums(output)
+    assert (output / CHECKSUM_FILE).read_bytes() == original
+    assert list(output.glob(".checksums.json.*")) == []
