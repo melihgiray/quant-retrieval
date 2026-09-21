@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from quant_retrieval.eval.fingerprints import dataset_fingerprints
 from quant_retrieval.eval.metrics import aggregate_metrics, per_query_metrics
 from quant_retrieval.retrieval.base import Retriever
 
@@ -97,6 +98,7 @@ def evaluate_retriever(
     if unknown_qrel_ids:
         raise ValueError(f"qrels reference unknown answer IDs: {unknown_qrel_ids[:5]}")
     document_texts = corpus["text"].tolist()
+    fingerprints = dataset_fingerprints(corpus, selected_queries, selected_qrels)
     index_started = time.perf_counter()
     retriever.index(document_ids, document_texts)
     index_seconds = time.perf_counter() - index_started
@@ -137,6 +139,7 @@ def evaluate_retriever(
         rankings[int(row.question_id)] = ranking
 
     return {
+        "dataset_sha256": fingerprints,
         "metrics": aggregate_metrics(rankings, qrel_map),
         "per_query": per_query_metrics(rankings, qrel_map),
         "timing": {
