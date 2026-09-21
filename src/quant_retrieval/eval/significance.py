@@ -30,6 +30,7 @@ from numbers import Integral, Real
 import numpy as np
 
 DEFAULT_ITERATIONS = 10_000
+MAX_DRAW_ELEMENTS = 1_000_000
 
 
 def paired_bootstrap(
@@ -74,8 +75,12 @@ def paired_bootstrap(
     observed = float(differences.mean())
 
     generator = np.random.default_rng(seed)
-    draws = generator.integers(0, len(differences), size=(iterations, len(differences)))
-    resampled = differences[draws].mean(axis=1)
+    batch_size = max(1, MAX_DRAW_ELEMENTS // len(differences))
+    resampled = np.empty(iterations, dtype=np.float64)
+    for start in range(0, iterations, batch_size):
+        stop = min(start + batch_size, iterations)
+        draws = generator.integers(0, len(differences), size=(stop - start, len(differences)))
+        resampled[start:stop] = differences[draws].mean(axis=1)
 
     tail = (1 - confidence) / 2
     low, high = np.quantile(resampled, [tail, 1 - tail])

@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from quant_retrieval.eval import significance
 from quant_retrieval.eval.significance import format_difference, paired_bootstrap
 
 
@@ -133,3 +134,12 @@ def test_bootstrap_rejects_unusable_scores(value):
 def test_bootstrap_requires_an_integer_sample_count(iterations):
     with pytest.raises(ValueError, match="positive integer"):
         paired_bootstrap({1: 0.2}, {1: 0.5}, iterations=iterations)
+
+
+def test_chunked_bootstrap_preserves_seeded_results(monkeypatch):
+    baseline = scores([0.2, 0.3, 0.8, 0.1, 0.5])
+    candidate = scores([0.3, 0.1, 0.9, 0.4, 0.3])
+    expected = paired_bootstrap(baseline, candidate, iterations=107, seed=9)
+    monkeypatch.setattr(significance, "MAX_DRAW_ELEMENTS", 15)
+    actual = paired_bootstrap(baseline, candidate, iterations=107, seed=9)
+    assert actual == expected
