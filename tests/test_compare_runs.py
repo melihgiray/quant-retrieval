@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from scripts.compare_runs import load_per_query
+from scripts.compare_runs import load_per_query, validate_comparable_runs
 
 
 @pytest.mark.parametrize("query_id", ["01", "-1", "0", "1.0", "one"])
@@ -24,3 +24,22 @@ def test_comparison_loads_valid_query_scores(tmp_path):
     path = tmp_path / "run.json"
     path.write_text(json.dumps({"per_query": {"12": {"ndcg_at_10": 0.5}}}))
     assert load_per_query(path, "ndcg_at_10") == {12: 0.5}
+
+
+def run_record():
+    return {"split": "val", "counts": {"queries": 1, "corpus_documents": 10, "max_results": 100}}
+
+
+@pytest.mark.parametrize("field", ["split", "queries", "corpus_documents", "max_results"])
+def test_comparison_rejects_different_evaluation_conditions(field):
+    baseline, candidate = run_record(), run_record()
+    if field == "split":
+        candidate[field] = "train"
+    else:
+        candidate["counts"][field] += 1
+    with pytest.raises(SystemExit, match="comparison requires"):
+        validate_comparable_runs(baseline, candidate)
+
+
+def test_matching_evaluation_conditions_are_comparable():
+    validate_comparable_runs(run_record(), run_record())

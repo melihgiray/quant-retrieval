@@ -19,8 +19,8 @@ from quant_retrieval.eval.metrics import METRIC_NAMES
 from quant_retrieval.eval.significance import format_difference, paired_bootstrap
 
 
-def load_per_query(path: Path, metric: str) -> dict[int, float]:
-    result = json.loads(path.read_text())
+def load_per_query(path: Path, metric: str, *, record: dict | None = None) -> dict[int, float]:
+    result = json.loads(path.read_text()) if record is None else record
     per_query = result.get("per_query") if isinstance(result, dict) else None
     if not isinstance(per_query, dict) or not per_query:
         raise SystemExit(
@@ -45,6 +45,16 @@ def load_per_query(path: Path, metric: str) -> dict[int, float]:
     return loaded
 
 
+def validate_comparable_runs(baseline: dict, candidate: dict) -> None:
+    if not baseline.get("split") or baseline.get("split") != candidate.get("split"):
+        raise SystemExit("comparison requires runs from the same named split")
+    for name in ("corpus_documents", "max_results", "queries"):
+        left = baseline.get("counts", {}).get(name)
+        right = candidate.get("counts", {}).get(name)
+        if type(left) is not int or left < 1 or left != right:
+            raise SystemExit(f"comparison requires matching positive {name} counts")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=Path, required=True)
@@ -55,8 +65,15 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("results/comparisons"))
     args = parser.parse_args()
 
-    baseline = load_per_query(args.baseline, args.metric)
-    candidate = load_per_query(args.candidate, args.metric)
+    baseline_record = json.loads(args.baseline.read_text())
+    candidate_record = json.loads(args.candidate.read_text())
+    baseline = load_per_query(args.baseline, args.metric, record=baseline_record)
+    candidate = load_per_query(args.candidate, args.metric, record=candidate_record)
+    validate_comparable_runs(baseline_record, candidate_record)
+    if len(baseline) != baseline_record["counts"]["queries"]:
+        raise SystemExit("baseline query count does not match per_query scores")
+    if len(candidate) != candidate_record["counts"]["queries"]:
+        raise SystemExit("candidate query count does not match per_query scores")
     result = paired_bootstrap(
         baseline, candidate, iterations=args.iterations, seed=args.seed
     )
