@@ -121,3 +121,15 @@ def test_format_difference_reads_as_a_table_cell():
         {"mean_difference": 0.0396, "ci_low": 0.021, "ci_high": 0.058, "p_value": 0.0004}
     )
     assert line == "+0.0396 [+0.0210, +0.0580], p = 0.000"
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), None, "0.5", True])
+def test_bootstrap_rejects_unusable_scores(value):
+    with pytest.raises(ValueError, match="finite numbers"):
+        paired_bootstrap({1: 0.2}, {1: value})
+
+
+@pytest.mark.parametrize("iterations", [True, 2.5, "10"])
+def test_bootstrap_requires_an_integer_sample_count(iterations):
+    with pytest.raises(ValueError, match="positive integer"):
+        paired_bootstrap({1: 0.2}, {1: 0.5}, iterations=iterations)

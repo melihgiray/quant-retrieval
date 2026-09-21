@@ -25,6 +25,7 @@ relevant document is a coin flip. Resampling assumes none of that.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from numbers import Integral, Real
 
 import numpy as np
 
@@ -45,9 +46,9 @@ def paired_bootstrap(
     difference (candidate minus baseline), a confidence interval for it, and a
     two sided p value for the difference being zero.
     """
-    if iterations < 1:
-        raise ValueError("iterations must be positive")
-    if not 0 < confidence < 1:
+    if isinstance(iterations, bool) or not isinstance(iterations, Integral) or iterations < 1:
+        raise ValueError("iterations must be a positive integer")
+    if not isinstance(confidence, Real) or not 0 < confidence < 1:
         raise ValueError("confidence must be between 0 and 1")
 
     shared = sorted(set(baseline) & set(candidate))
@@ -59,9 +60,17 @@ def paired_bootstrap(
             f"{len(candidate)}, sharing {len(shared)}"
         )
 
+    if any(
+        isinstance(value, bool) or not isinstance(value, Real) or not np.isfinite(value)
+        for run in (baseline, candidate)
+        for value in run.values()
+    ):
+        raise ValueError("query scores must be finite numbers")
     differences = np.array(
         [candidate[query_id] - baseline[query_id] for query_id in shared], dtype=np.float64
     )
+    if not np.isfinite(differences).all():
+        raise ValueError("score differences must be finite")
     observed = float(differences.mean())
 
     generator = np.random.default_rng(seed)
