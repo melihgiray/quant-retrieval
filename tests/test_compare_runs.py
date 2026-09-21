@@ -1,6 +1,7 @@
 import hashlib
 import json
 import sys
+from pathlib import Path
 
 import pytest
 from scripts import compare_runs
@@ -65,3 +66,15 @@ def test_comparison_command_records_reproduction_inputs(tmp_path, monkeypatch):
     assert record["iterations"] == 20
     assert record["split"] == "val"
     assert record["source_sha256"]["baseline"] == hashlib.sha256(baseline.read_bytes()).hexdigest()
+
+    report_path = next(output.glob("*.json"))
+    original = report_path.read_bytes()
+
+    def fail_replace(self, target):
+        raise OSError("comparison write interrupted")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    with pytest.raises(OSError, match="comparison write interrupted"):
+        compare_runs.main()
+    assert report_path.read_bytes() == original
+    assert list(output.iterdir()) == [report_path]

@@ -17,6 +17,7 @@ import math
 from pathlib import Path
 
 from quant_retrieval.eval.metrics import METRIC_NAMES
+from quant_retrieval.eval.results import write_result
 from quant_retrieval.eval.significance import format_difference, paired_bootstrap
 
 
@@ -97,9 +98,8 @@ def main() -> None:
         **result,
     }
 
-    args.out.mkdir(parents=True, exist_ok=True)
     output = args.out / f"{args.baseline.stem}_vs_{args.candidate.stem}_{args.metric}.json"
-    output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+    write_result(record, output)
 
     print(f"wrote {output}")
     print(
