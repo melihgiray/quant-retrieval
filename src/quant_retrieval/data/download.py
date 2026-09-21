@@ -9,6 +9,7 @@ and the extraction separate so a failed extraction does not mean fetching
 from __future__ import annotations
 
 import json
+import tempfile
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,18 +56,25 @@ def download_dump(dest: Path, url: str = DUMP_URL, force: bool = False) -> DumpI
             return DumpInfo(url=url, bytes_downloaded=expected, last_modified=last_modified)
 
         written = 0
-        with (
-            open(dest, "wb") as out,
-            tqdm(total=expected or None, unit="B", unit_scale=True, desc=dest.name) as bar,
-        ):
-            while chunk := response.read(1 << 20):
-                out.write(chunk)
-                written += len(chunk)
-                bar.update(len(chunk))
-
-    if expected and written != expected:
-        dest.unlink(missing_ok=True)
-        raise OSError(f"download truncated: got {written} bytes, expected {expected}")
+        temporary = None
+        try:
+            with (
+                tempfile.NamedTemporaryFile(
+                    mode="wb", dir=dest.parent, prefix=f".{dest.name}.", delete=False
+                ) as out,
+                tqdm(total=expected or None, unit="B", unit_scale=True, desc=dest.name) as bar,
+            ):
+                temporary = Path(out.name)
+                while chunk := response.read(1 << 20):
+                    out.write(chunk)
+                    written += len(chunk)
+                    bar.update(len(chunk))
+            if expected and written != expected:
+                raise OSError(f"download truncated: got {written} bytes, expected {expected}")
+            temporary.replace(dest)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     return DumpInfo(url=url, bytes_downloaded=written, last_modified=last_modified)
 
