@@ -11,6 +11,7 @@ generated results table can quote an interval instead of a bare subtraction.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -62,11 +63,14 @@ def main() -> None:
     parser.add_argument("--metric", default="ndcg_at_10", choices=METRIC_NAMES)
     parser.add_argument("--iterations", type=int, default=10_000)
     parser.add_argument("--seed", type=int, default=17)
+    parser.add_argument("--confidence", type=float, default=0.95)
     parser.add_argument("--out", type=Path, default=Path("results/comparisons"))
     args = parser.parse_args()
 
-    baseline_record = json.loads(args.baseline.read_text())
-    candidate_record = json.loads(args.candidate.read_text())
+    baseline_bytes = args.baseline.read_bytes()
+    candidate_bytes = args.candidate.read_bytes()
+    baseline_record = json.loads(baseline_bytes)
+    candidate_record = json.loads(candidate_bytes)
     baseline = load_per_query(args.baseline, args.metric, record=baseline_record)
     candidate = load_per_query(args.candidate, args.metric, record=candidate_record)
     validate_comparable_runs(baseline_record, candidate_record)
@@ -75,13 +79,19 @@ def main() -> None:
     if len(candidate) != candidate_record["counts"]["queries"]:
         raise SystemExit("candidate query count does not match per_query scores")
     result = paired_bootstrap(
-        baseline, candidate, iterations=args.iterations, seed=args.seed
+        baseline, candidate, iterations=args.iterations, seed=args.seed, confidence=args.confidence
     )
 
     record = {
         "baseline": args.baseline.stem,
         "candidate": args.candidate.stem,
         "metric": args.metric,
+        "seed": args.seed,
+        "split": baseline_record["split"],
+        "source_sha256": {
+            "baseline": hashlib.sha256(baseline_bytes).hexdigest(),
+            "candidate": hashlib.sha256(candidate_bytes).hexdigest(),
+        },
         "baseline_mean": sum(baseline.values()) / len(baseline),
         "candidate_mean": sum(candidate.values()) / len(candidate),
         **result,

@@ -1,6 +1,9 @@
+import hashlib
 import json
+import sys
 
 import pytest
+from scripts import compare_runs
 from scripts.compare_runs import load_per_query, validate_comparable_runs
 
 
@@ -43,3 +46,22 @@ def test_comparison_rejects_different_evaluation_conditions(field):
 
 def test_matching_evaluation_conditions_are_comparable():
     validate_comparable_runs(run_record(), run_record())
+
+
+def test_comparison_command_records_reproduction_inputs(tmp_path, monkeypatch):
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    for path, score in ((baseline, 0.2), (candidate, 0.4)):
+        path.write_text(json.dumps({**run_record(), "per_query": {"1": {"ndcg_at_10": score}}}))
+    output = tmp_path / "comparisons"
+    monkeypatch.setattr(sys, "argv", [
+        "compare_runs", "--baseline", str(baseline), "--candidate", str(candidate),
+        "--out", str(output), "--seed", "8", "--iterations", "20", "--confidence", "0.8",
+    ])
+    compare_runs.main()
+    record = json.loads(next(output.glob("*.json")).read_text())
+    assert record["seed"] == 8
+    assert record["confidence"] == 0.8
+    assert record["iterations"] == 20
+    assert record["split"] == "val"
+    assert record["source_sha256"]["baseline"] == hashlib.sha256(baseline.read_bytes()).hexdigest()
