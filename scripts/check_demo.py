@@ -8,6 +8,7 @@ import math
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
+from time import perf_counter
 from urllib.parse import urlencode, urlsplit
 
 from quant_retrieval.eval.results import write_result
@@ -32,6 +33,7 @@ def _get_json(url: str, timeout: float) -> dict:
 def check_demo(
     base_url: str, *, query: str = "How do I calculate implied volatility?",
     k: int = 3, timeout: float = 30.0, expected_commit: str | None = None,
+    max_search_ms: float | None = None,
 ) -> dict:
     """Fail unless the expected pipeline is ready and returns a usable ranking."""
     parsed = urlsplit(base_url)
@@ -47,6 +49,8 @@ def check_demo(
         raise ValueError("k must be an integer from 1 to 20")
     if not _finite_number(timeout) or timeout <= 0:
         raise ValueError("timeout must be positive and finite")
+    if max_search_ms is not None and (not _finite_number(max_search_ms) or max_search_ms <= 0):
+        raise ValueError("max_search_ms must be positive and finite")
     base_url = base_url.rstrip("/")
     health = _get_json(f"{base_url}/health", timeout)
     if (
@@ -58,7 +62,11 @@ def check_demo(
         raise ValueError("loaded artifact commit does not match the expected revision")
 
     parameters = urlencode({"q": query.strip(), "k": k})
+    started = perf_counter()
     search = _get_json(f"{base_url}/search?{parameters}", timeout)
+    roundtrip_ms = (perf_counter() - started) * 1000
+    if max_search_ms is not None and roundtrip_ms > max_search_ms:
+        raise ValueError(f"search took {roundtrip_ms:.1f} ms, exceeding {max_search_ms:.1f} ms")
     if search.get("query") != query.strip():
         raise ValueError("search response does not match the requested query")
     elapsed = search.get("elapsed_ms")
@@ -90,7 +98,9 @@ def check_demo(
     return {
         "checked_at": datetime.now(UTC).isoformat(),
         "request": {"base_url": base_url, "query": query.strip(), "k": k,
-                    "timeout": timeout, "expected_commit": expected_commit},
+                    "timeout": timeout, "expected_commit": expected_commit,
+                    "max_search_ms": max_search_ms},
+        "search_roundtrip_ms": round(roundtrip_ms, 3),
         "health": health,
         "search": search,
     }
@@ -103,12 +113,15 @@ def main() -> None:
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--expected-commit")
+    parser.add_argument(
+        "--max-search-ms", type=float, help="maximum measured search round-trip time"
+    )
     parser.add_argument("--out", type=Path, help="save a successful check as an atomic JSON report")
     args = parser.parse_args()
     try:
         report = check_demo(
             args.base_url, query=args.query, k=args.k, timeout=args.timeout,
-            expected_commit=args.expected_commit,
+            expected_commit=args.expected_commit, max_search_ms=args.max_search_ms,
         )
         if args.out is not None:
             write_result(report, args.out)

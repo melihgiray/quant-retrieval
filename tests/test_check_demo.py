@@ -95,3 +95,20 @@ def test_probe_saves_successful_reports_and_preserves_them_on_failure(tmp_path, 
     with pytest.raises(SystemExit, match="demo check failed"):
         check_demo.main()
     assert target.read_bytes() == original
+
+
+def test_probe_measures_network_time_separately_from_server_time(monkeypatch):
+    responses(monkeypatch, [health(), search()])
+    times = iter([1.0, 1.25])
+    monkeypatch.setattr(check_demo, "perf_counter", lambda: next(times))
+    report = check_demo.check_demo("https://demo.example", query="delta", max_search_ms=300)
+    assert report["search_roundtrip_ms"] == 250
+    assert report["search"]["elapsed_ms"] == 1.5
+
+
+def test_probe_enforces_roundtrip_limit_even_when_server_reports_fast_search(monkeypatch):
+    responses(monkeypatch, [health(), search()])
+    times = iter([1.0, 1.25])
+    monkeypatch.setattr(check_demo, "perf_counter", lambda: next(times))
+    with pytest.raises(ValueError, match="exceeding 200.0 ms"):
+        check_demo.check_demo("https://demo.example", query="delta", max_search_ms=200)
