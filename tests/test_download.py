@@ -59,3 +59,21 @@ def test_download_rejects_invalid_timeouts_before_creating_directories(tmp_path,
     with pytest.raises(ValueError, match="timeout must be positive and finite"):
         download.download_dump(target, timeout=timeout)
     assert not target.parent.exists()
+
+
+def test_missing_content_length_does_not_reuse_an_empty_archive(tmp_path, monkeypatch):
+    target = tmp_path / "dump.7z"
+    target.touch()
+    monkeypatch.setattr(download.urllib.request, "urlopen", lambda *a, **k: Response(headers={}))
+    download.download_dump(target)
+    assert target.read_bytes() == b"new archive"
+
+
+@pytest.mark.parametrize("headers", [{}, {"Content-Length": "0"}, {"Content-Length": "bad"}])
+def test_empty_or_invalid_response_preserves_archive(tmp_path, monkeypatch, headers):
+    target = tmp_path / "dump.7z"
+    target.write_bytes(b"old")
+    monkeypatch.setattr(download.urllib.request, "urlopen", lambda *a, **k: Response(b"", headers))
+    with pytest.raises(OSError):
+        download.download_dump(target, force=True)
+    assert target.read_bytes() == b"old"

@@ -54,10 +54,19 @@ def download_dump(
 
     request = urllib.request.Request(url, headers={"User-Agent": "quant-retrieval/0.1"})
     with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
-        expected = int(response.headers.get("Content-Length", 0))
+        length = response.headers.get("Content-Length")
+        try:
+            expected = int(length) if length is not None else None
+        except ValueError as error:
+            raise OSError("invalid download Content-Length") from error
+        if expected is not None and expected <= 0:
+            raise OSError("download archive must not be empty")
         last_modified = response.headers.get("Last-Modified")
 
-        if dest.exists() and not force and dest.stat().st_size == expected:
+        if (
+            expected is not None and dest.is_file()
+            and not force and dest.stat().st_size == expected
+        ):
             return DumpInfo(url=url, bytes_downloaded=expected, last_modified=last_modified)
 
         written = 0
@@ -74,7 +83,9 @@ def download_dump(
                     out.write(chunk)
                     written += len(chunk)
                     bar.update(len(chunk))
-            if expected and written != expected:
+            if not written:
+                raise OSError("download archive must not be empty")
+            if expected is not None and written != expected:
                 raise OSError(f"download truncated: got {written} bytes, expected {expected}")
             temporary.replace(dest)
         finally:
