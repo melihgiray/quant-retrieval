@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -17,6 +18,30 @@ from quant_retrieval.retrieval.factory import build_retriever
 from quant_retrieval.runtime import set_seed
 
 
+def validate_config(config: dict) -> None:
+    if not isinstance(config, dict):
+        raise ValueError("evaluation config must be an object")
+    name = config.get("run_name")
+    if not isinstance(name, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", name) is None:
+        raise ValueError("run_name must be a filename-safe identifier")
+    seed = config.get("seed")
+    if type(seed) is not int or not 0 <= seed < 2**32:
+        raise ValueError("seed must be an integer between zero and 2**32 - 1")
+    if config.get("split", "val") not in ("train", "val", "test"):
+        raise ValueError("split must be train, val or test")
+    count = config.get("max_results", 100)
+    if type(count) is not int or count < 100:
+        raise ValueError("max_results must be an integer of at least 100 for Recall@100")
+    if config.get("retriever") not in ("bm25", "dense", "hybrid", "rerank"):
+        raise ValueError("config must name a supported retriever")
+    if not isinstance(config.get("parameters", {}), dict):
+        raise ValueError("retriever parameters must be an object")
+    if "output" in config and (
+        not isinstance(config["output"], str) or not config["output"].strip()
+    ):
+        raise ValueError("output must be a nonempty path string")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -26,7 +51,11 @@ def main() -> None:
     args = parser.parse_args()
 
     config = yaml.safe_load(args.config.read_text())
-    set_seed(int(config["seed"]))
+    try:
+        validate_config(config)
+    except ValueError as error:
+        parser.error(str(error))
+    set_seed(config["seed"])
     retriever = build_retriever(config)
     corpus = pd.read_parquet(args.data / "corpus.parquet")
     queries = pd.read_parquet(args.data / "queries.parquet")

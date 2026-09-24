@@ -1,9 +1,26 @@
 import pytest
 import torch
-from scripts.evaluate import build_retriever, set_seed
+from scripts.evaluate import build_retriever, set_seed, validate_config
 
 from quant_retrieval.retrieval.bm25 import BM25Retriever
 from quant_retrieval.retrieval.dense import DenseRetriever
+
+
+@pytest.mark.parametrize("key,value", [
+    ("run_name", "../result"), ("seed", True), ("seed", -1), ("seed", 2**32),
+    ("split", "validation"), ("max_results", 99), ("max_results", 100.5),
+    ("parameters", []), ("output", ""), ("retriever", "unknown"),
+])
+def test_evaluation_config_rejects_invalid_settings_before_model_work(key, value):
+    config = {"run_name": "test_run", "seed": 17, "retriever": "bm25", key: value}
+    with pytest.raises(ValueError):
+        validate_config(config)
+
+
+def test_evaluation_config_defaults_and_empty_documents():
+    validate_config({"run_name": "tiny_run", "seed": 0, "retriever": "bm25"})
+    with pytest.raises(ValueError, match="object"):
+        validate_config(None)
 
 
 def test_builds_bm25_from_config_parameters():
