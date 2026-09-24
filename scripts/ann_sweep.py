@@ -29,6 +29,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
+from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.retrieval.ann import ApproximateRetriever, recall_against_exact  # noqa: E402
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
 from quant_retrieval.runtime import set_seed  # noqa: E402
@@ -79,7 +80,7 @@ def main() -> None:
 
     # Encode the queries once, on whatever device is available, then never again.
     queries = pd.read_parquet(args.data / "queries.parquet")
-    selected = queries[queries["split"] == "val"].head(args.queries)
+    selected = sample_queries(queries, args.queries, args.seed)
     encoder = DenseRetriever(str(args.checkpoint), show_progress=False)
     query_vectors = encoder._encode(selected["text"].tolist())
     print(f"encoded {len(query_vectors)} queries on {encoder.device}")
