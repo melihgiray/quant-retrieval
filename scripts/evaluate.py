@@ -48,6 +48,8 @@ def main() -> None:
     parser.add_argument("--data", type=Path, default=Path("data/processed"))
     parser.add_argument("--save-rankings", action="store_true",
                         help="include retrieved answer IDs for offline inspection")
+    parser.add_argument("--allow-test", action="store_true",
+                        help="explicitly authorize the final held-out test evaluation")
     args = parser.parse_args()
 
     config = yaml.safe_load(args.config.read_text())
@@ -55,6 +57,8 @@ def main() -> None:
         validate_config(config)
     except ValueError as error:
         parser.error(str(error))
+    if config.get("split", "val") == "test" and not args.allow_test:
+        parser.error("held-out test evaluation requires --allow-test; tune on val first")
     set_seed(config["seed"])
     retriever = build_retriever(config)
     corpus = pd.read_parquet(args.data / "corpus.parquet")
@@ -78,6 +82,7 @@ def main() -> None:
         include_rankings=args.save_rankings,
     )
     output = Path(config.get("output", f"results/{config['run_name']}.json"))
+    record["test_split_authorized"] = config.get("split", "val") == "test" and args.allow_test
     write_result(record, output)
 
     print(f"wrote {output}")

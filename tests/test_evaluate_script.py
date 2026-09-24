@@ -1,5 +1,6 @@
 import pytest
 import torch
+from scripts import evaluate
 from scripts.evaluate import build_retriever, set_seed, validate_config
 
 from quant_retrieval.retrieval.bm25 import BM25Retriever
@@ -21,6 +22,29 @@ def test_evaluation_config_defaults_and_empty_documents():
     validate_config({"run_name": "tiny_run", "seed": 0, "retriever": "bm25"})
     with pytest.raises(ValueError, match="object"):
         validate_config(None)
+
+
+@pytest.mark.parametrize("allow_test", [False, True])
+def test_test_split_requires_explicit_permission_before_model_loading(
+    tmp_path, monkeypatch, allow_test
+):
+    path = tmp_path / "final.yaml"
+    path.write_text("run_name: final\nseed: 17\nretriever: bm25\nsplit: test\n")
+    monkeypatch.setattr(evaluate, "set_seed", lambda seed: None)
+
+    def reached_model_boundary(config):
+        raise RuntimeError("model boundary reached; no data loaded")
+
+    monkeypatch.setattr(evaluate, "build_retriever", reached_model_boundary)
+    argv = ["evaluate", "--config", str(path)] + (["--allow-test"] if allow_test else [])
+    monkeypatch.setattr("sys.argv", argv)
+    if allow_test:
+        with pytest.raises(RuntimeError, match="model boundary"):
+            evaluate.main()
+    else:
+        with pytest.raises(SystemExit) as error:
+            evaluate.main()
+        assert error.value.code == 2
 
 
 def test_builds_bm25_from_config_parameters():
