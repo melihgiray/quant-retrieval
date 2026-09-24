@@ -2,7 +2,9 @@ import json
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
+from scripts import ann_sweep
 from scripts.ann_sweep import load_manifest, main, time_search
 
 
@@ -46,3 +48,39 @@ def test_manifest_matches_vectors_and_encoder(tmp_path):
         path.write_text(json.dumps({**manifest, key: value}))
         with pytest.raises(ValueError):
             load_manifest(tmp_path, checkpoint)
+
+
+def test_failed_graph_build_keeps_completed_exact_measurement(tmp_path, monkeypatch):
+    output = tmp_path / "report.json"
+    queries = pd.DataFrame({"query_id": [1], "text": ["query"], "split": ["val"]})
+    monkeypatch.setitem(__import__("sys").modules, "faiss",
+                        SimpleNamespace(omp_set_num_threads=lambda threads: None))
+    monkeypatch.setattr(ann_sweep, "set_seed", lambda seed: None)
+    monkeypatch.setattr(ann_sweep, "benchmark_context", lambda *args: {})
+    monkeypatch.setattr(ann_sweep, "load_manifest", lambda *args:
+                        {"documents": 1, "dimensions": 2, "max_length": 128})
+    monkeypatch.setattr(ann_sweep.pd, "read_parquet", lambda path: queries)
+    monkeypatch.setattr(ann_sweep.np, "load", lambda path: np.array([1]))
+    monkeypatch.setattr(ann_sweep, "DenseRetriever", lambda *args, **kwargs:
+                        SimpleNamespace(_encode=lambda texts: np.ones((1, 2)), device="cpu"))
+
+    class Retriever:
+        def __init__(self, *args, exact=False, **kwargs):
+            self.exact = exact
+
+        def index(self, *args):
+            if not self.exact:
+                raise RuntimeError("graph build failed")
+
+        def search_vector(self, *args):
+            return []
+
+    monkeypatch.setattr(ann_sweep, "ApproximateRetriever", Retriever)
+    monkeypatch.setattr("sys.argv", ["ann_sweep", "--embeddings", str(tmp_path),
+                                    "--output", str(output)])
+    with pytest.raises(RuntimeError, match="graph build failed"):
+        main()
+    report = json.loads(output.read_text())
+    assert report["complete"] is False
+    assert len(report["runs"]) == 1
+    assert report["runs"][0]["index"] == "exact"

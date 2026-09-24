@@ -124,6 +124,19 @@ def main() -> None:
     print(f"encoded {len(query_vectors)} queries on {encoder.device}")
 
     runs = []
+    report = {
+        **benchmark_context(selected, args.seed),
+        "artifacts": [
+            {"directory": str(directory.resolve()), "manifest": manifest}
+            for directory, manifest in zip(args.embeddings, manifests, strict=True)
+        ],
+        "checkpoint": str(args.checkpoint),
+        "k": args.k, "queries": len(query_vectors), "warmup": args.warmup,
+        "threads": args.threads, "neighbours": args.neighbours,
+        "ef_construction": args.ef_construction, "ef_search": args.ef_search,
+        "complete": False, "runs": runs,
+    }
+    write_result(report, args.output)
     for directory, manifest in zip(args.embeddings, manifests, strict=True):
         answer_ids = np.load(directory / "answer_ids.npy").tolist()
         path = directory / "embeddings_fp32.npy"
@@ -143,6 +156,7 @@ def main() -> None:
             }
         )
         print(f"exact      p50 {runs[-1]['p50_ms']:>7.3f}ms  recall 1.000")
+        write_result(report, args.output)
 
         approximate = ApproximateRetriever(
             path, neighbours=args.neighbours, ef_construction=args.ef_construction
@@ -178,18 +192,9 @@ def main() -> None:
                 f"hnsw ef={ef_search:<4} p50 {runs[-1]['p50_ms']:>7.3f}ms  "
                 f"recall {recall:.3f}  build {build_seconds:.0f}s"
             )
+            write_result(report, args.output)
 
-    report = {
-        **benchmark_context(selected, args.seed),
-        "artifacts": [
-            {"directory": str(directory.resolve()), "manifest": manifest}
-            for directory, manifest in zip(args.embeddings, manifests, strict=True)
-        ],
-        "checkpoint": str(args.checkpoint),
-        "k": args.k, "queries": len(query_vectors), "warmup": args.warmup,
-        "threads": args.threads, "neighbours": args.neighbours,
-        "ef_construction": args.ef_construction, "ef_search": args.ef_search, "runs": runs,
-    }
+    report["complete"] = True
     write_result(report, args.output)
     print(f"\nwrote {args.output}")
 
