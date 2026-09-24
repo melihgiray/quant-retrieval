@@ -36,8 +36,14 @@ from quant_retrieval.runtime import set_seed  # noqa: E402
 DEFAULT_EF_SEARCH = (16, 32, 64, 128, 256)
 
 
-def time_search(retriever, queries: np.ndarray, k: int) -> tuple[list, list[float]]:
-    """Run every query once, keeping the results and the per query latency."""
+def time_search(
+    retriever, queries: np.ndarray, k: int, warmup: int = 0
+) -> tuple[list, list[float]]:
+    """Warm the index, then keep one measured result per query."""
+    if warmup < 0 or len(queries) == 0:
+        raise ValueError("warmup must be nonnegative and queries must not be empty")
+    for index in range(warmup):
+        retriever.search_vector(queries[index % len(queries)], k)
     results, latencies = [], []
     for vector in queries:
         started = time.perf_counter()
@@ -62,6 +68,7 @@ def main() -> None:
                         default=Path("checkpoints/minilm_tuned/epoch-3"))
     parser.add_argument("--queries", type=int, default=200)
     parser.add_argument("--k", type=int, default=10)
+    parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--ef-search", nargs="+", type=int, default=list(DEFAULT_EF_SEARCH))
     parser.add_argument("--neighbours", type=int, default=32)
     parser.add_argument("--seed", type=int, default=17)
@@ -87,7 +94,7 @@ def main() -> None:
 
         exact = ApproximateRetriever(path, exact=True)
         exact.index(answer_ids, [])
-        exact_results, exact_latencies = time_search(exact, query_vectors, args.k)
+        exact_results, exact_latencies = time_search(exact, query_vectors, args.k, args.warmup)
         runs.append(
             {
                 "documents": documents,
@@ -107,7 +114,7 @@ def main() -> None:
         for ef_search in args.ef_search:
             approximate.set_ef_search(ef_search)
 
-            results, latencies = time_search(approximate, query_vectors, args.k)
+            results, latencies = time_search(approximate, query_vectors, args.k, args.warmup)
             recall = float(
                 np.mean(
                     [
@@ -132,7 +139,7 @@ def main() -> None:
                 f"recall {recall:.3f}  build {build_seconds:.0f}s"
             )
 
-    report = {"k": args.k, "queries": len(query_vectors), "runs": runs}
+    report = {"k": args.k, "queries": len(query_vectors), "warmup": args.warmup, "runs": runs}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(f"\nwrote {args.output}")
