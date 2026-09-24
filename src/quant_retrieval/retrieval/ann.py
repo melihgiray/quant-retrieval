@@ -111,6 +111,15 @@ class ApproximateRetriever:
         self.document_ids = ids
         self._dimensions = dimensions
 
+    def set_ef_search(self, value: int) -> None:
+        """Change search breadth on the same graph for a controlled sweep."""
+        if isinstance(value, bool) or not isinstance(value, Integral) or value < 1:
+            raise ValueError("ef_search must be a positive integer")
+        if self.exact or self._index is None:
+            raise RuntimeError("build an HNSW index before changing search breadth")
+        self._index.hnsw.efSearch = value
+        self.ef_search = value
+
     def search_vector(self, query: np.ndarray, k: int) -> list[SearchResult]:
         """Search with an already encoded query."""
         if isinstance(k, bool) or not isinstance(k, Integral) or k <= 0:

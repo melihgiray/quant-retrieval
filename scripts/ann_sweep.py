@@ -99,13 +99,13 @@ def main() -> None:
         )
         print(f"exact      p50 {runs[-1]['p50_ms']:>7.3f}ms  recall 1.000")
 
+        approximate = ApproximateRetriever(path, neighbours=args.neighbours)
+        build_started = time.perf_counter()
+        approximate.index(answer_ids, [])
+        build_seconds = time.perf_counter() - build_started
+
         for ef_search in args.ef_search:
-            approximate = ApproximateRetriever(
-                path, neighbours=args.neighbours, ef_search=ef_search
-            )
-            build_started = time.perf_counter()
-            approximate.index(answer_ids, [])
-            build_seconds = time.perf_counter() - build_started
+            approximate.set_ef_search(ef_search)
 
             results, latencies = time_search(approximate, query_vectors, args.k)
             recall = float(

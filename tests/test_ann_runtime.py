@@ -69,3 +69,15 @@ def test_ann_normalization_handles_extreme_finite_vectors(tmp_path, fake_faiss, 
     hits = retriever.search_vector(np.array([magnitude, 0.0]), 1)
     assert hits[0].document_id == 10
     assert hits[0].score == pytest.approx(1.0)
+
+
+def test_search_breadth_changes_without_rebuilding_the_graph(tmp_path, fake_faiss):
+    path = tmp_path / "vectors.npy"
+    np.save(path, np.eye(2, dtype=np.float32))
+    retriever = ApproximateRetriever(path)
+    retriever.index([10, 20], [])
+    graph = retriever._index
+    retriever.set_ef_search(200)
+    assert retriever._index is graph
+    assert graph.hnsw.efSearch == retriever.ef_search == 200
+    assert retriever.search_vector(np.array([1.0, 0.0]), 1)[0].document_id == 10
