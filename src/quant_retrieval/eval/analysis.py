@@ -49,7 +49,7 @@ def error_report(record: dict, metric: str, limit: int = 20) -> dict:
         detail = diagnostics[key]
         if not isinstance(detail, dict) or detail.get("status") not in statuses:
             raise ValueError("unknown retrieval diagnostic status")
-        rows.append({"question_id": int(key), "score": value, **detail})
+        rows.append({**detail, "question_id": int(key), "score": value})
     rows.sort(key=lambda row: (row["score"], row["question_id"]))
     return {
         "run_name": record.get("run_name"), "split": record["split"], "metric": metric,

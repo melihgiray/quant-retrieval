@@ -1,4 +1,7 @@
+import json
+
 import pytest
+from scripts.inspect_errors import main
 
 from quant_retrieval.eval.analysis import error_report, paired_query_changes
 
@@ -45,3 +48,23 @@ def test_paired_changes_find_local_wins_and_losses_even_when_mean_is_unchanged()
     assert reverse["largest_improvements"][0]["question_id"] == 2
     with pytest.raises(ValueError, match="identical"):
         paired_query_changes({1: 0}, {2: 0})
+
+
+def test_error_cli_preserves_source_and_rejects_duplicate_json(tmp_path, monkeypatch):
+    source = tmp_path / "source.json"
+    payload = json.dumps(record())
+    source.write_text(payload)
+    output = tmp_path / "summary.json"
+    monkeypatch.setattr("sys.argv", ["inspect", "--run", str(source), "--output", str(output)])
+    main()
+    assert json.loads(output.read_text())["queries"] == 2
+    assert source.read_text() == payload
+    monkeypatch.setattr("sys.argv", ["inspect", "--run", str(source), "--output", str(source)])
+    with pytest.raises(SystemExit):
+        main()
+    assert source.read_text() == payload
+    source.write_text('{"split":"val","split":"test"}')
+    monkeypatch.setattr("sys.argv", ["inspect", "--run", str(source), "--output", str(output)])
+    with pytest.raises(SystemExit, match="duplicate JSON"):
+        main()
+    assert json.loads(output.read_text())["queries"] == 2

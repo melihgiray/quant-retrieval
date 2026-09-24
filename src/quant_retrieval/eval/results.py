@@ -12,6 +12,24 @@ from pathlib import Path
 from typing import Any
 
 
+def parse_record(contents: bytes, path: Path) -> dict:
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key: {key!r}")
+            result[key] = value
+        return result
+
+    try:
+        record = json.loads(contents, object_pairs_hook=unique_object)
+    except (ValueError, UnicodeError) as error:
+        raise SystemExit(f"{path} is not a valid result record: {error}") from error
+    if not isinstance(record, dict):
+        raise SystemExit(f"{path} result record must be an object")
+    return record
+
+
 def build_result_record(
     run_name: str,
     retriever: str,

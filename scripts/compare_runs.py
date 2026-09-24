@@ -12,33 +12,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import math
 import re
 from pathlib import Path
 
 from quant_retrieval.eval.analysis import paired_query_changes
 from quant_retrieval.eval.metrics import METRIC_NAMES
-from quant_retrieval.eval.results import write_result
+from quant_retrieval.eval.results import parse_record, write_result
 from quant_retrieval.eval.significance import format_difference, paired_bootstrap
-
-
-def parse_record(contents: bytes, path: Path) -> dict:
-    def unique_object(pairs):
-        result = {}
-        for key, value in pairs:
-            if key in result:
-                raise ValueError(f"duplicate JSON key: {key!r}")
-            result[key] = value
-        return result
-
-    try:
-        record = json.loads(contents, object_pairs_hook=unique_object)
-    except (ValueError, UnicodeError) as error:
-        raise SystemExit(f"{path} is not a valid result record: {error}") from error
-    if not isinstance(record, dict):
-        raise SystemExit(f"{path} result record must be an object")
-    return record
 
 
 def load_per_query(path: Path, metric: str, *, record: dict | None = None) -> dict[int, float]:
