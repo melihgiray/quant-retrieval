@@ -71,7 +71,7 @@ The first script pulls the 55 MB dump from archive.org. The second turns it into
 Then train and score a model:
 
     python scripts/train.py --config configs/base.yaml
-    python scripts/evaluate.py --config configs/minilm_tuned_epoch3.yaml
+    python scripts/evaluate.py --config configs/minilm_tuned_epoch3.yaml --output results/tuned_new.json
     python scripts/make_results_table.py
 
 Training writes one checkpoint per epoch and resumes with `--resume` if it stops.
@@ -84,11 +84,17 @@ written into the result file as provenance:
 
     python scripts/mine_negatives.py --config configs/negatives.yaml
     python scripts/train_reranker.py --config configs/reranker.yaml
-    python scripts/evaluate.py --config configs/hybrid_rerank.yaml
+    python scripts/evaluate.py --config configs/hybrid_rerank.yaml --output results/rerank_new.json
 
 Every experiment is a config file plus a seed, and reruns reproduce their
 committed numbers exactly. `./run_ablations.sh` takes run names and works
 through them in order.
+
+Evaluation protects existing result files. Choose a new `--output` filename or
+explicitly use `--overwrite` when intentionally replacing one. Held-out test
+evaluation requires `--allow-test`; all tuning stays on validation queries.
+[Benchmarking and error inspection](docs/BENCHMARKING.md) covers warmed pipeline
+profiles, nested scaling corpora, controlled ANN sweeps and saved-query analysis.
 
     pytest
 

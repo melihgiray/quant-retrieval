@@ -39,3 +39,9 @@ This command reads saved scores. It does not run a model or evaluate the test
 split. Non-finite scores, ambiguous query IDs and scores outside [0, 1] are
 rejected before comparison. Duplicate JSON keys are rejected rather than letting
 the last occurrence silently replace an earlier score or metadata field.
+
+New reports include `query_changes`: counts of improved, regressed and unchanged
+questions, with the ten largest improvements and regressions. Ties mean exactly
+equal saved scores. This is descriptive evidence for choosing examples to read,
+not a separate significance test. See [error inspection](BENCHMARKING.md) for
+ranking exports and the distinction between retrieval and ordering failures.
