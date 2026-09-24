@@ -80,6 +80,19 @@ def summarise(latencies: list[float]) -> dict[str, float]:
     }
 
 
+def best_settings(runs: list[dict], target: float) -> list[dict]:
+    """Compare settings only within the same artifact, not just the same size."""
+    summaries = []
+    for artifact in dict.fromkeys(run["artifact"] for run in runs):
+        group = [run for run in runs if run["artifact"] == artifact]
+        exact = next(run for run in group if run["index"] == "exact")
+        eligible = [r for r in group if r["index"] == "hnsw" and r["recall_at_k"] >= target]
+        summaries.append({"artifact": artifact, "documents": exact["documents"],
+                          "exact_p50_ms": exact["p50_ms"],
+                          "best": min(eligible, key=lambda r: r["p50_ms"], default=None)})
+    return summaries
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--embeddings", nargs="+", type=Path, required=True,
@@ -94,6 +107,7 @@ def main() -> None:
     parser.add_argument("--neighbours", type=int, default=32)
     parser.add_argument("--ef-construction", type=int, default=200)
     parser.add_argument("--threads", type=int, default=1, help="FAISS CPU threads")
+    parser.add_argument("--recall-target", type=float, default=0.95)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--output", type=Path, default=Path("results/ann_scaling.json"))
     args = parser.parse_args()
@@ -102,6 +116,8 @@ def main() -> None:
         parser.error("query counts, graph settings and threads must be positive")
     if args.warmup < 0:
         parser.error("warmup must be nonnegative")
+    if not 0 <= args.recall_target <= 1:
+        parser.error("recall target must lie between zero and one")
 
     import faiss
 
@@ -135,6 +151,7 @@ def main() -> None:
         "threads": args.threads, "neighbours": args.neighbours,
         "ef_construction": args.ef_construction, "ef_search": args.ef_search,
         "complete": False, "runs": runs,
+        "recall_target": args.recall_target,
     }
     write_result(report, args.output)
     for directory, manifest in zip(args.embeddings, manifests, strict=True):
@@ -149,6 +166,7 @@ def main() -> None:
         runs.append(
             {
                 "documents": documents,
+                "artifact": str(directory.resolve()),
                 "index": "exact",
                 "ef_search": None,
                 "recall_at_k": 1.0,
@@ -180,6 +198,7 @@ def main() -> None:
             runs.append(
                 {
                     "documents": documents,
+                    "artifact": str(directory.resolve()),
                     "index": "hnsw",
                     "ef_search": ef_search,
                     "neighbours": args.neighbours,
@@ -195,19 +214,19 @@ def main() -> None:
             write_result(report, args.output)
 
     report["complete"] = True
+    report["summary"] = best_settings(runs, args.recall_target)
     write_result(report, args.output)
     print(f"\nwrote {args.output}")
 
     # The headline: at each size, the fastest setting that keeps recall high.
-    print("\nfastest HNSW setting reaching 0.95 recall, against exact:")
-    for documents in sorted({run["documents"] for run in runs}):
-        at_size = [r for r in runs if r["documents"] == documents]
-        exact_p50 = next(r["p50_ms"] for r in at_size if r["index"] == "exact")
-        good = [r for r in at_size if r["index"] == "hnsw" and r["recall_at_k"] >= 0.95]
-        if not good:
-            print(f"{documents:>8} documents: nothing reached 0.95, exact {exact_p50:.2f}ms")
+    print(f"\nfastest HNSW setting reaching {args.recall_target} recall, against exact:")
+    for summary in report["summary"]:
+        documents, exact_p50 = summary["documents"], summary["exact_p50_ms"]
+        print(summary["artifact"])
+        best = summary["best"]
+        if best is None:
+            print(f"{documents:>8} documents: no eligible setting, exact {exact_p50:.2f}ms")
             continue
-        best = min(good, key=lambda r: r["p50_ms"])
         verdict = "HNSW wins" if best["p50_ms"] < exact_p50 else "exact still wins"
         print(
             f"{documents:>8} documents: ef={best['ef_search']:<4} "

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from scripts import ann_sweep
-from scripts.ann_sweep import load_manifest, main, time_search
+from scripts.ann_sweep import best_settings, load_manifest, main, time_search
 
 
 def test_warmup_is_excluded_from_results_and_timings():
@@ -84,3 +84,17 @@ def test_failed_graph_build_keeps_completed_exact_measurement(tmp_path, monkeypa
     assert report["complete"] is False
     assert len(report["runs"]) == 1
     assert report["runs"][0]["index"] == "exact"
+
+
+def test_summary_never_compares_different_corpora_with_equal_sizes():
+    runs = [
+        {"artifact": "a", "documents": 10, "index": "exact", "p50_ms": 8},
+        {"artifact": "b", "documents": 10, "index": "exact", "p50_ms": 2},
+        {"artifact": "a", "documents": 10, "index": "hnsw", "p50_ms": 3, "recall_at_k": .96},
+        {"artifact": "b", "documents": 10, "index": "hnsw", "p50_ms": 1, "recall_at_k": .90},
+    ]
+    result = best_settings(runs, .95)
+    assert result[0]["best"]["artifact"] == "a"
+    assert result[0]["exact_p50_ms"] == 8
+    assert result[1]["best"] is None
+    assert best_settings(runs, .9)[1]["best"]["p50_ms"] == 1
