@@ -5,9 +5,9 @@ from quant_retrieval.eval.benchmark import benchmark_context
 
 def test_benchmark_context_tracks_query_content_and_order(monkeypatch):
     monkeypatch.setattr("quant_retrieval.eval.benchmark.current_commit", lambda: "abc1234")
-    queries = pd.DataFrame({"query_id": [1, 2], "text": ["one", "two"], "split": ["val"] * 2})
+    queries = pd.DataFrame({"question_id": [1, 2], "text": ["one", "two"], "split": ["val"] * 2})
     result = benchmark_context(queries, 17)
-    assert result["query_ids"] == [1, 2]
+    assert result["question_ids"] == [1, 2]
     assert result["seed"] == 17
     assert result["commit"] == "abc1234"
     assert result["environment"]["python"]

@@ -69,7 +69,7 @@ def run_queries(retriever, selected, k: int, watch: Stopwatch, warmup: int, repe
         for row in selected.itertuples(index=False):
             started = time.perf_counter()
             retriever.search(row.text, k)
-            timings.append({"query_id": int(row.query_id), "repeat": repetition + 1,
+            timings.append({"question_id": int(row.question_id), "repeat": repetition + 1,
                             "latency_ms": (time.perf_counter() - started) * 1000})
     return timings
 

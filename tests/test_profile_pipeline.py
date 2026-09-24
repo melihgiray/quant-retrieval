@@ -13,11 +13,12 @@ def test_profiler_excludes_warmup_and_measures_each_repeat():
     retriever = SimpleNamespace(search=lambda query, k: calls.append(query))
     watch = Stopwatch()
     with instrument(retriever, watch, "root"):
-        timings = run_queries(retriever, pd.DataFrame({"query_id": [1, 2], "text": ["a", "b"]}),
+        timings = run_queries(retriever, pd.DataFrame({"question_id": [1, 2], "text": ["a", "b"]}),
                               10, watch, 3, 2)
     assert calls == ["a", "b", "a", "a", "b", "a", "b"]
     assert watch.report()["root"]["calls"] == 4
-    assert [(row["query_id"], row["repeat"]) for row in timings] == [(1, 1), (2, 1), (1, 2), (2, 2)]
+    pairs = [(row["question_id"], row["repeat"]) for row in timings]
+    assert pairs == [(1, 1), (2, 1), (1, 2), (2, 2)]
     assert all(row["latency_ms"] >= 0 for row in timings)
 
 
@@ -51,15 +52,15 @@ def test_profile_cli_saves_sample_and_configuration(tmp_path, monkeypatch):
     config.write_text("retriever: bm25\nseed: 17\nmax_results: 1\n")
     pd.DataFrame({"answer_id": [1, 2], "text": ["bond price", "option price"]}).to_parquet(
         tmp_path / "corpus.parquet")
-    pd.DataFrame({"query_id": [1, 2], "text": ["bond", "option"],
+    pd.DataFrame({"question_id": [1, 2], "text": ["bond", "option"],
                   "split": ["val", "test"]}).to_parquet(tmp_path / "queries.parquet")
     output = tmp_path / "profile.json"
     monkeypatch.setattr("sys.argv", ["profile", "--config", str(config), "--data", str(tmp_path),
                                     "--output", str(output), "--warmup", "1", "--repeats", "2"])
     main()
     report = json.loads(output.read_text())
-    assert report["query_ids"] == [1]
+    assert report["question_ids"] == [1]
     assert report["configuration"]["retriever"] == "bm25"
     assert report["split"] == "val"
     assert report["stages"]["bm25"]["calls"] == report["measured_calls"] == 2
-    assert [row["query_id"] for row in report["query_timings"]] == [1, 1]
+    assert [row["question_id"] for row in report["query_timings"]] == [1, 1]
