@@ -1,6 +1,9 @@
+import json
+
+import pandas as pd
 import pytest
 import torch
-from scripts import evaluate
+from scripts import evaluate, inspect_errors
 from scripts.evaluate import build_retriever, set_seed, validate_config
 
 from quant_retrieval.retrieval.bm25 import BM25Retriever
@@ -35,6 +38,29 @@ def test_existing_evaluation_output_is_rejected_before_model_work(tmp_path, monk
         evaluate.main()
     assert error.value.code == 2
     assert output.read_text() == "existing result"
+
+
+def test_fixture_evaluation_flows_into_offline_diagnostics(tmp_path, monkeypatch):
+    pd.DataFrame({"answer_id": [1, 2, 3], "text": ["bond price", "option price", "risk"]
+                  }).to_parquet(tmp_path / "corpus.parquet")
+    pd.DataFrame({"question_id": [10, 20], "text": ["bond", "option"], "split": ["val"] * 2
+                  }).to_parquet(tmp_path / "queries.parquet")
+    pd.DataFrame({"question_id": [10, 20], "answer_id": [1, 2], "grade": [2, 2]
+                  }).to_parquet(tmp_path / "qrels.parquet")
+    config = tmp_path / "tiny.yaml"
+    config.write_text("run_name: tiny\nseed: 17\nretriever: bm25\n")
+    output, summary = tmp_path / "result.json", tmp_path / "errors.json"
+    monkeypatch.setattr("sys.argv", ["evaluate", "--config", str(config), "--data", str(tmp_path),
+                                    "--output", str(output), "--save-rankings"])
+    evaluate.main()
+    result = json.loads(output.read_text())
+    assert result["rankings"]["10"][0] == 1
+    assert result["metrics"]["mrr_at_10"] == 1
+    monkeypatch.setattr("sys.argv", ["inspect", "--run", str(output), "--output", str(summary)])
+    inspect_errors.main()
+    report = json.loads(summary.read_text())
+    assert report["status_counts"] == {"top_k": 2}
+    assert report["dataset_sha256"] == result["dataset_sha256"]
 
 
 @pytest.mark.parametrize("allow_test", [False, True])
