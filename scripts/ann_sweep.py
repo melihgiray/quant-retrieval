@@ -72,9 +72,20 @@ def main() -> None:
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--ef-search", nargs="+", type=int, default=list(DEFAULT_EF_SEARCH))
     parser.add_argument("--neighbours", type=int, default=32)
+    parser.add_argument("--ef-construction", type=int, default=200)
+    parser.add_argument("--threads", type=int, default=1, help="FAISS CPU threads")
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--output", type=Path, default=Path("results/ann_scaling.json"))
     args = parser.parse_args()
+    if any(value <= 0 for value in [args.queries, args.k, args.neighbours,
+                                    args.ef_construction, args.threads, *args.ef_search]):
+        parser.error("query counts, graph settings and threads must be positive")
+    if args.warmup < 0:
+        parser.error("warmup must be nonnegative")
+
+    import faiss
+
+    faiss.omp_set_num_threads(args.threads)
 
     set_seed(args.seed)
 
@@ -107,7 +118,9 @@ def main() -> None:
         )
         print(f"exact      p50 {runs[-1]['p50_ms']:>7.3f}ms  recall 1.000")
 
-        approximate = ApproximateRetriever(path, neighbours=args.neighbours)
+        approximate = ApproximateRetriever(
+            path, neighbours=args.neighbours, ef_construction=args.ef_construction
+        )
         build_started = time.perf_counter()
         approximate.index(answer_ids, [])
         build_seconds = time.perf_counter() - build_started
@@ -140,7 +153,11 @@ def main() -> None:
                 f"recall {recall:.3f}  build {build_seconds:.0f}s"
             )
 
-    report = {"k": args.k, "queries": len(query_vectors), "warmup": args.warmup, "runs": runs}
+    report = {
+        "k": args.k, "queries": len(query_vectors), "warmup": args.warmup,
+        "threads": args.threads, "neighbours": args.neighbours,
+        "ef_construction": args.ef_construction, "ef_search": args.ef_search, "runs": runs,
+    }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(f"\nwrote {args.output}")
