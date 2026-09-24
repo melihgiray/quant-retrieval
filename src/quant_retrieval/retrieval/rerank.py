@@ -65,6 +65,8 @@ class RerankingRetriever:
             return []
 
         scores = self._score(query, [self.documents[r.document_id] for r in head])
+        if scores.shape != (len(head),) or not np.isfinite(scores).all():
+            raise ValueError("reranker must return one finite score per candidate")
         order = np.lexsort((np.array([r.document_id for r in head]), -scores))
         reranked = [
             SearchResult(document_id=head[i].document_id, score=float(scores[i])) for i in order
@@ -73,7 +75,12 @@ class RerankingRetriever:
         # Anything past `depth` keeps its original order and sits below every
         # reranked document. It was never rescored, so it cannot be interleaved
         # honestly, and dropping it would break Recall@100 for k above depth.
-        return (reranked + list(tail))[:k]
+        # Base scores and cross-encoder logits have unrelated scales. The tail
+        # receives the head's score floor as an ordering sentinel, not a model
+        # prediction. Its existing order is preserved among these ties.
+        floor = reranked[-1].score
+        ordered_tail = [SearchResult(result.document_id, floor) for result in tail]
+        return (reranked + ordered_tail)[:k]
 
     def _score(self, query: str, documents: list[str]) -> np.ndarray:
         self._load_model()

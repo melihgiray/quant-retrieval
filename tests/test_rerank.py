@@ -100,3 +100,18 @@ def test_k_must_be_positive():
     retriever = build([1], {"doc1": 1.0})
     with pytest.raises(ValueError, match="k must be positive"):
         retriever.search("q", 0)
+
+
+def test_negative_logits_keep_tail_scores_below_the_reranked_head():
+    retriever = build([1, 2, 3, 4], {"doc1": -5.0, "doc2": -2.0}, depth=2)
+    hits = retriever.search("q", 4)
+    assert [hit.document_id for hit in hits] == [2, 1, 3, 4]
+    assert [hit.score for hit in hits] == [-2.0, -5.0, -5.0, -5.0]
+
+
+@pytest.mark.parametrize("scores", [np.array([np.nan]), np.array([[1.0]])])
+def test_reranker_rejects_invalid_scoring_output(scores):
+    retriever = build([1], {"doc1": 1.0})
+    retriever._score = lambda query, documents: scores
+    with pytest.raises(ValueError, match="one finite score"):
+        retriever.search("q", 1)
