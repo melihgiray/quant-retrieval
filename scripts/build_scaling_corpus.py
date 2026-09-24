@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import zlib
 from pathlib import Path
 
@@ -44,8 +45,15 @@ ARCHIVE = "https://archive.org/download/stackexchange"
 DEFAULT_SITES = ("stats.stackexchange.com", "physics.stackexchange.com")
 
 
+def validate_site(site: str) -> str:
+    if not re.fullmatch(r"(?:[a-z0-9]+(?:-[a-z0-9]+)*\.)+stackexchange\.com", site):
+        raise ValueError("site must be a lowercase Stack Exchange hostname")
+    return site
+
+
 def load_site(site: str, raw_root: Path) -> pd.DataFrame:
     """Download, unpack and clean one site's answers."""
+    validate_site(site)
     destination = raw_root / site
     archive = destination / f"{site}.7z"
     info = download_dump(archive, url=f"{ARCHIVE}/{site}.7z")
@@ -78,10 +86,15 @@ def main() -> None:
     parser.add_argument("--data", type=Path, default=Path("data/processed"))
     parser.add_argument("--raw", type=Path, default=Path("data/raw/scaling"))
     parser.add_argument("--out", type=Path, default=Path("artifacts"))
-    parser.add_argument("--sites", nargs="+", default=list(DEFAULT_SITES))
+    parser.add_argument("--sites", nargs="+", type=validate_site, default=list(DEFAULT_SITES))
     parser.add_argument("--sizes", nargs="+", type=int, default=[100_000, 400_000])
     parser.add_argument("--seed", type=int, default=17)
     args = parser.parse_args()
+    if any(size <= 0 for size in args.sizes):
+        parser.error("corpus sizes must be positive")
+    if len(set(args.sites)) != len(args.sites):
+        parser.error("sites must not be repeated")
+    args.sizes = sorted(set(args.sizes))
 
     base = pd.read_parquet(args.data / "corpus.parquet")
     print(f"quant corpus: {len(base)} answers, always kept")
