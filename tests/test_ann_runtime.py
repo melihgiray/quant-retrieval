@@ -58,3 +58,14 @@ def test_failed_ann_rebuild_preserves_the_previous_index(tmp_path, fake_faiss):
     with pytest.raises(RuntimeError, match="allocation failed"):
         retriever.index([30, 40], [])
     assert retriever.search_vector(np.array([1.0, 0.0]), 1)[0].document_id == 10
+
+
+@pytest.mark.parametrize("magnitude", [1e-300, 1e300])
+def test_ann_normalization_handles_extreme_finite_vectors(tmp_path, fake_faiss, magnitude):
+    path = tmp_path / "vectors.npy"
+    np.save(path, np.eye(2) * magnitude)
+    retriever = ApproximateRetriever(path, exact=True)
+    retriever.index([10, 20], [])
+    hits = retriever.search_vector(np.array([magnitude, 0.0]), 1)
+    assert hits[0].document_id == 10
+    assert hits[0].score == pytest.approx(1.0)

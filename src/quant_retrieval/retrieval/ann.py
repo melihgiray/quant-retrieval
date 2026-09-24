@@ -82,10 +82,9 @@ class ApproximateRetriever:
             raise ValueError("ANN document IDs must be unique")
         if not np.issubdtype(embeddings.dtype, np.floating) or not np.isfinite(embeddings).all():
             raise ValueError("ANN embeddings must be finite floating point values")
+        embeddings = _scaled_float32(embeddings)
         import faiss
 
-        embeddings = embeddings.astype(np.float32, copy=False)
-        embeddings = np.ascontiguousarray(embeddings)
         faiss.normalize_L2(embeddings)
 
         dimensions = embeddings.shape[1]
@@ -111,14 +110,17 @@ class ApproximateRetriever:
             raise RuntimeError("index must be called before search")
         if query.ndim != 1 or len(query) != self._dimensions:
             raise ValueError("ANN query dimensions do not match the index")
-        if not np.issubdtype(query.dtype, np.number) or not np.isfinite(query).all():
+        if (
+            not (np.issubdtype(query.dtype, np.floating) or np.issubdtype(query.dtype, np.integer))
+            or not np.isfinite(query).all()
+        ):
             raise ValueError("ANN query vector must contain finite numbers")
         if not np.any(query):
             raise ValueError("ANN query vector must not be zero")
 
+        vector = _scaled_float32(query.reshape(1, -1))
         import faiss
 
-        vector = np.array(query.reshape(1, -1), dtype=np.float32, order="C", copy=True)
         faiss.normalize_L2(vector)
         scores, positions = self._index.search(vector, min(k, len(self.document_ids)))
 
@@ -138,6 +140,14 @@ class ApproximateRetriever:
             "ApproximateRetriever scores prebuilt vectors and cannot encode text. "
             "Encode the query first and call search_vector."
         )
+
+
+def _scaled_float32(vectors: np.ndarray) -> np.ndarray:
+    # Scaling before narrowing preserves direction at extreme magnitudes.
+    scales = np.max(np.abs(vectors), axis=1, keepdims=True)
+    if np.any(scales == 0):
+        raise ValueError("ANN vectors must not contain zero rows")
+    return np.array(vectors / scales, dtype=np.float32, order="C", copy=True)
 
 
 def recall_against_exact(

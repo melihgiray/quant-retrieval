@@ -20,6 +20,7 @@ def test_construction_breadth_must_be_positive(tmp_path):
         (np.ones((2, 2)), [1, 1], "unique"),
         (np.array([[1.0, np.nan], [0.0, 1.0]]), [1, 2], "finite"),
         (np.ones((2, 2), dtype=np.int64), [1, 2], "floating point"),
+        (np.zeros((2, 2)), [1, 2], "zero rows"),
     ],
 )
 def test_bad_ann_inputs_fail_before_building_a_graph(tmp_path, vectors, ids, message):
@@ -37,6 +38,7 @@ def test_bad_ann_inputs_fail_before_building_a_graph(tmp_path, vectors, ids, mes
         (np.ones(3), "dimensions"),
         (np.array([1.0, np.inf]), "finite"),
         (np.zeros(2), "zero"),
+        (np.array([1j, 1.0]), "finite"),
     ],
 )
 def test_bad_ann_queries_fail_before_faiss_search(tmp_path, query, message):
