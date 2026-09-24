@@ -54,6 +54,18 @@ class Stopwatch:
         }
 
 
+def run_queries(retriever, selected, k: int, watch: Stopwatch, warmup: int, repeats: int):
+    if selected.empty or warmup < 0 or repeats <= 0 or k <= 0:
+        raise ValueError("queries and repeats must be positive; warmup must be nonnegative")
+    texts = selected["text"].tolist()
+    for index in range(warmup):
+        retriever.search(texts[index % len(texts)], k)
+    watch.samples.clear()
+    for _ in range(repeats):
+        for text in texts:
+            retriever.search(text, k)
+
+
 def instrument(retriever: Any, watch: Stopwatch, label: str) -> Any:
     """Wrap `search` so every level of the tree reports its own time.
 
@@ -93,8 +105,12 @@ def main() -> None:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--data", type=Path, default=Path("data/processed"))
     parser.add_argument("--queries", type=int, default=100)
+    parser.add_argument("--warmup", type=int, default=10)
+    parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
+    if args.queries <= 0 or args.repeats <= 0 or args.warmup < 0:
+        parser.error("queries/repeats must be positive and warmup nonnegative")
 
     config = yaml.safe_load(args.config.read_text())
     set_seed(int(config.get("seed", 17)))
@@ -113,12 +129,14 @@ def main() -> None:
     index_seconds = time.perf_counter() - started
 
     max_results = int(config.get("max_results", 100))
-    for row in selected.itertuples(index=False):
-        retriever.search(row.text, max_results)
+    run_queries(retriever, selected, max_results, watch, args.warmup, args.repeats)
 
     report = {
         "config": str(args.config),
         "queries": len(selected),
+        "warmup": args.warmup,
+        "repeats": args.repeats,
+        "measured_calls": len(selected) * args.repeats,
         "max_results": max_results,
         "corpus_documents": len(corpus),
         "index_seconds": round(index_seconds, 2),
