@@ -20,9 +20,10 @@ def build_result_record(
     evaluation: dict[str, Any],
     *,
     commit: str | None = None,
+    include_rankings: bool = False,
 ) -> dict[str, Any]:
     """Attach configuration, source revision, and runtime details to metrics."""
-    return {
+    record = {
         "run_name": run_name,
         "retriever": retriever,
         "split": split,
@@ -49,6 +50,12 @@ def build_result_record(
             "machine": platform.machine(),
         },
     }
+    if include_rankings:
+        record["rankings"] = {
+            str(question_id): [int(answer_id) for answer_id in ranking]
+            for question_id, ranking in sorted(evaluation["rankings"].items())
+        }
+    return record
 
 
 def write_result(record: dict[str, Any], path: Path) -> None:

@@ -21,6 +21,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--data", type=Path, default=Path("data/processed"))
+    parser.add_argument("--save-rankings", action="store_true",
+                        help="include retrieved answer IDs for offline inspection")
     args = parser.parse_args()
 
     config = yaml.safe_load(args.config.read_text())
@@ -44,6 +46,7 @@ def main() -> None:
         split=config.get("split", "val"),
         config=config,
         evaluation=evaluation,
+        include_rankings=args.save_rankings,
     )
     output = Path(config.get("output", f"results/{config['run_name']}.json"))
     write_result(record, output)

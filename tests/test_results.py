@@ -44,3 +44,14 @@ def test_record_captures_configuration_before_the_next_experiment():
     evaluation["metrics"]["ndcg"] = 0.9
     assert record["config"]["model"]["depth"] == 10
     assert record["metrics"]["ndcg"] == 0.5
+
+
+def test_rankings_are_optional_and_detached_from_the_evaluation():
+    evaluation = {"metrics": {}, "timing": {}, "counts": {}, "rankings": {12: [3, 2]}}
+    plain = build_result_record("run", "bm25", "val", {}, evaluation, commit="abc")
+    assert "rankings" not in plain
+    saved = build_result_record("run", "bm25", "val", {}, evaluation, commit="abc",
+                                include_rankings=True)
+    evaluation["rankings"][12].append(1)
+    assert saved["rankings"] == {"12": [3, 2]}
+    assert json.loads(json.dumps(saved))["rankings"]["12"] == [3, 2]
