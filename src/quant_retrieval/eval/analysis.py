@@ -6,6 +6,25 @@ from collections import Counter
 from quant_retrieval.eval.metrics import METRIC_NAMES
 
 
+def paired_query_changes(baseline: dict, candidate: dict, limit: int = 10) -> dict:
+    """Locate observed wins and losses; this is not a significance test."""
+    if not baseline or set(baseline) != set(candidate) or limit <= 0:
+        raise ValueError("paired changes need identical nonempty questions and a positive limit")
+    for value in [*baseline.values(), *candidate.values()]:
+        if (isinstance(value, bool) or not isinstance(value, (float, int))
+                or not math.isfinite(value) or not 0 <= value <= 1):
+            raise ValueError("paired scores must be finite and between zero and one")
+    rows = [{"question_id": key, "baseline": baseline[key], "candidate": candidate[key],
+             "delta": candidate[key] - baseline[key]} for key in sorted(baseline)]
+    wins = sorted([row for row in rows if row["delta"] > 0],
+                  key=lambda row: (-row["delta"], row["question_id"]))
+    losses = sorted([row for row in rows if row["delta"] < 0],
+                    key=lambda row: (row["delta"], row["question_id"]))
+    return {"improved": len(wins), "regressed": len(losses),
+            "unchanged": len(rows) - len(wins) - len(losses),
+            "largest_improvements": wins[:limit], "largest_regressions": losses[:limit]}
+
+
 def error_report(record: dict, metric: str, limit: int = 20) -> dict:
     if metric not in METRIC_NAMES or limit <= 0:
         raise ValueError("choose a supported metric and a positive example limit")

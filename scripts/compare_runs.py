@@ -17,6 +17,7 @@ import math
 import re
 from pathlib import Path
 
+from quant_retrieval.eval.analysis import paired_query_changes
 from quant_retrieval.eval.metrics import METRIC_NAMES
 from quant_retrieval.eval.results import write_result
 from quant_retrieval.eval.significance import format_difference, paired_bootstrap
@@ -136,6 +137,7 @@ def main() -> None:
         },
         "baseline_mean": sum(baseline.values()) / len(baseline),
         "candidate_mean": sum(candidate.values()) / len(candidate),
+        "query_changes": paired_query_changes(baseline, candidate),
         **result,
     }
 

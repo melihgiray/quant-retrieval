@@ -1,6 +1,6 @@
 import pytest
 
-from quant_retrieval.eval.analysis import error_report
+from quant_retrieval.eval.analysis import error_report, paired_query_changes
 
 
 def record():
@@ -32,3 +32,16 @@ def test_error_report_rejects_missing_diagnostics_and_held_out_runs():
     source["split"] = "test"
     with pytest.raises(ValueError, match="restricted"):
         error_report(source, "ndcg_at_10")
+
+
+def test_paired_changes_find_local_wins_and_losses_even_when_mean_is_unchanged():
+    baseline = {1: 0.0, 2: 1.0, 3: 0.5}
+    candidate = {1: 1.0, 2: 0.0, 3: 0.5}
+    report = paired_query_changes(baseline, candidate)
+    assert (report["improved"], report["regressed"], report["unchanged"]) == (1, 1, 1)
+    assert report["largest_improvements"][0]["question_id"] == 1
+    assert report["largest_regressions"][0]["delta"] == -1
+    reverse = paired_query_changes(candidate, baseline)
+    assert reverse["largest_improvements"][0]["question_id"] == 2
+    with pytest.raises(ValueError, match="identical"):
+        paired_query_changes({1: 0}, {2: 0})
