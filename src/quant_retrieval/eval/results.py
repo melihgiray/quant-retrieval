@@ -33,6 +33,10 @@ def build_result_record(
         "timing": deepcopy(evaluation["timing"]),
         "counts": deepcopy(evaluation["counts"]),
         "dataset_sha256": deepcopy(evaluation.get("dataset_sha256")),
+        "diagnostics": {
+            str(question_id): deepcopy(details)
+            for question_id, details in sorted(evaluation.get("diagnostics", {}).items())
+        },
         # Kept so two runs can be compared question by question. Averages alone
         # cannot say whether a difference is larger than the spread.
         "per_query": {

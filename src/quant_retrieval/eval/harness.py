@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from quant_retrieval.eval.diagnostics import ranking_diagnostics
 from quant_retrieval.eval.fingerprints import dataset_fingerprints
 from quant_retrieval.eval.metrics import aggregate_metrics, per_query_metrics
 from quant_retrieval.retrieval.base import Retriever
@@ -154,6 +155,7 @@ def evaluate_retriever(
             "max_results": max_results,
         },
         "rankings": rankings,
+        "diagnostics": ranking_diagnostics(rankings, qrel_map),
     }
 
 
