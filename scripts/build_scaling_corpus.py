@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import tempfile
 import zlib
 from pathlib import Path
 
@@ -30,6 +31,7 @@ import pandas as pd
 from quant_retrieval.data.download import download_dump, extract_dump
 from quant_retrieval.data.pairs import build_corpus
 from quant_retrieval.data.parse import parse_posts
+from quant_retrieval.eval.results import write_result
 
 ARCHIVE = "https://archive.org/download/stackexchange"
 # Similar in shape to quant.stackexchange: technical questions, long answers with
@@ -114,6 +116,20 @@ def nested_corpora(base: pd.DataFrame, pool: pd.DataFrame, sizes: list[int], see
         yield size, pd.concat([base, shuffled.head(size - len(base))], ignore_index=True)
 
 
+def write_corpus(corpus: pd.DataFrame, path: Path) -> None:
+    """Replace a corpus only after its complete parquet payload is on disk."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        dir=path.parent, prefix=f".{path.name}.", delete=False
+    ) as file:
+        temporary = Path(file.name)
+    try:
+        corpus.to_parquet(temporary, index=False)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=Path("data/processed"))
@@ -142,11 +158,11 @@ def main() -> None:
 
     for size, corpus in nested_corpora(base, pool, args.sizes, args.seed):
         path = args.out / f"scaling_corpus_{size}.parquet"
-        corpus.to_parquet(path, index=False)
+        write_corpus(corpus, path)
         summary["corpora"][str(len(corpus))] = str(path)
         print(f"wrote {path} with {len(corpus)} documents")
 
-    (args.out / "scaling_corpora.json").write_text(json.dumps(summary, indent=2) + "\n")
+    write_result(summary, args.out / "scaling_corpora.json")
     print(json.dumps(summary, indent=2))
 
 

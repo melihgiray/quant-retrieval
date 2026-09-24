@@ -8,6 +8,7 @@ from scripts.build_scaling_corpus import (
     namespace_corpus,
     nested_corpora,
     validate_site,
+    write_corpus,
 )
 
 
@@ -69,3 +70,19 @@ def test_impossible_size_stops_before_yielding_any_corpus(sizes):
     pool = pd.DataFrame({"answer_id": [3, 4]})
     with pytest.raises(ValueError):
         next(nested_corpora(base, pool, sizes, 17))
+
+
+def test_atomic_corpus_write_preserves_previous_file_on_failure(tmp_path, monkeypatch):
+    path = tmp_path / "corpus.parquet"
+    original = pd.DataFrame({"answer_id": [1]})
+    write_corpus(original, path)
+
+    def fail(self, temporary, **kwargs):
+        temporary.write_bytes(b"partial parquet")
+        raise OSError("disk full")
+
+    monkeypatch.setattr(pd.DataFrame, "to_parquet", fail)
+    with pytest.raises(OSError, match="disk full"):
+        write_corpus(pd.DataFrame({"answer_id": [2]}), path)
+    pd.testing.assert_frame_equal(pd.read_parquet(path), original)
+    assert list(tmp_path.iterdir()) == [path]
