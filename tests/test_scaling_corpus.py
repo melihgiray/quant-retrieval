@@ -1,4 +1,7 @@
 import json
+import shutil
+from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -116,3 +119,23 @@ def test_scaling_cli_records_source_and_output_identity(tmp_path, monkeypatch):
     assert summary["sources"][0]["id_offset"] > 0
     largest = pd.read_parquet(output / "scaling_corpus_4.parquet")
     pd.testing.assert_frame_equal(largest.head(2), base)
+
+
+def test_site_loader_extracts_only_posts_and_cleans_real_xml_fixture(tmp_path, monkeypatch):
+    extracted = []
+    monkeypatch.setattr(build_scaling_corpus, "download_dump", lambda *args, **kwargs:
+                        SimpleNamespace(bytes_downloaded=100, last_modified="fixture"))
+
+    def extract(archive, destination, members):
+        extracted.extend(members)
+        destination.mkdir(parents=True)
+        shutil.copyfile(Path(__file__).parent / "fixtures/posts_sample.xml",
+                        destination / "Posts.xml")
+
+    monkeypatch.setattr(build_scaling_corpus, "extract_dump", extract)
+    corpus = load_site("stats.stackexchange.com", tmp_path)
+    assert extracted == ["Posts.xml"]
+    assert len(corpus) == 2
+    assert corpus.text.tolist() == ["Use Black 76.", "The standard approach is the Black model."]
+    assert corpus.answer_id.is_unique
+    assert (corpus.answer_id > ID_BLOCK_SIZE).all()

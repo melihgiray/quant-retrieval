@@ -62,7 +62,7 @@ def load_site(site: str, raw_root: Path) -> pd.DataFrame:
     archive = destination / f"{site}.7z"
     info = download_dump(archive, url=f"{ARCHIVE}/{site}.7z")
     print(f"{site}: {info.bytes_downloaded / 1e6:.0f} MB, dated {info.last_modified}")
-    extract_dump(archive, destination)
+    extract_dump(archive, destination, members=("Posts.xml",))
 
     _, answers = parse_posts(destination / "Posts.xml")
     corpus = build_corpus(answers)
