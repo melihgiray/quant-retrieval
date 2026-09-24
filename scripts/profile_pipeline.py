@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -66,38 +67,45 @@ def run_queries(retriever, selected, k: int, watch: Stopwatch, warmup: int, repe
             retriever.search(text, k)
 
 
-def instrument(retriever: Any, watch: Stopwatch, label: str) -> Any:
-    """Wrap `search` so every level of the tree reports its own time.
+@contextmanager
+def instrument(retriever: Any, watch: Stopwatch, label: str):
+    """Time each distinct node and restore every method when profiling ends."""
+    originals = []
+    seen = set()
 
-    Wrapping rather than editing the retrievers keeps the timing out of the
-    production path. A profiler that changes what it measures is worth little.
-    """
-    original = retriever.search
+    def wrap(node, method, name):
+        original = getattr(node, method)
+        originals.append((node, method, method in vars(node), original))
 
-    def timed(query: str, k: int):
-        started = time.perf_counter()
-        results = original(query, k)
-        watch.record(label, time.perf_counter() - started)
-        return results
-
-    retriever.search = timed
-
-    if isinstance(retriever, HybridRetriever):
-        for index, child in enumerate(retriever.retrievers):
-            instrument(child, watch, f"{label}.child{index}:{type(child).__name__}")
-    elif isinstance(retriever, RerankingRetriever):
-        instrument(retriever.base, watch, f"{label}.base:{type(retriever.base).__name__}")
-        original_score = retriever._score
-
-        def timed_score(query: str, documents: list[str]):
+        def timed(*args, **kwargs):
             started = time.perf_counter()
-            scores = original_score(query, documents)
-            watch.record(f"{label}.cross_encoder", time.perf_counter() - started)
-            return scores
+            results = original(*args, **kwargs)
+            watch.record(name, time.perf_counter() - started)
+            return results
 
-        retriever._score = timed_score
+        setattr(node, method, timed)
 
-    return retriever
+    def visit(node, name):
+        if id(node) in seen:
+            return
+        seen.add(id(node))
+        wrap(node, "search", name)
+        if isinstance(node, HybridRetriever):
+            for index, child in enumerate(node.retrievers):
+                visit(child, f"{name}.child{index}:{type(child).__name__}")
+        elif isinstance(node, RerankingRetriever):
+            visit(node.base, f"{name}.base:{type(node.base).__name__}")
+            wrap(node, "_score", f"{name}.cross_encoder")
+
+    try:
+        visit(retriever, label)
+        yield retriever
+    finally:
+        for node, method, was_local, original in reversed(originals):
+            if was_local:
+                setattr(node, method, original)
+            else:
+                delattr(node, method)
 
 
 def main() -> None:
@@ -120,16 +128,15 @@ def main() -> None:
     selected = queries[queries["split"] == config.get("split", "val")].head(args.queries)
 
     watch = Stopwatch()
-    retriever = instrument(
-        build_retriever(config), watch, config["retriever"]
-    )
+    retriever = build_retriever(config)
 
     started = time.perf_counter()
     retriever.index(corpus["answer_id"].astype(int).tolist(), corpus["text"].tolist())
     index_seconds = time.perf_counter() - started
 
     max_results = int(config.get("max_results", 100))
-    run_queries(retriever, selected, max_results, watch, args.warmup, args.repeats)
+    with instrument(retriever, watch, config["retriever"]):
+        run_queries(retriever, selected, max_results, watch, args.warmup, args.repeats)
 
     report = {
         "config": str(args.config),
