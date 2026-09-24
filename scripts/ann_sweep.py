@@ -37,6 +37,24 @@ from quant_retrieval.runtime import set_seed  # noqa: E402
 DEFAULT_EF_SEARCH = (16, 32, 64, 128, 256)
 
 
+def load_manifest(directory: Path, checkpoint: Path) -> dict:
+    manifest = json.loads((directory / "manifest.json").read_text())
+    for key in ("documents", "dimensions", "max_length"):
+        if type(manifest.get(key)) is not int or manifest[key] <= 0:
+            raise ValueError(f"{directory}: {key} must be a positive integer")
+    if not isinstance(manifest.get("checkpoint"), str) or not manifest["checkpoint"]:
+        raise ValueError(f"{directory}: checkpoint is required")
+    if Path(manifest["checkpoint"]).resolve() != checkpoint.resolve():
+        raise ValueError(f"{directory}: checkpoint does not match the query encoder")
+    ids = np.load(directory / "answer_ids.npy", mmap_mode="r")
+    vectors = np.load(directory / "embeddings_fp32.npy", mmap_mode="r")
+    if ids.shape != (manifest["documents"],):
+        raise ValueError(f"{directory}: document count disagrees with answer IDs")
+    if vectors.shape != (manifest["documents"], manifest["dimensions"]):
+        raise ValueError(f"{directory}: vector shape disagrees with manifest")
+    return manifest
+
+
 def time_search(
     retriever, queries: np.ndarray, k: int, warmup: int = 0
 ) -> tuple[list, list[float]]:
@@ -88,17 +106,23 @@ def main() -> None:
     faiss.omp_set_num_threads(args.threads)
 
     set_seed(args.seed)
+    manifests = [load_manifest(directory, args.checkpoint) for directory in args.embeddings]
+    if len({(m["dimensions"], m["max_length"]) for m in manifests}) != 1:
+        parser.error("all embedding sets must use the same dimensions and max_length")
 
     # Encode the queries once, on whatever device is available, then never again.
     queries = pd.read_parquet(args.data / "queries.parquet")
     selected = sample_queries(queries, args.queries, args.seed)
-    encoder = DenseRetriever(str(args.checkpoint), show_progress=False)
+    encoder = DenseRetriever(
+        str(args.checkpoint), max_length=manifests[0]["max_length"], show_progress=False
+    )
     query_vectors = encoder._encode(selected["text"].tolist())
+    if query_vectors.shape != (len(selected), manifests[0]["dimensions"]):
+        raise ValueError("query encoder dimensions disagree with exported vectors")
     print(f"encoded {len(query_vectors)} queries on {encoder.device}")
 
     runs = []
-    for directory in args.embeddings:
-        manifest = json.loads((directory / "manifest.json").read_text())
+    for directory, manifest in zip(args.embeddings, manifests, strict=True):
         answer_ids = np.load(directory / "answer_ids.npy").tolist()
         path = directory / "embeddings_fp32.npy"
         documents = manifest["documents"]
