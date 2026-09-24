@@ -58,25 +58,29 @@ def load_manifest(directory: Path, checkpoint: Path) -> dict:
 
 
 def time_search(
-    retriever, queries: np.ndarray, k: int, warmup: int = 0
+    retriever, queries: np.ndarray, k: int, warmup: int = 0, repeats: int = 1
 ) -> tuple[list, list[float]]:
-    """Warm the index, then keep one measured result per query."""
-    if warmup < 0 or len(queries) == 0:
-        raise ValueError("warmup must be nonnegative and queries must not be empty")
+    """Keep one ranking per query and latency samples from every measured pass."""
+    if warmup < 0 or len(queries) == 0 or repeats <= 0:
+        raise ValueError("warmup must be nonnegative; queries and repeats must be positive")
     for index in range(warmup):
         retriever.search_vector(queries[index % len(queries)], k)
     results, latencies = [], []
-    for vector in queries:
-        started = time.perf_counter()
-        results.append(retriever.search_vector(vector, k))
-        latencies.append((time.perf_counter() - started) * 1000)
+    for repetition in range(repeats):
+        for vector in queries:
+            started = time.perf_counter()
+            ranking = retriever.search_vector(vector, k)
+            latencies.append((time.perf_counter() - started) * 1000)
+            if repetition == 0:
+                results.append(ranking)
     return results, latencies
 
 
-def summarise(latencies: list[float]) -> dict[str, float]:
+def summarise(latencies: list[float]) -> dict[str, float | int]:
     return {
-        "p50_ms": round(float(np.percentile(latencies, 50)), 3),
-        "p95_ms": round(float(np.percentile(latencies, 95)), 3),
+        "samples": len(latencies),
+        "p50_ms": float(np.percentile(latencies, 50)),
+        "p95_ms": float(np.percentile(latencies, 95)),
     }
 
 
@@ -103,6 +107,7 @@ def main() -> None:
     parser.add_argument("--queries", type=int, default=200)
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--warmup", type=int, default=10)
+    parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--ef-search", nargs="+", type=int, default=list(DEFAULT_EF_SEARCH))
     parser.add_argument("--neighbours", type=int, default=32)
     parser.add_argument("--ef-construction", type=int, default=200)
@@ -111,7 +116,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--output", type=Path, default=Path("results/ann_scaling.json"))
     args = parser.parse_args()
-    if any(value <= 0 for value in [args.queries, args.k, args.neighbours,
+    if any(value <= 0 for value in [args.queries, args.k, args.neighbours, args.repeats,
                                     args.ef_construction, args.threads, *args.ef_search]):
         parser.error("query counts, graph settings and threads must be positive")
     if args.warmup < 0:
@@ -148,6 +153,7 @@ def main() -> None:
         ],
         "checkpoint": str(args.checkpoint),
         "k": args.k, "queries": len(query_vectors), "warmup": args.warmup,
+        "repeats": args.repeats,
         "threads": args.threads, "neighbours": args.neighbours,
         "ef_construction": args.ef_construction, "ef_search": args.ef_search,
         "complete": False, "runs": runs,
@@ -162,7 +168,9 @@ def main() -> None:
 
         exact = ApproximateRetriever(path, exact=True)
         exact.index(answer_ids, [])
-        exact_results, exact_latencies = time_search(exact, query_vectors, args.k, args.warmup)
+        exact_results, exact_latencies = time_search(
+            exact, query_vectors, args.k, args.warmup, args.repeats
+        )
         runs.append(
             {
                 "documents": documents,
@@ -186,7 +194,9 @@ def main() -> None:
         for ef_search in args.ef_search:
             approximate.set_ef_search(ef_search)
 
-            results, latencies = time_search(approximate, query_vectors, args.k, args.warmup)
+            results, latencies = time_search(
+                approximate, query_vectors, args.k, args.warmup, args.repeats
+            )
             recall = float(
                 np.mean(
                     [
@@ -202,7 +212,7 @@ def main() -> None:
                     "index": "hnsw",
                     "ef_search": ef_search,
                     "neighbours": args.neighbours,
-                    "recall_at_k": round(recall, 4),
+                    "recall_at_k": recall,
                     "build_seconds": round(build_seconds, 1),
                     **summarise(latencies),
                 }

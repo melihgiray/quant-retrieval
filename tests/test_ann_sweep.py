@@ -98,3 +98,15 @@ def test_summary_never_compares_different_corpora_with_equal_sizes():
     assert result[0]["exact_p50_ms"] == 8
     assert result[1]["best"] is None
     assert best_settings(runs, .9)[1]["best"]["p50_ms"] == 1
+
+
+def test_ann_repeats_add_timings_without_duplicating_recall_queries():
+    calls = []
+    retriever = SimpleNamespace(search_vector=lambda vector, k: calls.append(vector[0]))
+    results, latencies = time_search(retriever, np.array([[1], [2]]), 1, 1, 3)
+    assert len(calls) == 7
+    assert len(results) == 2
+    assert len(latencies) == 6
+    assert ann_sweep.summarise([0.0001, 0.0002])["p50_ms"] > 0
+    with pytest.raises(ValueError, match="repeats"):
+        time_search(retriever, np.ones((1, 2)), 1, repeats=0)
