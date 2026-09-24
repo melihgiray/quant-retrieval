@@ -100,6 +100,20 @@ def combine_sources(base: pd.DataFrame, extras: list[pd.DataFrame]) -> pd.DataFr
     return pool
 
 
+def nested_corpora(base: pd.DataFrame, pool: pd.DataFrame, sizes: list[int], seed: int):
+    """Yield deterministic nested samples, preserving every base answer in order."""
+    if base.empty or not sizes:
+        raise ValueError("base corpus and requested sizes must not be empty")
+    capacity = len(base) + len(pool)
+    if any(size < len(base) or size > capacity for size in sizes):
+        raise ValueError(f"all corpus sizes must be between {len(base)} and {capacity}")
+    pool = pool.sort_values("answer_id").reset_index(drop=True)
+    order = np.random.default_rng(seed).permutation(len(pool))
+    shuffled = pool.iloc[order]
+    for size in sorted(set(sizes)):
+        yield size, pd.concat([base, shuffled.head(size - len(base))], ignore_index=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=Path("data/processed"))
@@ -123,23 +137,11 @@ def main() -> None:
     extras = [load_site(site, args.raw) for site in args.sites]
     pool = combine_sources(base, extras)
 
-    # One shuffle, then prefixes of it. That is what makes the sizes nest.
-    order = np.random.default_rng(args.seed).permutation(len(pool))
-    pool = pool.iloc[order].reset_index(drop=True)
-
     args.out.mkdir(parents=True, exist_ok=True)
     summary = {"base_documents": int(len(base)), "pool_documents": int(len(pool)), "corpora": {}}
 
-    for size in sorted(args.sizes):
-        wanted = size - len(base)
-        if wanted < 0:
-            print(f"skipping {size}, smaller than the quant corpus alone")
-            continue
-        if wanted > len(pool):
-            print(f"skipping {size}, only {len(base) + len(pool)} documents available")
-            continue
-        corpus = pd.concat([base, pool.head(wanted)], ignore_index=True)
-        path = args.out / f"scaling_corpus_{len(corpus)}.parquet"
+    for size, corpus in nested_corpora(base, pool, args.sizes, args.seed):
+        path = args.out / f"scaling_corpus_{size}.parquet"
         corpus.to_parquet(path, index=False)
         summary["corpora"][str(len(corpus))] = str(path)
         print(f"wrote {path} with {len(corpus)} documents")

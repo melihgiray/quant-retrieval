@@ -6,6 +6,7 @@ from scripts.build_scaling_corpus import (
     load_site,
     main,
     namespace_corpus,
+    nested_corpora,
     validate_site,
 )
 
@@ -47,3 +48,24 @@ def test_collisions_are_not_silently_dropped(extra_ids):
     base = pd.DataFrame({"answer_id": [1, 2]})
     with pytest.raises(ValueError, match="collide"):
         combine_sources(base, [pd.DataFrame({"answer_id": extra_ids})])
+
+
+def test_nested_corpora_keep_gold_answers_and_share_distractor_prefixes():
+    base = pd.DataFrame({"answer_id": [2, 1], "text": ["b", "a"]})
+    pool = pd.DataFrame({"answer_id": range(3, 30), "text": ["extra"] * 27})
+    first = dict(nested_corpora(base, pool, [9, 4, 9], 17))
+    second = dict(nested_corpora(base, pool.iloc[::-1], [4, 9], 17))
+    assert list(first) == [4, 9]
+    pd.testing.assert_frame_equal(first[4], first[9].head(4))
+    pd.testing.assert_frame_equal(first[9].head(2), base)
+    pd.testing.assert_frame_equal(first[9], second[9])
+    changed = dict(nested_corpora(base, pool, [9], 18))[9]
+    assert first[9].answer_id.tolist() != changed.answer_id.tolist()
+
+
+@pytest.mark.parametrize("sizes", [[1], [5], [2, 5], []])
+def test_impossible_size_stops_before_yielding_any_corpus(sizes):
+    base = pd.DataFrame({"answer_id": [1, 2]})
+    pool = pd.DataFrame({"answer_id": [3, 4]})
+    with pytest.raises(ValueError):
+        next(nested_corpora(base, pool, sizes, 17))
