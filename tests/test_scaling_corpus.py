@@ -1,8 +1,12 @@
+import json
+
 import pandas as pd
 import pytest
+from scripts import build_scaling_corpus
 from scripts.build_scaling_corpus import (
     ID_BLOCK_SIZE,
     combine_sources,
+    file_digest,
     load_site,
     main,
     namespace_corpus,
@@ -86,3 +90,29 @@ def test_atomic_corpus_write_preserves_previous_file_on_failure(tmp_path, monkey
         write_corpus(pd.DataFrame({"answer_id": [2]}), path)
     pd.testing.assert_frame_equal(pd.read_parquet(path), original)
     assert list(tmp_path.iterdir()) == [path]
+
+
+def test_scaling_cli_records_source_and_output_identity(tmp_path, monkeypatch):
+    base = pd.DataFrame({"answer_id": [1, 2], "text": ["base one", "base two"]})
+    base.to_parquet(tmp_path / "corpus.parquet")
+
+    def fake_site(site, raw_root):
+        directory = raw_root / site
+        directory.mkdir(parents=True)
+        (directory / "Posts.xml").write_text("fixture source")
+        return pd.DataFrame({"answer_id": [10, 11], "text": ["extra one", "extra two"]})
+
+    monkeypatch.setattr(build_scaling_corpus, "load_site", fake_site)
+    monkeypatch.setattr("sys.argv", ["scaling", "--data", str(tmp_path),
+                                    "--raw", str(tmp_path / "raw"), "--out", str(tmp_path / "out"),
+                                    "--sites", "stats.stackexchange.com", "--sizes", "3", "4"])
+    main()
+    output = tmp_path / "out"
+    summary = json.loads((output / "scaling_corpora.json").read_text())
+    assert summary["complete"] is True
+    assert summary["seed"] == 17
+    assert summary["base_sha256"] == file_digest(tmp_path / "corpus.parquet")
+    assert summary["sha256"]["4"] == file_digest(output / "scaling_corpus_4.parquet")
+    assert summary["sources"][0]["id_offset"] > 0
+    largest = pd.read_parquet(output / "scaling_corpus_4.parquet")
+    pd.testing.assert_frame_equal(largest.head(2), base)

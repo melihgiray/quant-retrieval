@@ -19,6 +19,7 @@ would be no way to tell which.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import tempfile
@@ -31,7 +32,7 @@ import pandas as pd
 from quant_retrieval.data.download import download_dump, extract_dump
 from quant_retrieval.data.pairs import build_corpus
 from quant_retrieval.data.parse import parse_posts
-from quant_retrieval.eval.results import write_result
+from quant_retrieval.eval.results import current_commit, write_result
 
 ARCHIVE = "https://archive.org/download/stackexchange"
 # Similar in shape to quant.stackexchange: technical questions, long answers with
@@ -130,6 +131,11 @@ def write_corpus(corpus: pd.DataFrame, path: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def file_digest(path: Path) -> str:
+    with path.open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=Path("data/processed"))
@@ -154,15 +160,28 @@ def main() -> None:
     pool = combine_sources(base, extras)
 
     args.out.mkdir(parents=True, exist_ok=True)
-    summary = {"base_documents": int(len(base)), "pool_documents": int(len(pool)), "corpora": {}}
+    summary = {
+        "base_documents": len(base), "pool_documents": len(pool), "corpora": {},
+        "seed": args.seed, "commit": current_commit(), "requested_sizes": args.sizes,
+        "base_sha256": file_digest(args.data / "corpus.parquet"),
+        "sources": [{"site": site, "id_offset": _id_offset(site),
+                     "posts_sha256": file_digest(args.raw / site / "Posts.xml")}
+                    for site in args.sites],
+        "sha256": {}, "complete": False,
+    }
+    summary_path = args.out / "scaling_corpora.json"
+    write_result(summary, summary_path)
 
     for size, corpus in nested_corpora(base, pool, args.sizes, args.seed):
         path = args.out / f"scaling_corpus_{size}.parquet"
         write_corpus(corpus, path)
         summary["corpora"][str(len(corpus))] = str(path)
+        summary["sha256"][str(len(corpus))] = file_digest(path)
+        write_result(summary, summary_path)
         print(f"wrote {path} with {len(corpus)} documents")
 
-    write_result(summary, args.out / "scaling_corpora.json")
+    summary["complete"] = True
+    write_result(summary, summary_path)
     print(json.dumps(summary, indent=2))
 
 
