@@ -43,6 +43,7 @@ ARCHIVE = "https://archive.org/download/stackexchange"
 # 1.3GB and reach roughly 400k answers, which is enough to show where the curves
 # cross. Add math if a machine with room turns up.
 DEFAULT_SITES = ("stats.stackexchange.com", "physics.stackexchange.com")
+ID_BLOCK_SIZE = 10_000_000
 
 
 def validate_site(site: str) -> str:
@@ -65,8 +66,7 @@ def load_site(site: str, raw_root: Path) -> pd.DataFrame:
     # Ids collide across sites, so give every site its own block. The study only
     # needs these documents to be distinct and retrievable, never to be looked up
     # in the original site.
-    corpus["answer_id"] = corpus["answer_id"] + _id_offset(site)
-    corpus["question_id"] = corpus["question_id"] + _id_offset(site)
+    corpus = namespace_corpus(corpus, site)
     print(f"{site}: {len(corpus)} answers")
     return corpus
 
@@ -78,7 +78,26 @@ def _id_offset(site: str) -> int:
     process, so hash() would hand the same site a different id block on every
     run and the corpora would stop being reproducible.
     """
-    return (zlib.crc32(site.encode()) % 900 + 100) * 10_000_000
+    return (zlib.crc32(site.encode()) % 900 + 100) * ID_BLOCK_SIZE
+
+
+def namespace_corpus(corpus: pd.DataFrame, site: str) -> pd.DataFrame:
+    result = corpus.copy()
+    for column in ("answer_id", "question_id"):
+        values = result[column]
+        if (not pd.api.types.is_integer_dtype(values.dtype) or values.isna().any()
+                or not values.between(1, ID_BLOCK_SIZE - 1).all()):
+            raise ValueError(f"{site}: {column} exceeds its reserved ID block")
+        result[column] = values.astype(np.int64) + _id_offset(site)
+    return result
+
+
+def combine_sources(base: pd.DataFrame, extras: list[pd.DataFrame]) -> pd.DataFrame:
+    pool = pd.concat(extras, ignore_index=True) if extras else base.iloc[:0].copy()
+    combined_ids = pd.concat([base["answer_id"], pool["answer_id"]])
+    if combined_ids.duplicated().any():
+        raise ValueError("answer IDs collide within or between scaling sources")
+    return pool
 
 
 def main() -> None:
@@ -95,13 +114,14 @@ def main() -> None:
     if len(set(args.sites)) != len(args.sites):
         parser.error("sites must not be repeated")
     args.sizes = sorted(set(args.sizes))
+    if len({_id_offset(site) for site in args.sites}) != len(args.sites):
+        parser.error("sites map to colliding ID blocks; choose different source sites")
 
     base = pd.read_parquet(args.data / "corpus.parquet")
     print(f"quant corpus: {len(base)} answers, always kept")
 
     extras = [load_site(site, args.raw) for site in args.sites]
-    pool = pd.concat(extras, ignore_index=True) if extras else pd.DataFrame(columns=base.columns)
-    pool = pool[~pool["answer_id"].isin(set(base["answer_id"]))]
+    pool = combine_sources(base, extras)
 
     # One shuffle, then prefixes of it. That is what makes the sizes nest.
     order = np.random.default_rng(args.seed).permutation(len(pool))
