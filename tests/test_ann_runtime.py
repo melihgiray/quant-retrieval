@@ -42,3 +42,19 @@ def test_ann_search_does_not_normalize_the_callers_query(tmp_path, fake_faiss):
     query.flags.writeable = False
     assert retriever.search_vector(query, 1)[0].document_id == 20
     np.testing.assert_array_equal(query, [3.0, 4.0])
+
+
+def test_failed_ann_rebuild_preserves_the_previous_index(tmp_path, fake_faiss):
+    path = tmp_path / "vectors.npy"
+    np.save(path, np.eye(2, dtype=np.float32))
+    retriever = ApproximateRetriever(path, exact=True)
+    retriever.index([10, 20], [])
+
+    class BrokenIndex(FakeIndex):
+        def add(self, vectors):
+            raise RuntimeError("allocation failed")
+
+    fake_faiss.IndexFlatIP = BrokenIndex
+    with pytest.raises(RuntimeError, match="allocation failed"):
+        retriever.index([30, 40], [])
+    assert retriever.search_vector(np.array([1.0, 0.0]), 1)[0].document_id == 10

@@ -90,15 +90,17 @@ class ApproximateRetriever:
 
         dimensions = embeddings.shape[1]
         if self.exact:
-            self._index = faiss.IndexFlatIP(dimensions)
+            index = faiss.IndexFlatIP(dimensions)
         else:
-            self._index = faiss.IndexHNSWFlat(
+            index = faiss.IndexHNSWFlat(
                 dimensions, self.neighbours, faiss.METRIC_INNER_PRODUCT
             )
-            self._index.hnsw.efConstruction = self.ef_construction
-            self._index.hnsw.efSearch = self.ef_search
-        self._index.add(embeddings)
-        self.document_ids = np.asarray(document_ids, dtype=np.int64)
+            index.hnsw.efConstruction = self.ef_construction
+            index.hnsw.efSearch = self.ef_search
+        ids = np.asarray(document_ids, dtype=np.int64)
+        index.add(embeddings)
+        self._index = index
+        self.document_ids = ids
         self._dimensions = dimensions
 
     def search_vector(self, query: np.ndarray, k: int) -> list[SearchResult]:
