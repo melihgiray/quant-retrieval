@@ -29,6 +29,8 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
+from quant_retrieval.eval.benchmark import benchmark_context  # noqa: E402
+from quant_retrieval.eval.results import write_result  # noqa: E402
 from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.retrieval.ann import ApproximateRetriever, recall_against_exact  # noqa: E402
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
@@ -178,12 +180,17 @@ def main() -> None:
             )
 
     report = {
+        **benchmark_context(selected, args.seed),
+        "artifacts": [
+            {"directory": str(directory.resolve()), "manifest": manifest}
+            for directory, manifest in zip(args.embeddings, manifests, strict=True)
+        ],
+        "checkpoint": str(args.checkpoint),
         "k": args.k, "queries": len(query_vectors), "warmup": args.warmup,
         "threads": args.threads, "neighbours": args.neighbours,
         "ef_construction": args.ef_construction, "ef_search": args.ef_search, "runs": runs,
     }
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    write_result(report, args.output)
     print(f"\nwrote {args.output}")
 
     # The headline: at each size, the fastest setting that keeps recall high.
