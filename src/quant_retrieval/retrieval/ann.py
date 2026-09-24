@@ -116,7 +116,7 @@ class ApproximateRetriever:
 
         import faiss
 
-        vector = np.ascontiguousarray(query.reshape(1, -1).astype(np.float32, copy=False))
+        vector = np.array(query.reshape(1, -1), dtype=np.float32, order="C", copy=True)
         faiss.normalize_L2(vector)
         scores, positions = self._index.search(vector, min(k, len(self.document_ids)))
 
