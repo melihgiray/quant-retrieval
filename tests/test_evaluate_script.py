@@ -24,6 +24,19 @@ def test_evaluation_config_defaults_and_empty_documents():
         validate_config(None)
 
 
+def test_existing_evaluation_output_is_rejected_before_model_work(tmp_path, monkeypatch):
+    config = tmp_path / "run.yaml"
+    config.write_text("run_name: tiny\nseed: 17\nretriever: bm25\n")
+    output = tmp_path / "result.json"
+    output.write_text("existing result")
+    monkeypatch.setattr("sys.argv", ["evaluate", "--config", str(config),
+                                    "--output", str(output)])
+    with pytest.raises(SystemExit) as error:
+        evaluate.main()
+    assert error.value.code == 2
+    assert output.read_text() == "existing result"
+
+
 @pytest.mark.parametrize("allow_test", [False, True])
 def test_test_split_requires_explicit_permission_before_model_loading(
     tmp_path, monkeypatch, allow_test

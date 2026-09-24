@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import subprocess
 import tempfile
@@ -76,7 +77,7 @@ def build_result_record(
     return record
 
 
-def write_result(record: dict[str, Any], path: Path) -> None:
+def write_result(record: dict[str, Any], path: Path, *, overwrite: bool = True) -> None:
     serialized = json.dumps(record, indent=2, sort_keys=True, allow_nan=False) + "\n"
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
@@ -86,7 +87,11 @@ def write_result(record: dict[str, Any], path: Path) -> None:
         ) as handle:
             temporary = Path(handle.name)
             handle.write(serialized)
-        temporary.replace(path)
+        if overwrite:
+            temporary.replace(path)
+        else:
+            # Linking publishes the complete file only if the destination is still absent.
+            os.link(temporary, path)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)

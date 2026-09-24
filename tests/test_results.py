@@ -55,3 +55,12 @@ def test_rankings_are_optional_and_detached_from_the_evaluation():
     evaluation["rankings"][12].append(1)
     assert saved["rankings"] == {"12": [3, 2]}
     assert json.loads(json.dumps(saved))["rankings"]["12"] == [3, 2]
+
+
+def test_exclusive_result_publication_never_clobbers_an_existing_run(tmp_path):
+    path = tmp_path / "run.json"
+    write_result({"first": True}, path, overwrite=False)
+    with pytest.raises(FileExistsError):
+        write_result({"second": True}, path, overwrite=False)
+    assert json.loads(path.read_text()) == {"first": True}
+    assert list(tmp_path.iterdir()) == [path]

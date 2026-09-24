@@ -50,6 +50,9 @@ def main() -> None:
                         help="include retrieved answer IDs for offline inspection")
     parser.add_argument("--allow-test", action="store_true",
                         help="explicitly authorize the final held-out test evaluation")
+    parser.add_argument("--output", type=Path, help="override the configured result path")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="explicitly replace an existing evaluation result")
     args = parser.parse_args()
 
     config = yaml.safe_load(args.config.read_text())
@@ -59,6 +62,13 @@ def main() -> None:
         parser.error(str(error))
     if config.get("split", "val") == "test" and not args.allow_test:
         parser.error("held-out test evaluation requires --allow-test; tune on val first")
+    output = args.output or Path(config.get("output", f"results/{config['run_name']}.json"))
+    inputs = [args.config, *(args.data / name for name in
+                            ("corpus.parquet", "queries.parquet", "qrels.parquet"))]
+    if output.resolve() in {path.resolve() for path in inputs}:
+        parser.error("result output must not replace configuration or dataset inputs")
+    if output.exists() and not args.overwrite:
+        parser.error("result already exists; choose --output or explicitly pass --overwrite")
     set_seed(config["seed"])
     retriever = build_retriever(config)
     corpus = pd.read_parquet(args.data / "corpus.parquet")
@@ -81,9 +91,8 @@ def main() -> None:
         evaluation=evaluation,
         include_rankings=args.save_rankings,
     )
-    output = Path(config.get("output", f"results/{config['run_name']}.json"))
     record["test_split_authorized"] = config.get("split", "val") == "test" and args.allow_test
-    write_result(record, output)
+    write_result(record, output, overwrite=args.overwrite)
 
     print(f"wrote {output}")
     for name, value in record["metrics"].items():
