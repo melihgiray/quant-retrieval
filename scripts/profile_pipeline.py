@@ -15,7 +15,6 @@ start pays, which is the number that matters for a small hosted demo.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import time
 from contextlib import contextmanager
@@ -28,6 +27,9 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import yaml  # noqa: E402
 
+from quant_retrieval.eval.benchmark import benchmark_context  # noqa: E402
+from quant_retrieval.eval.results import write_result  # noqa: E402
+from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.retrieval.factory import build_retriever  # noqa: E402
 from quant_retrieval.retrieval.hybrid import HybridRetriever  # noqa: E402
 from quant_retrieval.retrieval.rerank import RerankingRetriever  # noqa: E402
@@ -121,11 +123,12 @@ def main() -> None:
         parser.error("queries/repeats must be positive and warmup nonnegative")
 
     config = yaml.safe_load(args.config.read_text())
-    set_seed(int(config.get("seed", 17)))
+    seed = int(config.get("seed", 17))
+    set_seed(seed)
 
     corpus = pd.read_parquet(args.data / "corpus.parquet")
     queries = pd.read_parquet(args.data / "queries.parquet")
-    selected = queries[queries["split"] == config.get("split", "val")].head(args.queries)
+    selected = sample_queries(queries, args.queries, seed, config.get("split", "val"))
 
     watch = Stopwatch()
     retriever = build_retriever(config)
@@ -139,7 +142,10 @@ def main() -> None:
         run_queries(retriever, selected, max_results, watch, args.warmup, args.repeats)
 
     report = {
+        **benchmark_context(selected, seed),
         "config": str(args.config),
+        "configuration": config,
+        "split": config.get("split", "val"),
         "queries": len(selected),
         "warmup": args.warmup,
         "repeats": args.repeats,
@@ -151,8 +157,7 @@ def main() -> None:
     }
 
     output = args.output or Path("results") / f"{args.config.stem}_profile.json"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    write_result(report, output)
 
     print(f"wrote {output}")
     print(f"index: {index_seconds:.2f}s for {len(corpus)} documents")
