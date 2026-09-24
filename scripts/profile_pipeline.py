@@ -64,9 +64,14 @@ def run_queries(retriever, selected, k: int, watch: Stopwatch, warmup: int, repe
     for index in range(warmup):
         retriever.search(texts[index % len(texts)], k)
     watch.samples.clear()
-    for _ in range(repeats):
-        for text in texts:
-            retriever.search(text, k)
+    timings = []
+    for repetition in range(repeats):
+        for row in selected.itertuples(index=False):
+            started = time.perf_counter()
+            retriever.search(row.text, k)
+            timings.append({"query_id": int(row.query_id), "repeat": repetition + 1,
+                            "latency_ms": (time.perf_counter() - started) * 1000})
+    return timings
 
 
 @contextmanager
@@ -139,7 +144,9 @@ def main() -> None:
 
     max_results = int(config.get("max_results", 100))
     with instrument(retriever, watch, config["retriever"]):
-        run_queries(retriever, selected, max_results, watch, args.warmup, args.repeats)
+        query_timings = run_queries(
+            retriever, selected, max_results, watch, args.warmup, args.repeats
+        )
 
     report = {
         **benchmark_context(selected, seed),
@@ -154,6 +161,7 @@ def main() -> None:
         "corpus_documents": len(corpus),
         "index_seconds": round(index_seconds, 2),
         "stages": watch.report(),
+        "query_timings": query_timings,
     }
 
     output = args.output or Path("results") / f"{args.config.stem}_profile.json"

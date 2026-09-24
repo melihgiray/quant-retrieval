@@ -13,9 +13,12 @@ def test_profiler_excludes_warmup_and_measures_each_repeat():
     retriever = SimpleNamespace(search=lambda query, k: calls.append(query))
     watch = Stopwatch()
     with instrument(retriever, watch, "root"):
-        run_queries(retriever, pd.DataFrame({"text": ["a", "b"]}), 10, watch, 3, 2)
+        timings = run_queries(retriever, pd.DataFrame({"query_id": [1, 2], "text": ["a", "b"]}),
+                              10, watch, 3, 2)
     assert calls == ["a", "b", "a", "a", "b", "a", "b"]
     assert watch.report()["root"]["calls"] == 4
+    assert [(row["query_id"], row["repeat"]) for row in timings] == [(1, 1), (2, 1), (1, 2), (2, 2)]
+    assert all(row["latency_ms"] >= 0 for row in timings)
 
 
 @pytest.mark.parametrize("warmup,repeats", [(-1, 1), (0, 0)])
@@ -59,3 +62,4 @@ def test_profile_cli_saves_sample_and_configuration(tmp_path, monkeypatch):
     assert report["configuration"]["retriever"] == "bm25"
     assert report["split"] == "val"
     assert report["stages"]["bm25"]["calls"] == report["measured_calls"] == 2
+    assert [row["query_id"] for row in report["query_timings"]] == [1, 1]
