@@ -20,6 +20,7 @@ highly, and mixing them into one number tells you neither.
 
 from __future__ import annotations
 
+from numbers import Integral
 from pathlib import Path
 
 import numpy as np
@@ -44,11 +45,14 @@ class ApproximateRetriever:
         ef_search: int = 64,
         exact: bool = False,
     ) -> None:
-        if neighbours < 1:
+        if isinstance(neighbours, bool) or not isinstance(neighbours, Integral) or neighbours < 1:
             raise ValueError("neighbours must be at least 1")
-        if ef_construction < 1:
+        if (
+            isinstance(ef_construction, bool) or not isinstance(ef_construction, Integral)
+            or ef_construction < 1
+        ):
             raise ValueError("ef_construction must be at least 1")
-        if ef_search < 1:
+        if isinstance(ef_search, bool) or not isinstance(ef_search, Integral) or ef_search < 1:
             raise ValueError("ef_search must be at least 1")
         self.embeddings_path = Path(embeddings_path)
         self.neighbours = neighbours
@@ -73,6 +77,11 @@ class ApproximateRetriever:
             raise ValueError("ANN embeddings must be a nonempty two-dimensional matrix")
         if not len(document_ids):
             raise ValueError("cannot index an empty corpus")
+        if any(
+            isinstance(value, bool) or not isinstance(value, Integral)
+            or not 0 < value <= np.iinfo(np.int64).max for value in document_ids
+        ):
+            raise ValueError("ANN document IDs must be positive int64 integers")
         if len(embeddings) != len(document_ids):
             raise ValueError(
                 f"{self.embeddings_path} holds {len(embeddings)} vectors "
@@ -104,7 +113,7 @@ class ApproximateRetriever:
 
     def search_vector(self, query: np.ndarray, k: int) -> list[SearchResult]:
         """Search with an already encoded query."""
-        if k <= 0:
+        if isinstance(k, bool) or not isinstance(k, Integral) or k <= 0:
             raise ValueError("k must be positive")
         if self._index is None:
             raise RuntimeError("index must be called before search")
@@ -144,6 +153,8 @@ class ApproximateRetriever:
 
 def _scaled_float32(vectors: np.ndarray) -> np.ndarray:
     # Scaling before narrowing preserves direction at extreme magnitudes.
+    if np.issubdtype(vectors.dtype, np.integer):
+        vectors = vectors.astype(np.float64)
     scales = np.max(np.abs(vectors), axis=1, keepdims=True)
     if np.any(scales == 0):
         raise ValueError("ANN vectors must not contain zero rows")

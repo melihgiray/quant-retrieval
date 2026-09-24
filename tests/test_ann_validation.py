@@ -11,6 +11,21 @@ def test_construction_breadth_must_be_positive(tmp_path):
         ApproximateRetriever(tmp_path / "vectors.npy", ef_construction=0)
 
 
+@pytest.mark.parametrize("name", ["neighbours", "ef_construction", "ef_search"])
+@pytest.mark.parametrize("value", [True, 1.5])
+def test_graph_parameters_require_integers(tmp_path, name, value):
+    with pytest.raises(ValueError, match=name):
+        ApproximateRetriever(tmp_path / "vectors.npy", **{name: value})
+
+
+@pytest.mark.parametrize("ids", [[0, 2], [True, 2], [1.5, 2], [2**64, 2]])
+def test_ann_ids_cannot_be_silently_truncated(tmp_path, ids):
+    path = tmp_path / "vectors.npy"
+    np.save(path, np.eye(2, dtype=np.float32))
+    with pytest.raises(ValueError, match="positive int64"):
+        ApproximateRetriever(path).index(ids, [])
+
+
 @pytest.mark.parametrize(
     ("vectors", "ids", "message"),
     [
