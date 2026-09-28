@@ -61,6 +61,7 @@ def probe_split(
     generator = np.random.default_rng(seed)
 
     wins = 0
+    ties = 0
     margins: list[float] = []
     for row in selected.itertuples(index=False):
         positive = texts.loc[gold.loc[row.question_id]]
@@ -80,8 +81,10 @@ def probe_split(
         tokens = {name: tensor.to(device) for name, tensor in tokens.items()}
         with torch.inference_mode():
             scores = model(**tokens).cpu().numpy()
-        wins += int(scores.argmax() == 0)
-        margins.append(float(scores[0] - scores[1:].max()))
+        margin = float(scores[0] - scores[1:].max())
+        wins += int(margin > 0)
+        ties += int(margin == 0)
+        margins.append(margin)
 
     total = len(selected)
     return {
@@ -89,6 +92,8 @@ def probe_split(
         "questions": total,
         "distractors": distractors,
         "top_one_accuracy": round(wins / total, 4),
+        "tied_questions": ties,
+        "tie_policy": "positive_must_strictly_outscore_all_distractors",
         "chance": round(1 / (distractors + 1), 4),
         "median_margin": round(float(np.median(margins)), 4),
     }

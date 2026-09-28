@@ -37,3 +37,14 @@ def test_probe_excludes_all_judged_and_same_question_answers():
 def test_probe_refuses_an_impossible_negative_pool():
     with pytest.raises(ValueError, match="eligible distractors"):
         run_probe([1., 0., 0., 0.], distractors=3)
+
+
+@pytest.mark.parametrize("scores,accuracy,ties", [
+    ([0., 0., 0.], 0, 1), ([1., 1., 0.], 0, 1),
+    ([0., 1., 1.], 0, 0), ([2., 1., 0.], 1, 0),
+])
+def test_positive_position_does_not_win_score_ties(scores, accuracy, ties):
+    report, _ = run_probe(scores)
+    assert report["top_one_accuracy"] == accuracy
+    assert report["tied_questions"] == ties
+    assert report["tie_policy"] == "positive_must_strictly_outscore_all_distractors"
