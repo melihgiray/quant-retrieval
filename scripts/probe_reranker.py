@@ -32,6 +32,13 @@ from quant_retrieval.models.cross_encoder import CrossEncoder  # noqa: E402
 from quant_retrieval.runtime import choose_device, set_seed  # noqa: E402
 
 
+def eligible_distractors(corpus: pd.DataFrame, qrels: pd.DataFrame, question_id: int):
+    judged = qrels.loc[qrels["question_id"] == question_id, "answer_id"]
+    return corpus.loc[
+        (corpus["question_id"] != question_id) & ~corpus["answer_id"].isin(judged), "answer_id"
+    ].to_numpy()
+
+
 def probe_split(
     model,
     tokenizer,
@@ -52,12 +59,14 @@ def probe_split(
     selected = queries.loc[queries["split"] == split]
     selected = selected[selected["question_id"].isin(gold.index)].head(questions)
     generator = np.random.default_rng(seed)
-    answer_ids = corpus["answer_id"].to_numpy()
 
     wins = 0
     margins: list[float] = []
     for row in selected.itertuples(index=False):
         positive = texts.loc[gold.loc[row.question_id]]
+        answer_ids = eligible_distractors(corpus, qrels, row.question_id)
+        if len(answer_ids) < distractors:
+            raise ValueError(f"question {row.question_id} has too few eligible distractors")
         drawn = texts.loc[generator.choice(answer_ids, distractors, replace=False)].tolist()
         candidates = [positive, *drawn]
         tokens = tokenizer(
