@@ -67,6 +67,8 @@ def probe_split(
     seed: int,
 ) -> dict:
     """Share of questions whose own answer outscores N random documents."""
+    if any(type(value) is not int or value <= 0 for value in (distractors, max_length)):
+        raise ValueError("distractors and max_length must be positive integers")
     texts = corpus.set_index("answer_id")["text"]
     selected, gold = select_probe_queries(queries, qrels, split, questions, seed)
     generator = np.random.default_rng(seed)
@@ -92,7 +94,12 @@ def probe_split(
         tokens = {name: tensor.to(device) for name, tensor in tokens.items()}
         with torch.inference_mode():
             scores = model(**tokens).cpu().numpy()
-        margin = float(scores[0] - scores[1:].max())
+        if (scores.shape != (len(candidates),)
+                or not np.issubdtype(scores.dtype, np.floating) or not np.isfinite(scores).all()):
+            raise ValueError("probe model must return one finite floating score per candidate")
+        margin = float(scores[0]) - float(scores[1:].max())
+        if not np.isfinite(margin):
+            raise ValueError("probe score margin must be finite")
         wins += int(margin > 0)
         ties += int(margin == 0)
         margins.append(margin)

@@ -63,3 +63,16 @@ def test_probe_sampling_is_seeded_and_independent_of_row_order():
         select_probe_queries(queries, qrels.iloc[:0], "val", 4, 17)
     with pytest.raises(ValueError, match="train or val"):
         select_probe_queries(queries, qrels, "test", 4, 17)
+
+
+@pytest.mark.parametrize("scores", [[1.], [[1., 2., 3.]],
+    [float("nan"), 0., 1.], [float("inf"), 0., 1.], [True, False, False]])
+def test_probe_rejects_malformed_or_nonfinite_model_scores(scores):
+    with pytest.raises(ValueError, match="one finite floating score"):
+        run_probe(scores)
+
+
+def test_probe_computes_large_finite_margins_without_float32_overflow():
+    report, _ = run_probe([3e38, -3e38, -3e38])
+    assert report["top_one_accuracy"] == 1
+    assert report["median_margin"] == pytest.approx(6e38)
