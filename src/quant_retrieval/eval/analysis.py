@@ -49,8 +49,9 @@ def paired_query_changes(baseline: dict, candidate: dict, limit: int = 10) -> di
             "largest_improvements": wins[:limit], "largest_regressions": losses[:limit]}
 
 
-def error_report(record: dict, metric: str, limit: int = 20) -> dict:
-    if metric not in METRIC_NAMES or limit <= 0:
+def error_report(record: dict, metric: str, limit: int = 20, rank_limit: int = 10) -> dict:
+    if (metric not in METRIC_NAMES
+            or any(type(value) is not int or value <= 0 for value in (limit, rank_limit))):
         raise ValueError("choose a supported metric and a positive example limit")
     if record.get("split") not in {"train", "val"}:
         raise ValueError("error analysis is restricted to train and val runs")
@@ -59,6 +60,9 @@ def error_report(record: dict, metric: str, limit: int = 20) -> dict:
         raise ValueError("run must contain per-query scores and diagnostics")
     if set(scores) != set(diagnostics):
         raise ValueError("diagnostics and scores must cover the same questions")
+    rankings = record.get("rankings")
+    if rankings is not None and (not isinstance(rankings, dict) or set(rankings) != set(scores)):
+        raise ValueError("saved rankings and scores must cover the same questions")
     rows = []
     statuses = {"top_k", "below_cutoff", "not_retrieved", "no_primary_label"}
     for key, values in scores.items():
@@ -74,7 +78,15 @@ def error_report(record: dict, metric: str, limit: int = 20) -> dict:
         if not isinstance(detail, dict) or detail.get("status") not in statuses:
             raise ValueError("unknown retrieval diagnostic status")
         validate_diagnostic(detail)
-        rows.append({**detail, "question_id": int(key), "score": value})
+        row = {**detail, "question_id": int(key), "score": value}
+        if rankings is not None:
+            ranking = rankings[key]
+            if (not isinstance(ranking, list)
+                    or any(type(answer_id) is not int or answer_id <= 0 for answer_id in ranking)
+                    or len(set(ranking)) != len(ranking) or len(ranking) != detail["returned"]):
+                raise ValueError("saved ranking needs unique positive IDs matching its count")
+            row["top_answer_ids"] = ranking[:rank_limit]
+        rows.append(row)
     rows.sort(key=lambda row: (row["score"], row["question_id"]))
     return {
         "run_name": record.get("run_name"), "split": record["split"], "metric": metric,

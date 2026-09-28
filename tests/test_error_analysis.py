@@ -82,3 +82,20 @@ def test_error_report_rejects_contradictory_diagnostic_evidence(key, value):
     source["diagnostics"]["2"][key] = value
     with pytest.raises(ValueError, match="diagnostic"):
         error_report(source, "ndcg_at_10")
+
+
+def test_error_examples_include_bounded_saved_rankings_when_available():
+    source = record()
+    assert "top_answer_ids" not in error_report(source, "ndcg_at_10")["worst_queries"][0]
+    source["rankings"] = {"1": [9], "2": [9, 1]}
+    report = error_report(source, "ndcg_at_10", rank_limit=1)
+    assert [row["top_answer_ids"] for row in report["worst_queries"]] == [[9], [9]]
+    assert source["rankings"]["2"] == [9, 1]
+
+
+@pytest.mark.parametrize("ranking", [[9, 9], [True, 1], [9], [0, 1], "9,1"])
+def test_error_examples_reject_malformed_rankings(ranking):
+    source = record()
+    source["rankings"] = {"1": [9], "2": ranking}
+    with pytest.raises(ValueError, match="ranking"):
+        error_report(source, "ndcg_at_10")
