@@ -15,6 +15,7 @@ from transformers import AutoModel, AutoTokenizer
 from quant_retrieval.models.pooling import POOLING_STRATEGIES, mean_pool, pool
 from quant_retrieval.retrieval.base import SearchResult
 from quant_retrieval.retrieval.ranking import top_k_rows
+from quant_retrieval.retrieval.vectors import validate_embeddings
 from quant_retrieval.runtime import choose_device
 
 __all__ = ["DenseRetriever", "choose_device", "mean_pool"]
@@ -57,7 +58,7 @@ class DenseRetriever:
         if any(
             isinstance(document_id, bool)
             or not isinstance(document_id, Integral)
-            or document_id <= 0
+            or not 0 < document_id <= np.iinfo(np.int64).max
             for document_id in document_ids
         ):
             raise ValueError("document IDs must be positive integers")
@@ -66,6 +67,7 @@ class DenseRetriever:
         if any(not isinstance(text, str) or not text.strip() for text in texts):
             raise ValueError("document texts must be nonempty strings")
         encoded = self._encode(texts)
+        validate_embeddings(encoded, len(document_ids), atol=1e-4)
         self.document_ids = np.asarray(document_ids, dtype=np.int64)
         self.embeddings = encoded
 
