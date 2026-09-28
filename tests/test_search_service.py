@@ -8,7 +8,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from quant_retrieval.eval.fingerprints import corpus_fingerprint
 from quant_retrieval.retrieval.base import SearchResult
+from quant_retrieval.retrieval.index_artifacts import publish_index
 from quant_retrieval.serve import search as serve_search
 from quant_retrieval.serve.search import ArtifactManifest, SearchService, make_snippet
 
@@ -197,6 +199,23 @@ def test_artifact_manifest_loads_export_commit(tmp_path: Path):
     )
 
     assert ArtifactManifest.load(path).commit == "abc1234"
+
+
+@pytest.mark.parametrize("change", ["text", "vectors"])
+def test_service_rejects_changed_versioned_inputs_before_model_load(tmp_path, change):
+    data = corpus()
+    root = tmp_path / "export"
+    publish_index(root, data.answer_id.to_numpy(), np.eye(2),
+                  {"max_length": 32, "corpus_sha256": corpus_fingerprint(data)})
+    if change == "text":
+        data.loc[0, "text"] = "changed answer with the same ID"
+    else:
+        np.save(root / "embeddings_fp16.npy", np.eye(2, dtype=np.float16)[::-1])
+    data.to_parquet(root / "corpus.parquet")
+    with pytest.raises(ValueError, match="fingerprint|checksum"):
+        SearchService.from_artifacts(checkpoint=tmp_path / "no-model",
+            corpus_path=root / "corpus.parquet", manifest_path=root / "manifest.json",
+            document_ids_path=root / "answer_ids.npy", embeddings_path=root / "embeddings_fp16.npy")
 
 
 @pytest.mark.parametrize("commit", ["", "not-a-commit", "ABC1234", "a" * 41])

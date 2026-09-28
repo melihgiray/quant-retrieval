@@ -11,10 +11,12 @@ from threading import Lock
 
 import pandas as pd
 
+from quant_retrieval.eval.fingerprints import corpus_fingerprint
 from quant_retrieval.retrieval.base import Retriever
 from quant_retrieval.retrieval.bm25 import BM25Retriever
 from quant_retrieval.retrieval.dense import DenseRetriever
 from quant_retrieval.retrieval.hybrid import HybridRetriever
+from quant_retrieval.retrieval.index_artifacts import verify_export_files
 
 COMMIT_PATTERN = re.compile(r"[0-9a-f]{7,40}")
 
@@ -48,6 +50,7 @@ class ArtifactManifest:
     dimensions: int
     max_length: int
     commit: str | None = None
+    corpus_sha256: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> ArtifactManifest:
@@ -66,6 +69,7 @@ class ArtifactManifest:
                 dimensions=payload["dimensions"],
                 max_length=payload["max_length"],
                 commit=payload.get("commit"),
+                corpus_sha256=payload.get("corpus_sha256"),
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("artifact manifest is missing valid dimensions") from error
@@ -76,6 +80,13 @@ class ArtifactManifest:
             or COMMIT_PATTERN.fullmatch(manifest.commit) is None
         ):
             raise ValueError("artifact manifest commit must be a hexadecimal git revision")
+        if manifest.corpus_sha256 is not None and (
+            not isinstance(manifest.corpus_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", manifest.corpus_sha256) is None
+        ):
+            raise ValueError("artifact corpus fingerprint must be a SHA-256 string")
+        if payload.get("pooling", "mean") != "mean":
+            raise ValueError("served artifacts must use mean pooling")
         return manifest
 
 
@@ -141,6 +152,17 @@ class SearchService:
         manifest = ArtifactManifest.load(manifest_path)
         corpus = pd.read_parquet(corpus_path)
         cls._validate_corpus(corpus)
+        if (manifest.corpus_sha256 is not None
+                and corpus_fingerprint(corpus) != manifest.corpus_sha256):
+            raise ValueError("artifact corpus fingerprint does not match answer text and order")
+        payload = json.loads(manifest_path.read_text())
+        if "sha256" in payload or "schema_version" in payload:
+            root = manifest_path.parent
+            if (document_ids_path.resolve() != (root / "answer_ids.npy").resolve()
+                    or embeddings_path.name not in {"embeddings_fp16.npy", "embeddings_fp32.npy"}
+                    or embeddings_path.resolve() != (root / embeddings_path.name).resolve()):
+                raise ValueError("versioned index paths must match the artifact manifest directory")
+            verify_export_files(root, payload, ("answer_ids.npy", embeddings_path.name))
         ids = corpus["answer_id"].astype(int).tolist()
         texts = corpus["text"].astype(str).tolist()
 
