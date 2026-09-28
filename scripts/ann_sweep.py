@@ -34,6 +34,7 @@ from quant_retrieval.eval.results import write_result  # noqa: E402
 from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.retrieval.ann import ApproximateRetriever, recall_against_exact  # noqa: E402
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
+from quant_retrieval.retrieval.index_artifacts import verify_export_files  # noqa: E402
 from quant_retrieval.runtime import set_seed  # noqa: E402
 
 DEFAULT_EF_SEARCH = (16, 32, 64, 128, 256)
@@ -48,6 +49,7 @@ def load_manifest(directory: Path, checkpoint: Path) -> dict:
         raise ValueError(f"{directory}: checkpoint is required")
     if Path(manifest["checkpoint"]).resolve() != checkpoint.resolve():
         raise ValueError(f"{directory}: checkpoint does not match the query encoder")
+    verify_export_files(directory, manifest, ("answer_ids.npy", "embeddings_fp32.npy"))
     ids = np.load(directory / "answer_ids.npy", mmap_mode="r")
     vectors = np.load(directory / "embeddings_fp32.npy", mmap_mode="r")
     if ids.shape != (manifest["documents"],):
@@ -148,7 +150,8 @@ def main() -> None:
     report = {
         **benchmark_context(selected, args.seed),
         "artifacts": [
-            {"directory": str(directory.resolve()), "manifest": manifest}
+            {"directory": str(directory.resolve()), "manifest": manifest,
+             "payload_checksums_verified": manifest.get("sha256") is not None}
             for directory, manifest in zip(args.embeddings, manifests, strict=True)
         ],
         "checkpoint": str(args.checkpoint),

@@ -21,6 +21,10 @@ def file_digest(path: Path) -> str:
 
 def verify_export_files(directory: Path, manifest: dict, names=INDEX_PAYLOADS) -> bool:
     """Verify requested payloads, returning False for legacy manifests without hashes."""
+    if "schema_version" in manifest and (
+        type(manifest["schema_version"]) is not int or manifest["schema_version"] != 1
+    ):
+        raise ValueError("unsupported index manifest schema version")
     hashes = manifest.get("sha256")
     if hashes is None:
         if "schema_version" in manifest:

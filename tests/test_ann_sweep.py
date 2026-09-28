@@ -7,6 +7,8 @@ import pytest
 from scripts import ann_sweep
 from scripts.ann_sweep import best_settings, load_manifest, main, time_search
 
+from quant_retrieval.retrieval.index_artifacts import publish_index
+
 
 def test_warmup_is_excluded_from_results_and_timings():
     calls = []
@@ -110,3 +112,14 @@ def test_ann_repeats_add_timings_without_duplicating_recall_queries():
     assert ann_sweep.summarise([0.0001, 0.0002])["p50_ms"] > 0
     with pytest.raises(ValueError, match="repeats"):
         time_search(retriever, np.ones((1, 2)), 1, repeats=0)
+
+
+def test_ann_preflight_rejects_modified_export_before_runtime_work(tmp_path):
+    directory = tmp_path / "export"
+    checkpoint = tmp_path / "model"
+    publish_index(directory, np.array([1, 2]), np.eye(2),
+                  {"checkpoint": str(checkpoint), "max_length": 128})
+    assert load_manifest(directory, checkpoint)["schema_version"] == 1
+    np.save(directory / "answer_ids.npy", [2, 1])
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        load_manifest(directory, checkpoint)
