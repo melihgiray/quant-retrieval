@@ -14,6 +14,7 @@ from transformers import AutoModel, AutoTokenizer
 
 from quant_retrieval.models.pooling import POOLING_STRATEGIES, mean_pool, pool
 from quant_retrieval.retrieval.base import SearchResult
+from quant_retrieval.retrieval.ranking import top_k_rows
 from quant_retrieval.runtime import choose_device
 
 __all__ = ["DenseRetriever", "choose_device", "mean_pool"]
@@ -124,10 +125,7 @@ class DenseRetriever:
         query_embedding = self._encode([query])[0]
         self._validate_query_vector(query_embedding)
         scores = self.embeddings @ query_embedding
-        limit = min(k, len(scores))
-        candidates = np.argpartition(scores, -limit)[-limit:]
-        order = np.lexsort((self.document_ids[candidates], -scores[candidates]))
-        rows = candidates[order]
+        rows = top_k_rows(scores, self.document_ids, k)
         return [
             SearchResult(document_id=int(self.document_ids[row]), score=float(scores[row]))
             for row in rows
