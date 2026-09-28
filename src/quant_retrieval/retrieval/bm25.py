@@ -11,6 +11,7 @@ import numpy as np
 from scipy import sparse
 
 from quant_retrieval.retrieval.base import SearchResult
+from quant_retrieval.retrieval.ranking import top_k_rows
 
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:[._][a-z0-9]+)*")
 
@@ -87,7 +88,7 @@ class BM25Retriever:
         )
 
     def search(self, query: str, k: int) -> list[SearchResult]:
-        if k <= 0:
+        if isinstance(k, bool) or not isinstance(k, Integral) or k <= 0:
             raise ValueError("k must be positive")
         if not isinstance(query, str) or not query.strip():
             raise ValueError("query must be a nonempty string")
@@ -105,10 +106,7 @@ class BM25Retriever:
         if not len(matched):
             return []
 
-        # Sorting all matched rows is predictable and still cheap for this 26k
-        # document corpus. Document ID is the stable tie breaker.
-        order = np.lexsort((self.document_ids[matched], -scores[matched]))
-        rows = matched[order[:k]]
+        rows = matched[top_k_rows(scores[matched], self.document_ids[matched], k)]
         return [
             SearchResult(document_id=int(self.document_ids[row]), score=float(scores[row]))
             for row in rows

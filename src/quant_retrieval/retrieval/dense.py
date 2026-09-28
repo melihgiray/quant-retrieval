@@ -115,7 +115,7 @@ class DenseRetriever:
             raise ValueError("query encoder output must be unit normalized")
 
     def search(self, query: str, k: int) -> list[SearchResult]:
-        if k <= 0:
+        if isinstance(k, bool) or not isinstance(k, Integral) or k <= 0:
             raise ValueError("k must be positive")
         if not isinstance(query, str) or not query.strip():
             raise ValueError("query must be a nonempty string")
