@@ -86,15 +86,19 @@ written into the result file as provenance:
     python scripts/train_reranker.py --config configs/reranker.yaml
     python scripts/evaluate.py --config configs/hybrid_rerank.yaml --output results/rerank_new.json
 
-Every experiment is a config file plus a seed, and reruns reproduce their
-committed numbers exactly. `./run_ablations.sh` takes run names and works
-through them in order.
+Every experiment records its configuration, seed and source revision. Use the
+same revision and dataset when reproducing a historical number; changes such
+as corrected tie-breaking can change rankings. `./run_ablations.sh` takes run
+names and works through them in order.
 
 Evaluation protects existing result files. Choose a new `--output` filename or
 explicitly use `--overwrite` when intentionally replacing one. Held-out test
 evaluation requires `--allow-test`; all tuning stays on validation queries.
 [Benchmarking and error inspection](docs/BENCHMARKING.md) covers warmed pipeline
 profiles, nested scaling corpora, controlled ANN sweeps and saved-query analysis.
+[Verified index exports](docs/INDEXES.md) describes storage inspection and the
+matched float32/float16 evaluation configs. These new configs have fixture
+coverage, not newly measured model-quality results.
 
     pytest
 

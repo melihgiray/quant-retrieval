@@ -5,6 +5,11 @@ use small fixtures; passing them is not a new model-quality or latency result.
 Keep tuning on validation queries. Real model runs and large archive downloads
 need enough memory, disk space and an otherwise quiet machine.
 
+Evaluation and profiling reject duplicate YAML fields, including nested model
+parameters. Keep each setting explicit once rather than relying on a later
+duplicate to override an earlier value. See [index exports](INDEXES.md) for
+atomic export publication, integrity checks and saved-precision evaluation.
+
 ## Profile a pipeline
 
 ```sh
@@ -109,3 +114,32 @@ Paired comparison reports also show counts of improved, regressed and unchanged
 questions, plus the largest observed changes. These examples help investigate
 failure modes. They are not significance tests on individual questions; the
 paired bootstrap remains the aggregate uncertainty estimate.
+
+When rankings are present, error reports include bounded `top_answer_ids` lists
+for the displayed questions. `--rank-limit` controls this preview independently
+of `--limit`, which controls the number of questions. Rank lists, retrieval
+counts and diagnostic status must agree before a report is generated.
+
+## Reranker sanity probes
+
+```sh
+python -m scripts.probe_reranker --checkpoint checkpoints/reranker_mixed/epoch-2 \
+  --questions 100 --distractors 4 --seed 17 --output results/reranker_probe_new.json
+```
+
+This does run the reranker model, unlike offline error inspection. Questions
+are sampled reproducibly from train and validation queries with one primary
+answer. Distractors exclude all judged answers and all answers to the same
+question. A pool too small for the request fails instead of admitting duplicates.
+
+The positive must strictly outscore every distractor to count as a win. Ties are
+reported separately; listing the positive first cannot award it a tied win.
+The chance field is the continuous-score random-ranking reference, not an
+expected strict-win rate for a constant scorer. Scores must be finite and have
+one value per candidate. Reports retain sample identity, data fingerprints,
+seed and settings, and require `--overwrite` to replace an existing result.
+
+These rules differ from the earlier prefix-sampled probe protocol, which could
+draw relevant answers and award positive-position ties. Historical probe numbers
+have not been rerun under the corrected protocol. Do not compare them as though
+only model weights changed, or rewrite earlier result files without a new run.
