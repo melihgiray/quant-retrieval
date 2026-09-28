@@ -28,6 +28,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
+from quant_retrieval.retrieval.index_artifacts import corpus_ids  # noqa: E402
 from quant_retrieval.runtime import set_seed  # noqa: E402
 
 
@@ -53,9 +54,12 @@ def main() -> None:
     parser.add_argument("--max-length", type=int, default=256)
     parser.add_argument("--seed", type=int, default=17)
     args = parser.parse_args()
+    if min(args.batch_size, args.max_length) <= 0 or not 0 <= args.seed < 2**32:
+        parser.error("batch size and max length must be positive, seed must fit uint32")
 
     set_seed(args.seed)
     corpus = pd.read_parquet(args.corpus or args.data / "corpus.parquet")
+    answer_ids = corpus_ids(corpus)
     retriever = DenseRetriever(
         str(args.checkpoint), batch_size=args.batch_size, max_length=args.max_length
     )
@@ -65,7 +69,6 @@ def main() -> None:
     seconds = time.perf_counter() - started
 
     args.out.mkdir(parents=True, exist_ok=True)
-    answer_ids = corpus["answer_id"].astype(np.int64).to_numpy()
     np.save(args.out / "answer_ids.npy", answer_ids)
 
     sizes = {}
