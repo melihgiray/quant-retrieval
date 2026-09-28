@@ -29,6 +29,7 @@ import pandas as pd  # noqa: E402
 
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
 from quant_retrieval.retrieval.index_artifacts import corpus_ids  # noqa: E402
+from quant_retrieval.retrieval.vectors import validate_embeddings  # noqa: E402
 from quant_retrieval.runtime import set_seed  # noqa: E402
 
 
@@ -67,6 +68,7 @@ def main() -> None:
     started = time.perf_counter()
     embeddings = retriever._encode(corpus["text"].tolist())
     seconds = time.perf_counter() - started
+    validate_embeddings(embeddings, len(answer_ids), atol=1e-4)
 
     args.out.mkdir(parents=True, exist_ok=True)
     np.save(args.out / "answer_ids.npy", answer_ids)
@@ -74,7 +76,9 @@ def main() -> None:
     sizes = {}
     for name, dtype in (("fp32", np.float32), ("fp16", np.float16)):
         path = args.out / f"embeddings_{name}.npy"
-        np.save(path, embeddings.astype(dtype, copy=False))
+        converted = embeddings.astype(dtype, copy=False)
+        validate_embeddings(converted, len(answer_ids))
+        np.save(path, converted)
         sizes[name] = path.stat().st_size
 
     manifest = {

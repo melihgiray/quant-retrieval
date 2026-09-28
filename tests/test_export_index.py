@@ -1,6 +1,9 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
+from scripts import export_index
 
 from quant_retrieval.retrieval.index_artifacts import corpus_ids
 
@@ -23,3 +26,32 @@ def test_export_preserves_document_order_and_int64_identity():
     ids = corpus_ids(corpus)
     assert ids.dtype == np.int64
     assert ids.tolist() == [3, 1, 2]
+
+
+def prepare_export(tmp_path, monkeypatch, embeddings):
+    pd.DataFrame({"answer_id": [3, 1, 2], "text": ["first", "second", "third"]
+                  }).to_parquet(tmp_path / "corpus.parquet")
+    monkeypatch.setattr(export_index, "DenseRetriever", lambda *args, **kwargs:
+                        SimpleNamespace(_encode=lambda texts: embeddings, device="cpu"))
+    output = tmp_path / "export"
+    monkeypatch.setattr("sys.argv", ["export", "--data", str(tmp_path), "--out", str(output)])
+    return output
+
+
+@pytest.mark.parametrize("embeddings", [np.ones((2, 3)), np.zeros((3, 3)),
+    np.full((3, 3), float("nan")), np.eye(3, dtype=np.int32)])
+def test_bad_encoder_output_is_rejected_before_export_files(tmp_path, monkeypatch, embeddings):
+    output = prepare_export(tmp_path, monkeypatch, embeddings)
+    with pytest.raises(ValueError, match="embeddings"):
+        export_index.main()
+    assert not output.exists()
+
+
+def test_export_cli_keeps_ids_aligned_across_both_precisions(tmp_path, monkeypatch):
+    output = prepare_export(tmp_path, monkeypatch, np.eye(3, dtype=np.float32))
+    export_index.main()
+    assert np.load(output / "answer_ids.npy").tolist() == [3, 1, 2]
+    for name, dtype in [("fp32", np.float32), ("fp16", np.float16)]:
+        vectors = np.load(output / f"embeddings_{name}.npy")
+        assert vectors.dtype == dtype
+        np.testing.assert_array_equal(vectors, np.eye(3))
