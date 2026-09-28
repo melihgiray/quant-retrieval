@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 import torch
-from scripts.probe_reranker import eligible_distractors, probe_split, select_probe_queries
+from scripts.probe_reranker import eligible_distractors, main, probe_split, select_probe_queries
 
 
 def dataset():
@@ -76,3 +76,20 @@ def test_probe_computes_large_finite_margins_without_float32_overflow():
     report, _ = run_probe([3e38, -3e38, -3e38])
     assert report["top_one_accuracy"] == 1
     assert report["median_margin"] == pytest.approx(6e38)
+
+
+def test_probe_report_retains_sample_and_dataset_identity():
+    report, _ = run_probe([1., 0., 0.])
+    assert report["seed"] == 17
+    assert report["question_ids"] == [10]
+    assert set(report["dataset_sha256"]) == {"corpus", "queries", "qrels"}
+    assert len(report["query_sha256"]) == 64
+
+
+@pytest.mark.parametrize("option,value", [("--questions", "0"), ("--distractors", "-1"),
+                                         ("--seed", "-1"), ("--max-length", "0")])
+def test_probe_cli_rejects_invalid_settings_before_model_load(monkeypatch, option, value):
+    monkeypatch.setattr("sys.argv", ["probe", "--checkpoint", "missing", option, value])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2

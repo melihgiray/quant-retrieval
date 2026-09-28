@@ -16,7 +16,6 @@ distribution, which is exactly what happened to the first reranker in this repo.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 from pathlib import Path
 
@@ -28,6 +27,9 @@ import torch  # noqa: E402
 from transformers import AutoTokenizer  # noqa: E402
 
 from quant_retrieval.data.pairs import GRADE_PRIMARY  # noqa: E402
+from quant_retrieval.eval.benchmark import benchmark_context  # noqa: E402
+from quant_retrieval.eval.fingerprints import dataset_fingerprints  # noqa: E402
+from quant_retrieval.eval.results import write_result  # noqa: E402
 from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.models.cross_encoder import CrossEncoder  # noqa: E402
 from quant_retrieval.runtime import choose_device, set_seed  # noqa: E402
@@ -106,6 +108,10 @@ def probe_split(
 
     total = len(selected)
     return {
+        **benchmark_context(selected, seed),
+        "dataset_sha256": dataset_fingerprints(
+            corpus, selected, qrels[qrels["question_id"].isin(selected["question_id"])]
+        ),
         "split": split,
         "questions": total,
         "question_ids": selected["question_id"].astype(int).tolist(),
@@ -127,7 +133,15 @@ def main() -> None:
     parser.add_argument("--max-length", type=int, default=320)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
+    if min(args.questions, args.distractors, args.max_length) <= 0:
+        parser.error("questions, distractors and max-length must be positive")
+    if not 0 <= args.seed < 2**32:
+        parser.error("seed must lie between zero and 2**32 - 1")
+    output = args.output or Path("results") / f"{args.checkpoint.parent.name}_probe.json"
+    if output.exists() and not args.overwrite:
+        parser.error("probe output exists; choose a new --output or explicitly use --overwrite")
 
     set_seed(args.seed)
     device = choose_device("auto")
@@ -141,6 +155,9 @@ def main() -> None:
     report = {
         "checkpoint": str(args.checkpoint),
         "device": device,
+        "seed": args.seed,
+        "max_length": args.max_length,
+        "requested_questions": args.questions,
         "splits": [
             probe_split(
                 model,
@@ -159,9 +176,7 @@ def main() -> None:
         ],
     }
 
-    output = args.output or Path("results") / f"{args.checkpoint.parent.name}_probe.json"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    write_result(report, output, overwrite=args.overwrite)
 
     print(f"wrote {output}")
     for entry in report["splits"]:
