@@ -1,0 +1,11 @@
+run_name: index_fp16_val
+seed: 17
+retriever: precomputed_dense
+split: val
+max_results: 100
+display_name: Tuned MiniLM, stored float16
+parameters:
+  model_name: checkpoints/minilm_tuned/epoch-3
+  artifacts_path: artifacts/quant-v2
+  precision: fp16
+output: results/index_fp16_val.json

@@ -3,6 +3,9 @@ import pandas as pd
 import pytest
 
 from quant_retrieval.eval.fingerprints import corpus_fingerprint
+from quant_retrieval.eval.harness import evaluate_retriever
+from quant_retrieval.retrieval.dense import DenseRetriever
+from quant_retrieval.retrieval.factory import build_retriever
 from quant_retrieval.retrieval.index_artifacts import publish_index
 from quant_retrieval.retrieval.precomputed import PrecomputedDenseRetriever
 
@@ -39,3 +42,28 @@ def test_precomputed_rejects_changed_corpus_without_losing_previous_index(tmp_pa
     assert retriever.embeddings is previous
     with pytest.raises(ValueError, match="checkpoint"):
         PrecomputedDenseRetriever("different-model", root)
+
+
+def test_precision_configs_run_through_the_full_harness_without_document_encoding(
+    tmp_path, monkeypatch
+):
+    corpus, root, checkpoint = fixture_export(tmp_path)
+    queries = pd.DataFrame({"question_id": [10], "text": ["query"], "split": ["val"]})
+    qrels = pd.DataFrame({"question_id": [10], "answer_id": [3], "grade": [2]})
+    calls = []
+
+    def encode(self, texts):
+        calls.append(texts)
+        assert texts == ["query"]
+        return np.array([[1., 0., 0.]], dtype=np.float32)
+
+    monkeypatch.setattr(DenseRetriever, "_encode", encode)
+    reports = []
+    for precision in ("fp16", "fp32"):
+        retriever = build_retriever({"retriever": "precomputed_dense", "parameters": {
+            "model_name": str(checkpoint), "artifacts_path": root,
+            "precision": precision, "device": "cpu"}})
+        reports.append(evaluate_retriever(retriever, corpus, queries, qrels))
+    assert calls == [["query"], ["query"]]
+    assert reports[0]["metrics"] == reports[1]["metrics"]
+    assert reports[0]["metrics"]["mrr_at_10"] == 1

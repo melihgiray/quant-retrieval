@@ -32,7 +32,7 @@ def validate_config(config: dict) -> None:
     count = config.get("max_results", 100)
     if type(count) is not int or count < 100:
         raise ValueError("max_results must be an integer of at least 100 for Recall@100")
-    if config.get("retriever") not in ("bm25", "dense", "hybrid", "rerank"):
+    if config.get("retriever") not in ("bm25", "dense", "precomputed_dense", "hybrid", "rerank"):
         raise ValueError("config must name a supported retriever")
     if not isinstance(config.get("parameters", {}), dict):
         raise ValueError("retriever parameters must be an object")

@@ -16,6 +16,7 @@ from typing import Any
 from quant_retrieval.retrieval.bm25 import BM25Retriever
 from quant_retrieval.retrieval.dense import DenseRetriever
 from quant_retrieval.retrieval.hybrid import HybridRetriever
+from quant_retrieval.retrieval.precomputed import PrecomputedDenseRetriever
 from quant_retrieval.retrieval.rerank import RerankingRetriever
 
 
@@ -32,6 +33,8 @@ def build_retriever(config: dict[str, Any]):
         return BM25Retriever(**parameters)
     if name == "dense":
         return DenseRetriever(**parameters)
+    if name == "precomputed_dense":
+        return PrecomputedDenseRetriever(**parameters)
     if name == "hybrid":
         nested = [build_retriever(spec) for spec in parameters.pop("retrievers")]
         return HybridRetriever(nested, **parameters)
