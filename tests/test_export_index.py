@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from scripts import export_index
 
-from quant_retrieval.retrieval.index_artifacts import corpus_ids
+from quant_retrieval.retrieval.index_artifacts import corpus_ids, publish_index
 
 
 @pytest.mark.parametrize("ids", [[0], [-1], [True], [1.5], [None], [1, 1], [2**63]])
@@ -55,3 +55,27 @@ def test_export_cli_keeps_ids_aligned_across_both_precisions(tmp_path, monkeypat
         vectors = np.load(output / f"embeddings_{name}.npy")
         assert vectors.dtype == dtype
         np.testing.assert_array_equal(vectors, np.eye(3))
+
+
+def test_failed_export_does_not_publish_partial_files(tmp_path, monkeypatch):
+    original = np.save
+
+    def fail_half(path, array):
+        if path.name == "embeddings_fp16.npy":
+            raise OSError("disk full")
+        original(path, array)
+
+    monkeypatch.setattr(np, "save", fail_half)
+    with pytest.raises(OSError, match="disk full"):
+        publish_index(tmp_path / "new", np.array([1, 2]), np.eye(2), {})
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_existing_exports_cannot_be_replaced(tmp_path):
+    destination = tmp_path / "existing"
+    destination.mkdir()
+    marker = destination / "keep.txt"
+    marker.write_text("previous export")
+    with pytest.raises(FileExistsError):
+        publish_index(destination, np.array([1]), np.ones((1, 1)), {})
+    assert marker.read_text() == "previous export"

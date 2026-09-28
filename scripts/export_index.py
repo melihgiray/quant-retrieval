@@ -24,11 +24,10 @@ from pathlib import Path
 
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
-import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
-from quant_retrieval.retrieval.index_artifacts import corpus_ids  # noqa: E402
+from quant_retrieval.retrieval.index_artifacts import corpus_ids, publish_index  # noqa: E402
 from quant_retrieval.retrieval.vectors import validate_embeddings  # noqa: E402
 from quant_retrieval.runtime import set_seed  # noqa: E402
 
@@ -57,6 +56,8 @@ def main() -> None:
     args = parser.parse_args()
     if min(args.batch_size, args.max_length) <= 0 or not 0 <= args.seed < 2**32:
         parser.error("batch size and max length must be positive, seed must fit uint32")
+    if args.out.exists() or args.out.is_symlink():
+        parser.error("export destination exists; choose a new --out version directory")
 
     set_seed(args.seed)
     corpus = pd.read_parquet(args.corpus or args.data / "corpus.parquet")
@@ -70,17 +71,6 @@ def main() -> None:
     seconds = time.perf_counter() - started
     validate_embeddings(embeddings, len(answer_ids), atol=1e-4)
 
-    args.out.mkdir(parents=True, exist_ok=True)
-    np.save(args.out / "answer_ids.npy", answer_ids)
-
-    sizes = {}
-    for name, dtype in (("fp32", np.float32), ("fp16", np.float16)):
-        path = args.out / f"embeddings_{name}.npy"
-        converted = embeddings.astype(dtype, copy=False)
-        validate_embeddings(converted, len(answer_ids))
-        np.save(path, converted)
-        sizes[name] = path.stat().st_size
-
     manifest = {
         "checkpoint": str(args.checkpoint),
         "corpus": str(args.corpus or args.data / "corpus.parquet"),
@@ -90,12 +80,11 @@ def main() -> None:
         "max_length": args.max_length,
         "encode_seconds": round(seconds, 1),
         "device": retriever.device,
-        "bytes": sizes,
     }
-    (args.out / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    manifest = publish_index(args.out, answer_ids, embeddings, manifest)
 
     print(json.dumps(manifest, indent=2, sort_keys=True))
-    for name, size in sizes.items():
+    for name, size in manifest["bytes"].items():
         print(f"{name}: {size / 1e6:.1f} MB")
 
 
