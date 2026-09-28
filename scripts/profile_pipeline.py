@@ -25,8 +25,8 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-import yaml  # noqa: E402
 
+from quant_retrieval.configuration import load_config  # noqa: E402
 from quant_retrieval.eval.benchmark import benchmark_context  # noqa: E402
 from quant_retrieval.eval.results import write_result  # noqa: E402
 from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
@@ -127,7 +127,7 @@ def main() -> None:
     if args.queries <= 0 or args.repeats <= 0 or args.warmup < 0:
         parser.error("queries/repeats must be positive and warmup nonnegative")
 
-    config = yaml.safe_load(args.config.read_text())
+    config = load_config(args.config)
     seed = int(config.get("seed", 17))
     set_seed(seed)
 

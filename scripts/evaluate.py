@@ -10,8 +10,8 @@ import re
 from pathlib import Path
 
 import pandas as pd
-import yaml
 
+from quant_retrieval.configuration import load_config
 from quant_retrieval.eval.harness import evaluate_retriever
 from quant_retrieval.eval.results import build_result_record, write_result
 from quant_retrieval.retrieval.factory import build_retriever
@@ -55,8 +55,8 @@ def main() -> None:
                         help="explicitly replace an existing evaluation result")
     args = parser.parse_args()
 
-    config = yaml.safe_load(args.config.read_text())
     try:
+        config = load_config(args.config)
         validate_config(config)
     except ValueError as error:
         parser.error(str(error))
