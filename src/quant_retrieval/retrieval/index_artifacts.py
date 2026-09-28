@@ -1,5 +1,7 @@
 """Input and storage contracts for reusable embedding exports."""
 
+import hashlib
+import re
 import tempfile
 from pathlib import Path
 
@@ -8,6 +10,36 @@ import pandas as pd
 
 from quant_retrieval.eval.results import write_result
 from quant_retrieval.retrieval.vectors import validate_embeddings
+
+INDEX_PAYLOADS = ("answer_ids.npy", "embeddings_fp32.npy", "embeddings_fp16.npy")
+
+
+def file_digest(path: Path) -> str:
+    with path.open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def verify_export_files(directory: Path, manifest: dict, names=INDEX_PAYLOADS) -> bool:
+    """Verify requested payloads, returning False for legacy manifests without hashes."""
+    hashes = manifest.get("sha256")
+    if hashes is None:
+        if "schema_version" in manifest:
+            raise ValueError("versioned index manifest is missing payload checksums")
+        return False
+    if not isinstance(hashes, dict) or set(hashes) != set(INDEX_PAYLOADS):
+        raise ValueError("index checksums must describe all exported payloads")
+    if any(not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None
+           for value in hashes.values()):
+        raise ValueError("index checksums must be SHA-256 strings")
+    for name in names:
+        if name not in INDEX_PAYLOADS:
+            raise ValueError("unsupported index payload name")
+        path = directory / name
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"index payload must be a regular unlinked file: {name}")
+        if file_digest(path) != hashes[name]:
+            raise ValueError(f"index payload checksum mismatch: {name}")
+    return True
 
 
 def corpus_ids(corpus: pd.DataFrame) -> np.ndarray:
@@ -43,7 +75,11 @@ def publish_index(destination: Path, ids: np.ndarray, vectors: np.ndarray, metad
             path = staging / f"embeddings_{name}.npy"
             np.save(path, converted)
             sizes[name] = path.stat().st_size
-        manifest = {**metadata, "bytes": sizes}
+        manifest = {
+            **metadata, "bytes": sizes, "schema_version": 1,
+            "documents": len(ids), "dimensions": vectors.shape[1],
+            "sha256": {name: file_digest(staging / name) for name in INDEX_PAYLOADS},
+        }
         write_result(manifest, staging / "manifest.json")
         if destination.exists() or destination.is_symlink():
             raise FileExistsError("export destination appeared during encoding")

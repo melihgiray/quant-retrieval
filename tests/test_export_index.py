@@ -7,7 +7,11 @@ import pytest
 from scripts import export_index
 
 from quant_retrieval.eval.fingerprints import corpus_fingerprint
-from quant_retrieval.retrieval.index_artifacts import corpus_ids, publish_index
+from quant_retrieval.retrieval.index_artifacts import (
+    corpus_ids,
+    publish_index,
+    verify_export_files,
+)
 
 
 @pytest.mark.parametrize("ids", [[0], [-1], [True], [1.5], [None], [1, 1], [2**63]])
@@ -91,3 +95,21 @@ def test_export_records_the_exact_corpus_and_encoding_settings(tmp_path, monkeyp
     assert manifest["corpus_sha256"] == corpus_fingerprint(corpus)
     assert manifest["corpus_sha256"] != corpus_fingerprint(corpus.iloc[::-1])
     assert (manifest["seed"], manifest["batch_size"], manifest["pooling"]) == (17, 128, "mean")
+
+
+def test_export_hashes_detect_changed_vectors_even_with_the_same_shape(tmp_path, monkeypatch):
+    output = prepare_export(tmp_path, monkeypatch, np.eye(3, dtype=np.float32))
+    export_index.main()
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert verify_export_files(output, manifest)
+    np.save(output / "embeddings_fp32.npy", np.eye(3, dtype=np.float32)[::-1])
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        verify_export_files(output, manifest)
+
+
+def test_legacy_exports_are_distinguished_from_incomplete_versioned_exports(tmp_path):
+    assert verify_export_files(tmp_path, {}) is False
+    with pytest.raises(ValueError, match="missing payload checksums"):
+        verify_export_files(tmp_path, {"schema_version": 1})
+    with pytest.raises(ValueError, match="all exported payloads"):
+        verify_export_files(tmp_path, {"sha256": {"../outside": "0" * 64}})
