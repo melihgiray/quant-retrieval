@@ -28,6 +28,7 @@ import torch  # noqa: E402
 from transformers import AutoTokenizer  # noqa: E402
 
 from quant_retrieval.data.pairs import GRADE_PRIMARY  # noqa: E402
+from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.models.cross_encoder import CrossEncoder  # noqa: E402
 from quant_retrieval.runtime import choose_device, set_seed  # noqa: E402
 
@@ -36,7 +37,19 @@ def eligible_distractors(corpus: pd.DataFrame, qrels: pd.DataFrame, question_id:
     judged = qrels.loc[qrels["question_id"] == question_id, "answer_id"]
     return corpus.loc[
         (corpus["question_id"] != question_id) & ~corpus["answer_id"].isin(judged), "answer_id"
-    ].to_numpy()
+    ].sort_values().to_numpy()
+
+
+def select_probe_queries(queries, qrels, split, questions, seed):
+    primary = qrels.loc[qrels["grade"] == GRADE_PRIMARY]
+    split_queries = queries.loc[queries["split"] == split]
+    primary = primary[primary["question_id"].isin(split_queries["question_id"])]
+    if primary["question_id"].duplicated().any():
+        raise ValueError("probe requires exactly one primary answer per selected question")
+    eligible = split_queries[split_queries["question_id"].isin(primary["question_id"])]
+    return sample_queries(eligible, questions, seed, split), primary.set_index("question_id")[
+        "answer_id"
+    ]
 
 
 def probe_split(
@@ -55,9 +68,7 @@ def probe_split(
 ) -> dict:
     """Share of questions whose own answer outscores N random documents."""
     texts = corpus.set_index("answer_id")["text"]
-    gold = qrels.loc[qrels["grade"] == GRADE_PRIMARY].set_index("question_id")["answer_id"]
-    selected = queries.loc[queries["split"] == split]
-    selected = selected[selected["question_id"].isin(gold.index)].head(questions)
+    selected, gold = select_probe_queries(queries, qrels, split, questions, seed)
     generator = np.random.default_rng(seed)
 
     wins = 0
@@ -90,6 +101,7 @@ def probe_split(
     return {
         "split": split,
         "questions": total,
+        "question_ids": selected["question_id"].astype(int).tolist(),
         "distractors": distractors,
         "top_one_accuracy": round(wins / total, 4),
         "tied_questions": ties,

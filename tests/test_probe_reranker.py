@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 import torch
-from scripts.probe_reranker import eligible_distractors, probe_split
+from scripts.probe_reranker import eligible_distractors, probe_split, select_probe_queries
 
 
 def dataset():
@@ -48,3 +48,18 @@ def test_positive_position_does_not_win_score_ties(scores, accuracy, ties):
     assert report["top_one_accuracy"] == accuracy
     assert report["tied_questions"] == ties
     assert report["tie_policy"] == "positive_must_strictly_outscore_all_distractors"
+
+
+def test_probe_sampling_is_seeded_and_independent_of_row_order():
+    queries = pd.DataFrame({"question_id": range(1, 21), "text": ["query"] * 20,
+                            "split": ["val"] * 20})
+    qrels = pd.DataFrame({"question_id": range(1, 21), "answer_id": range(101, 121),
+                          "grade": [2] * 20})
+    first, _ = select_probe_queries(queries, qrels, "val", 4, 17)
+    reordered, _ = select_probe_queries(queries.iloc[::-1], qrels.iloc[::-1], "val", 4, 17)
+    pd.testing.assert_frame_equal(first, reordered)
+    assert first.question_id.tolist() != [1, 2, 3, 4]
+    with pytest.raises(ValueError, match="no queries"):
+        select_probe_queries(queries, qrels.iloc[:0], "val", 4, 17)
+    with pytest.raises(ValueError, match="train or val"):
+        select_probe_queries(queries, qrels, "test", 4, 17)
