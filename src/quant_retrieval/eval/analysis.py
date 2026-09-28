@@ -6,6 +6,30 @@ from collections import Counter
 from quant_retrieval.eval.metrics import METRIC_NAMES
 
 
+def validate_diagnostic(detail: dict) -> None:
+    counts = ("primary_labels", "primary_retrieved", "sibling_retrieved",
+              "unjudged_retrieved", "returned")
+    if any(type(detail.get(key)) is not int or detail[key] < 0 for key in counts):
+        raise ValueError("diagnostic counts must be nonnegative integers")
+    cutoff, first = detail.get("cutoff"), detail.get("first_primary_rank")
+    if type(cutoff) is not int or cutoff <= 0:
+        raise ValueError("diagnostic cutoff must be a positive integer")
+    retrieved = detail["primary_retrieved"]
+    if (retrieved > detail["primary_labels"] or retrieved + detail["sibling_retrieved"]
+            + detail["unjudged_retrieved"] != detail["returned"]):
+        raise ValueError("diagnostic retrieval counts are inconsistent")
+    if retrieved:
+        if type(first) is not int or not 1 <= first <= detail["returned"]:
+            raise ValueError("diagnostic primary rank is inconsistent")
+    elif first is not None:
+        raise ValueError("diagnostic primary rank requires a retrieved primary answer")
+    expected = ("no_primary_label" if detail["primary_labels"] == 0 else
+                "not_retrieved" if first is None else
+                "below_cutoff" if first > cutoff else "top_k")
+    if detail.get("status") != expected:
+        raise ValueError("diagnostic status disagrees with its rank and labels")
+
+
 def paired_query_changes(baseline: dict, candidate: dict, limit: int = 10) -> dict:
     """Locate observed wins and losses; this is not a significance test."""
     if not baseline or set(baseline) != set(candidate) or limit <= 0:
@@ -49,6 +73,7 @@ def error_report(record: dict, metric: str, limit: int = 20) -> dict:
         detail = diagnostics[key]
         if not isinstance(detail, dict) or detail.get("status") not in statuses:
             raise ValueError("unknown retrieval diagnostic status")
+        validate_diagnostic(detail)
         rows.append({**detail, "question_id": int(key), "score": value})
     rows.sort(key=lambda row: (row["score"], row["question_id"]))
     return {

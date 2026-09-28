@@ -4,12 +4,14 @@ import pytest
 from scripts.inspect_errors import main
 
 from quant_retrieval.eval.analysis import error_report, paired_query_changes
+from quant_retrieval.eval.diagnostics import ranking_diagnostics
 
 
 def record():
+    diagnostics = ranking_diagnostics({2: [9, 1], 1: [9]}, {2: {1: 2}, 1: {1: 2}})
     return {"split": "val", "run_name": "tiny",
             "per_query": {"2": {"ndcg_at_10": 0.5}, "1": {"ndcg_at_10": 0}},
-            "diagnostics": {"2": {"status": "top_k"}, "1": {"status": "not_retrieved"}}}
+            "diagnostics": {str(key): value for key, value in diagnostics.items()}}
 
 
 def test_error_report_orders_worst_queries_and_counts_failures():
@@ -58,6 +60,8 @@ def test_error_cli_preserves_source_and_rejects_duplicate_json(tmp_path, monkeyp
     monkeypatch.setattr("sys.argv", ["inspect", "--run", str(source), "--output", str(output)])
     main()
     assert json.loads(output.read_text())["queries"] == 2
+
+
     assert source.read_text() == payload
     monkeypatch.setattr("sys.argv", ["inspect", "--run", str(source), "--output", str(source)])
     with pytest.raises(SystemExit):
@@ -68,3 +72,13 @@ def test_error_cli_preserves_source_and_rejects_duplicate_json(tmp_path, monkeyp
     with pytest.raises(SystemExit, match="duplicate JSON"):
         main()
     assert json.loads(output.read_text())["queries"] == 2
+
+
+@pytest.mark.parametrize("key,value", [("returned", 9), ("primary_retrieved", True),
+    ("primary_labels", -1), ("first_primary_rank", 0), ("cutoff", 0),
+    ("status", "not_retrieved")])
+def test_error_report_rejects_contradictory_diagnostic_evidence(key, value):
+    source = record()
+    source["diagnostics"]["2"][key] = value
+    with pytest.raises(ValueError, match="diagnostic"):
+        error_report(source, "ndcg_at_10")
