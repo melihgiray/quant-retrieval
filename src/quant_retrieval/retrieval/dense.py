@@ -89,15 +89,9 @@ class DenseRetriever:
             raise ValueError("document IDs must be integers")
         if np.any(document_ids <= 0):
             raise ValueError("document IDs must be positive")
-        if not np.issubdtype(embeddings.dtype, np.floating):
-            raise ValueError("embeddings must be floating point")
         if len(np.unique(document_ids)) != len(document_ids):
             raise ValueError("document IDs must be unique")
-        if not np.isfinite(embeddings).all():
-            raise ValueError("embeddings must be finite")
-        norms = np.linalg.norm(embeddings.astype(np.float32), axis=1)
-        if not np.allclose(norms, 1.0, atol=1e-2, rtol=0):
-            raise ValueError("embeddings must be unit normalized")
+        validate_embeddings(embeddings, len(document_ids))
         self.document_ids = document_ids
         self.embeddings = embeddings
 
