@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import numpy as np
@@ -5,6 +6,7 @@ import pandas as pd
 import pytest
 from scripts import export_index
 
+from quant_retrieval.eval.fingerprints import corpus_fingerprint
 from quant_retrieval.retrieval.index_artifacts import corpus_ids, publish_index
 
 
@@ -79,3 +81,13 @@ def test_existing_exports_cannot_be_replaced(tmp_path):
     with pytest.raises(FileExistsError):
         publish_index(destination, np.array([1]), np.ones((1, 1)), {})
     assert marker.read_text() == "previous export"
+
+
+def test_export_records_the_exact_corpus_and_encoding_settings(tmp_path, monkeypatch):
+    output = prepare_export(tmp_path, monkeypatch, np.eye(3, dtype=np.float32))
+    export_index.main()
+    manifest = json.loads((output / "manifest.json").read_text())
+    corpus = pd.read_parquet(tmp_path / "corpus.parquet")
+    assert manifest["corpus_sha256"] == corpus_fingerprint(corpus)
+    assert manifest["corpus_sha256"] != corpus_fingerprint(corpus.iloc[::-1])
+    assert (manifest["seed"], manifest["batch_size"], manifest["pooling"]) == (17, 128, "mean")

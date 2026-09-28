@@ -26,6 +26,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import pandas as pd  # noqa: E402
 
+from quant_retrieval.eval.fingerprints import corpus_fingerprint  # noqa: E402
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
 from quant_retrieval.retrieval.index_artifacts import corpus_ids, publish_index  # noqa: E402
 from quant_retrieval.retrieval.vectors import validate_embeddings  # noqa: E402
@@ -72,6 +73,10 @@ def main() -> None:
     validate_embeddings(embeddings, len(answer_ids), atol=1e-4)
 
     manifest = {
+        "corpus_sha256": corpus_fingerprint(corpus),
+        "seed": args.seed,
+        "batch_size": args.batch_size,
+        "pooling": "mean",
         "checkpoint": str(args.checkpoint),
         "corpus": str(args.corpus or args.data / "corpus.parquet"),
         "commit": current_commit(),

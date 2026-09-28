@@ -1,4 +1,4 @@
-from quant_retrieval.eval.fingerprints import dataset_fingerprints
+from quant_retrieval.eval.fingerprints import corpus_fingerprint, dataset_fingerprints
 from quant_retrieval.eval.harness import evaluate_retriever
 from quant_retrieval.eval.results import build_result_record
 from tests.test_harness import KeywordRetriever, small_dataset
@@ -7,6 +7,7 @@ from tests.test_harness import KeywordRetriever, small_dataset
 def test_fingerprints_capture_text_labels_and_corpus_order():
     corpus, queries, qrels = small_dataset()
     original = dataset_fingerprints(corpus, queries, qrels)
+    assert corpus_fingerprint(corpus) == original["corpus"]
     assert dataset_fingerprints(corpus.set_axis([4, 5, 6]), queries, qrels) == original
     assert dataset_fingerprints(corpus.iloc[::-1], queries, qrels)["corpus"] != original["corpus"]
     corpus.loc[0, "text"] = "changed answer"

@@ -6,6 +6,18 @@ import json
 import pandas as pd
 
 
+def _fingerprint(rows) -> str:
+    digest = hashlib.sha256()
+    for row in rows:
+        serialized = json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n"
+        digest.update(serialized.encode("utf-8"))
+    return digest.hexdigest()
+
+
+def corpus_fingerprint(corpus: pd.DataFrame) -> str:
+    return _fingerprint((int(row.answer_id), row.text) for row in corpus.itertuples())
+
+
 def dataset_fingerprints(
     corpus: pd.DataFrame, queries: pd.DataFrame, qrels: pd.DataFrame
 ) -> dict[str, str]:
@@ -18,11 +30,4 @@ def dataset_fingerprints(
             for row in qrels.itertuples()
         ),
     }
-    result = {}
-    for name, rows in tables.items():
-        digest = hashlib.sha256()
-        for row in rows:
-            serialized = json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n"
-            digest.update(serialized.encode("utf-8"))
-        result[name] = digest.hexdigest()
-    return result
+    return {name: _fingerprint(rows) for name, rows in tables.items()}
