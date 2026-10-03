@@ -2,6 +2,7 @@
 
 import json
 import sys
+import weakref
 from types import SimpleNamespace
 
 import numpy as np
@@ -90,6 +91,15 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
     tmp_path, fake_faiss, monkeypatch
 ):
     created, threads = [], []
+    wrappers = []
+
+    class TrackingRetriever(ApproximateRetriever):
+        def __init__(self, *args, **kwargs):
+            assert all(reference() is None for reference in wrappers)
+            super().__init__(*args, **kwargs)
+            wrappers.append(weakref.ref(self))
+
+    monkeypatch.setattr(ann_sweep, "ApproximateRetriever", TrackingRetriever)
 
     class CountingIndex(FakeIndex):
         def __init__(self, *args):
@@ -125,6 +135,7 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
         "--warmup", "1", "--repeats", "2", "--threads", "2", "--k", "1"])
     ann_sweep.main()
     report = json.loads(output.read_text())
+    assert all(reference() is None for reference in wrappers)
     assert report["complete"] is True
     assert len(created) == 2
     assert [index.calls for index in created] == [5, 10]
@@ -139,6 +150,7 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
     assert report["scope"] == "index_search_only"
     assert report["latency_order"] == "repeat_major_query_minor"
     for row in report["runs"]:
+        assert row["build_seconds"] >= 0
         assert len(row["latencies_ms"]) == 4
         assert row["p50_ms"] == pytest.approx(np.percentile(row["latencies_ms"], 50))
         assert row["per_query_recall"] == [1., 1.]

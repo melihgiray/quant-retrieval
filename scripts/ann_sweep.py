@@ -210,7 +210,9 @@ def main() -> None:
         print(f"\n=== {documents} documents from {directory} ===")
 
         exact = ApproximateRetriever(path, exact=True)
+        exact_started = time.perf_counter()
         exact.index(answer_ids, [])
+        exact_build_seconds = time.perf_counter() - exact_started
         exact_results, exact_latencies = time_search(
             exact, query_vectors, args.k, args.warmup, args.repeats
         )
@@ -219,6 +221,7 @@ def main() -> None:
                 "documents": documents,
                 "artifact": str(directory.resolve()),
                 "index": "exact",
+                "build_seconds": exact_build_seconds,
                 "ef_search": None,
                 "recall_at_k": 1.0,
                 "per_query_recall": [1.0] * len(query_vectors),
@@ -229,6 +232,8 @@ def main() -> None:
         print(f"exact      p50 {runs[-1]['p50_ms']:>7.3f}ms  recall 1.000")
         write_result(report, args.output)
 
+        # Keep rankings, not a second full vector index, while building the graph.
+        del exact
         approximate = ApproximateRetriever(
             path, neighbours=args.neighbours, ef_construction=args.ef_construction
         )
@@ -257,7 +262,7 @@ def main() -> None:
                     "recall_at_k": recall,
                     "per_query_recall": per_query_recall,
                     "latencies_ms": latencies,
-                    "build_seconds": round(build_seconds, 1),
+                    "build_seconds": build_seconds,
                     **summarise(latencies),
                 }
             )
@@ -266,6 +271,7 @@ def main() -> None:
                 f"recall {recall:.3f}  build {build_seconds:.0f}s"
             )
             write_result(report, args.output)
+        del approximate
 
     report["complete"] = True
     report["summary"] = best_settings(runs, args.recall_target)
