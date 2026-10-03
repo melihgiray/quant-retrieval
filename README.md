@@ -99,6 +99,10 @@ profiles, nested scaling corpora, controlled ANN sweeps and saved-query analysis
 [Verified index exports](docs/INDEXES.md) describes storage inspection and the
 matched float32/float16 evaluation configs. These new configs have fixture
 coverage, not newly measured model-quality results.
+[Offline ANN analysis](docs/ANN.md) audits raw timing and recall samples, compares
+measured settings within each corpus and identifies queries that lose neighbors.
+New index exports also bind vectors to model and tokenizer file hashes; legacy
+exports retain weaker checks until regenerated.
 
     pytest
 
