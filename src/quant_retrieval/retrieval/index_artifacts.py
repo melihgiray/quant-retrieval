@@ -8,10 +8,18 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from quant_retrieval.eval.results import write_result
+from quant_retrieval.eval.results import parse_record, write_result
 from quant_retrieval.retrieval.vectors import validate_embeddings
 
 INDEX_PAYLOADS = ("answer_ids.npy", "embeddings_fp32.npy", "embeddings_fp16.npy")
+
+
+def read_manifest(path: Path) -> dict:
+    """Share duplicate-key and object checks across all artifact consumers."""
+    try:
+        return parse_record(path.read_bytes(), path)
+    except SystemExit as error:
+        raise ValueError(f"invalid artifact manifest: {error}") from error
 
 
 def file_digest(path: Path) -> str:

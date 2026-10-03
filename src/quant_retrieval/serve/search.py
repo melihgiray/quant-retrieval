@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 import re
 from dataclasses import asdict, dataclass
@@ -16,7 +15,7 @@ from quant_retrieval.retrieval.base import Retriever
 from quant_retrieval.retrieval.bm25 import BM25Retriever
 from quant_retrieval.retrieval.dense import DenseRetriever
 from quant_retrieval.retrieval.hybrid import HybridRetriever
-from quant_retrieval.retrieval.index_artifacts import verify_export_files
+from quant_retrieval.retrieval.index_artifacts import read_manifest, verify_export_files
 
 COMMIT_PATTERN = re.compile(r"[0-9a-f]{7,40}")
 
@@ -54,10 +53,7 @@ class ArtifactManifest:
 
     @classmethod
     def load(cls, path: Path) -> ArtifactManifest:
-        try:
-            payload = json.loads(path.read_text())
-        except (UnicodeError, json.JSONDecodeError) as error:
-            raise ValueError("artifact manifest is not valid JSON") from error
+        payload = read_manifest(path)
         try:
             if not isinstance(payload, dict) or any(
                 type(payload.get(name)) is not int
@@ -155,7 +151,7 @@ class SearchService:
         if (manifest.corpus_sha256 is not None
                 and corpus_fingerprint(corpus) != manifest.corpus_sha256):
             raise ValueError("artifact corpus fingerprint does not match answer text and order")
-        payload = json.loads(manifest_path.read_text())
+        payload = read_manifest(manifest_path)
         if "sha256" in payload or "schema_version" in payload:
             root = manifest_path.parent
             if (document_ids_path.resolve() != (root / "answer_ids.npy").resolve()

@@ -6,9 +6,8 @@ import numpy as np
 import pandas as pd
 
 from quant_retrieval.eval.fingerprints import corpus_fingerprint
-from quant_retrieval.eval.results import parse_record
 from quant_retrieval.retrieval.dense import DenseRetriever
-from quant_retrieval.retrieval.index_artifacts import corpus_ids, verify_export_files
+from quant_retrieval.retrieval.index_artifacts import corpus_ids, read_manifest, verify_export_files
 
 
 class PrecomputedDenseRetriever(DenseRetriever):
@@ -18,7 +17,7 @@ class PrecomputedDenseRetriever(DenseRetriever):
             raise ValueError("precision must be fp16 or fp32")
         self.artifacts_path = Path(artifacts_path)
         path = self.artifacts_path / "manifest.json"
-        self.manifest = parse_record(path.read_bytes(), path)
+        self.manifest = read_manifest(path)
         for key in ("documents", "dimensions", "max_length"):
             if type(self.manifest.get(key)) is not int or self.manifest[key] <= 0:
                 raise ValueError(f"artifact {key} must be a positive integer")

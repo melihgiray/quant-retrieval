@@ -10,6 +10,7 @@ from quant_retrieval.eval.fingerprints import corpus_fingerprint
 from quant_retrieval.retrieval.index_artifacts import (
     corpus_ids,
     publish_index,
+    read_manifest,
     verify_export_files,
 )
 
@@ -113,3 +114,12 @@ def test_legacy_exports_are_distinguished_from_incomplete_versioned_exports(tmp_
         verify_export_files(tmp_path, {"schema_version": 1})
     with pytest.raises(ValueError, match="all exported payloads"):
         verify_export_files(tmp_path, {"sha256": {"../outside": "0" * 64}})
+
+
+@pytest.mark.parametrize("contents", ['[]', '{"documents": 2, "documents": 3}',
+                                      '{"sha256": {"x": "a", "x": "b"}}'])
+def test_manifest_reader_rejects_ambiguous_json(tmp_path, contents):
+    path = tmp_path / "manifest.json"
+    path.write_text(contents)
+    with pytest.raises(ValueError, match="manifest"):
+        read_manifest(path)

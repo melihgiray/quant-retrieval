@@ -19,7 +19,6 @@ settings look slower than they are.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import time
 from pathlib import Path
@@ -34,14 +33,17 @@ from quant_retrieval.eval.results import write_result  # noqa: E402
 from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.retrieval.ann import ApproximateRetriever, recall_against_exact  # noqa: E402
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
-from quant_retrieval.retrieval.index_artifacts import verify_export_files  # noqa: E402
+from quant_retrieval.retrieval.index_artifacts import (  # noqa: E402
+    read_manifest,
+    verify_export_files,
+)
 from quant_retrieval.runtime import set_seed  # noqa: E402
 
 DEFAULT_EF_SEARCH = (16, 32, 64, 128, 256)
 
 
 def load_manifest(directory: Path, checkpoint: Path) -> dict:
-    manifest = json.loads((directory / "manifest.json").read_text())
+    manifest = read_manifest(directory / "manifest.json")
     for key in ("documents", "dimensions", "max_length"):
         if type(manifest.get(key)) is not int or manifest[key] <= 0:
             raise ValueError(f"{directory}: {key} must be a positive integer")
