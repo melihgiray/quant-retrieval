@@ -141,3 +141,14 @@ def test_overwrite_cannot_target_benchmark_inputs(tmp_path, monkeypatch, name):
                                     "--output", str(tmp_path / name), "--overwrite"])
     with pytest.raises(SystemExit):
         main()
+
+
+@pytest.mark.parametrize("options", [
+    ["--seed", "-1"], ["--seed", str(2**32)], ["--ef-search", "16", "16"],
+    ["--embeddings", "missing", "./missing"],
+])
+def test_ambiguous_sweep_settings_fail_before_runtime_import(monkeypatch, options):
+    monkeypatch.setattr("sys.argv", ["ann", "--embeddings", "missing", *options])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2

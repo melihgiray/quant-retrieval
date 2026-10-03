@@ -136,6 +136,12 @@ def main() -> None:
         parser.error("warmup must be nonnegative")
     if not 0 <= args.recall_target <= 1:
         parser.error("recall target must lie between zero and one")
+    if not 0 <= args.seed < 2**32:
+        parser.error("seed must fit uint32")
+    if len(set(args.ef_search)) != len(args.ef_search):
+        parser.error("ef-search settings must be unique")
+    if len({path.resolve() for path in args.embeddings}) != len(args.embeddings):
+        parser.error("embedding directories must be unique")
 
     import faiss
 
