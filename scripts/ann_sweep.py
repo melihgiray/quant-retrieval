@@ -185,6 +185,10 @@ def main() -> None:
     runs = []
     report = {
         **benchmark_context(selected, args.seed),
+        "schema_version": 1,
+        "scope": "index_search_only",
+        "latency_order": "repeat_major_query_minor",
+        "recall_reference": "exact_top_k_overlap",
         "artifacts": [
             {"directory": str(directory.resolve()), "manifest": manifest,
              "payload_checksums_verified": manifest.get("sha256") is not None}
@@ -217,6 +221,8 @@ def main() -> None:
                 "index": "exact",
                 "ef_search": None,
                 "recall_at_k": 1.0,
+                "per_query_recall": [1.0] * len(query_vectors),
+                "latencies_ms": exact_latencies,
                 **summarise(exact_latencies),
             }
         )
@@ -236,14 +242,11 @@ def main() -> None:
             results, latencies = time_search(
                 approximate, query_vectors, args.k, args.warmup, args.repeats
             )
-            recall = float(
-                np.mean(
-                    [
-                        recall_against_exact(got, want, args.k)
-                        for got, want in zip(results, exact_results, strict=True)
-                    ]
-                )
-            )
+            per_query_recall = [
+                recall_against_exact(got, want, args.k)
+                for got, want in zip(results, exact_results, strict=True)
+            ]
+            recall = float(np.mean(per_query_recall))
             runs.append(
                 {
                     "documents": documents,
@@ -252,6 +255,8 @@ def main() -> None:
                     "ef_search": ef_search,
                     "neighbours": args.neighbours,
                     "recall_at_k": recall,
+                    "per_query_recall": per_query_recall,
+                    "latencies_ms": latencies,
                     "build_seconds": round(build_seconds, 1),
                     **summarise(latencies),
                 }

@@ -136,3 +136,9 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
     assert all(row["samples"] == 4 and row["recall_at_k"] == 1 for row in report["runs"])
     assert len(report["question_ids"]) == 2
     assert report["summary"][0]["best"]["index"] == "hnsw"
+    assert report["scope"] == "index_search_only"
+    assert report["latency_order"] == "repeat_major_query_minor"
+    for row in report["runs"]:
+        assert len(row["latencies_ms"]) == 4
+        assert row["p50_ms"] == pytest.approx(np.percentile(row["latencies_ms"], 50))
+        assert row["per_query_recall"] == [1., 1.]
