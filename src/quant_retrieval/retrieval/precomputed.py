@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from quant_retrieval.eval.fingerprints import corpus_fingerprint
+from quant_retrieval.retrieval.checkpoint import verify_checkpoint
 from quant_retrieval.retrieval.dense import DenseRetriever
 from quant_retrieval.retrieval.index_artifacts import corpus_ids, read_manifest, verify_export_files
 
@@ -22,7 +23,8 @@ class PrecomputedDenseRetriever(DenseRetriever):
             if type(self.manifest.get(key)) is not int or self.manifest[key] <= 0:
                 raise ValueError(f"artifact {key} must be a positive integer")
         checkpoint = self.manifest.get("checkpoint")
-        if (not isinstance(checkpoint, str)
+        self.checkpoint_verified = verify_checkpoint(Path(model_name), self.manifest)
+        if not self.checkpoint_verified and (not isinstance(checkpoint, str)
                 or Path(checkpoint).resolve() != Path(model_name).resolve()):
             raise ValueError("query model must match the exported checkpoint path")
         self.precision = precision
@@ -31,6 +33,7 @@ class PrecomputedDenseRetriever(DenseRetriever):
                          pooling=self.manifest.get("pooling", "mean"), show_progress=show_progress)
 
     def index(self, document_ids: list[int], texts: list[str]) -> None:
+        verify_checkpoint(Path(self.model_name), self.manifest)
         corpus = pd.DataFrame({"answer_id": document_ids, "text": texts})
         ids = corpus_ids(corpus)
         if corpus_fingerprint(corpus) != self.manifest.get("corpus_sha256"):

@@ -1,9 +1,12 @@
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from quant_retrieval.eval.fingerprints import corpus_fingerprint
 from quant_retrieval.eval.harness import evaluate_retriever
+from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES, checkpoint_hashes
 from quant_retrieval.retrieval.dense import DenseRetriever
 from quant_retrieval.retrieval.factory import build_retriever
 from quant_retrieval.retrieval.index_artifacts import publish_index
@@ -67,3 +70,26 @@ def test_precision_configs_run_through_the_full_harness_without_document_encodin
     assert calls == [["query"], ["query"]]
     assert reports[0]["metrics"] == reports[1]["metrics"]
     assert reports[0]["metrics"]["mrr_at_10"] == 1
+
+
+def test_verified_precomputed_model_can_move_but_cannot_change(tmp_path):
+    corpus, root, original = fixture_export(tmp_path)
+    relocated = tmp_path / "relocated"
+    relocated.mkdir()
+    for name in CHECKPOINT_FILES:
+        (relocated / name).write_text(name)
+    path = root / "manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["checkpoint_sha256"] = checkpoint_hashes(relocated)
+    path.write_text(json.dumps(manifest))
+    retriever = PrecomputedDenseRetriever(str(relocated), root, device="cpu")
+    assert retriever.checkpoint_verified
+    assert not original.exists()
+    retriever.index(corpus.answer_id.tolist(), corpus.text.tolist())
+    previous = retriever.embeddings
+    (relocated / "model.safetensors").write_text("different model")
+    with pytest.raises(ValueError, match="checkpoint checksum mismatch"):
+        retriever.index(corpus.answer_id.tolist(), corpus.text.tolist())
+    assert retriever.embeddings is previous
+    with pytest.raises(ValueError, match="checkpoint checksum mismatch"):
+        PrecomputedDenseRetriever(str(relocated), root, device="cpu")
