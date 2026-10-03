@@ -123,3 +123,21 @@ def test_ann_preflight_rejects_modified_export_before_runtime_work(tmp_path):
     np.save(directory / "answer_ids.npy", [2, 1])
     with pytest.raises(ValueError, match="checksum mismatch"):
         load_manifest(directory, checkpoint)
+
+
+def test_existing_sweep_report_is_preserved_before_loading_runtime(tmp_path, monkeypatch):
+    output = tmp_path / "report.json"
+    output.write_text("previous measurement")
+    monkeypatch.setattr("sys.argv", ["ann", "--embeddings", "missing",
+                                    "--output", str(output)])
+    with pytest.raises(SystemExit):
+        main()
+    assert output.read_text() == "previous measurement"
+
+
+@pytest.mark.parametrize("name", ["manifest.json", "embeddings_fp32.npy", "answer_ids.npy"])
+def test_overwrite_cannot_target_benchmark_inputs(tmp_path, monkeypatch, name):
+    monkeypatch.setattr("sys.argv", ["ann", "--embeddings", str(tmp_path),
+                                    "--output", str(tmp_path / name), "--overwrite"])
+    with pytest.raises(SystemExit):
+        main()

@@ -117,7 +117,18 @@ def main() -> None:
     parser.add_argument("--recall-target", type=float, default=0.95)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--output", type=Path, default=Path("results/ann_scaling.json"))
+    parser.add_argument("--overwrite", action="store_true", help="replace an earlier report")
     args = parser.parse_args()
+    inputs = [args.data / "queries.parquet"]
+    for directory in args.embeddings:
+        inputs.extend(directory / name for name in (
+            "manifest.json", "answer_ids.npy", "embeddings_fp32.npy", "embeddings_fp16.npy"
+        ))
+    if (args.output.resolve() in {path.resolve() for path in inputs}
+            or args.output.resolve().is_relative_to(args.checkpoint.resolve())):
+        parser.error("output must not replace benchmark inputs or checkpoint files")
+    if (args.output.exists() or args.output.is_symlink()) and not args.overwrite:
+        parser.error("output exists; choose a new path or pass --overwrite")
     if any(value <= 0 for value in [args.queries, args.k, args.neighbours, args.repeats,
                                     args.ef_construction, args.threads, *args.ef_search]):
         parser.error("query counts, graph settings and threads must be positive")
@@ -162,7 +173,7 @@ def main() -> None:
         "complete": False, "runs": runs,
         "recall_target": args.recall_target,
     }
-    write_result(report, args.output)
+    write_result(report, args.output, overwrite=args.overwrite)
     for directory, manifest in zip(args.embeddings, manifests, strict=True):
         answer_ids = np.load(directory / "answer_ids.npy").tolist()
         path = directory / "embeddings_fp32.npy"
