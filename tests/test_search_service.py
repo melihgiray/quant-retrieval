@@ -10,6 +10,7 @@ import pytest
 
 from quant_retrieval.eval.fingerprints import corpus_fingerprint
 from quant_retrieval.retrieval.base import SearchResult
+from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES, checkpoint_hashes
 from quant_retrieval.retrieval.index_artifacts import publish_index
 from quant_retrieval.serve import search as serve_search
 from quant_retrieval.serve.search import ArtifactManifest, SearchService, make_snippet
@@ -183,6 +184,31 @@ def test_artifact_manifest_loads_index_shape(tmp_path: Path):
     path.write_text(json.dumps({"documents": 100, "dimensions": 384, "max_length": 256}))
 
     assert ArtifactManifest.load(path) == ArtifactManifest(100, 384, 256)
+
+
+@pytest.mark.parametrize("changed_file", CHECKPOINT_FILES)
+def test_service_rejects_changed_encoder_before_loading_it(tmp_path, monkeypatch, changed_file):
+    model = tmp_path / "model"
+    model.mkdir()
+    for name in CHECKPOINT_FILES:
+        (model / name).write_text(name)
+    data = corpus()
+    root = tmp_path / "export"
+    publish_index(root, data.answer_id.to_numpy(), np.eye(2), {
+        "max_length": 32, "checkpoint_sha256": checkpoint_hashes(model),
+        "corpus_sha256": corpus_fingerprint(data),
+    })
+    data.to_parquet(root / "corpus.parquet")
+    (model / changed_file).write_text("replacement")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("model construction must not be reached")
+
+    monkeypatch.setattr(serve_search, "DenseRetriever", forbidden)
+    with pytest.raises(ValueError, match="checkpoint checksum mismatch"):
+        SearchService.from_artifacts(checkpoint=model,
+            corpus_path=root / "corpus.parquet", manifest_path=root / "manifest.json",
+            document_ids_path=root / "answer_ids.npy", embeddings_path=root / "embeddings_fp16.npy")
 
 
 def test_artifact_manifest_loads_export_commit(tmp_path: Path):

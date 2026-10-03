@@ -13,6 +13,7 @@ import pandas as pd
 from quant_retrieval.eval.fingerprints import corpus_fingerprint
 from quant_retrieval.retrieval.base import Retriever
 from quant_retrieval.retrieval.bm25 import BM25Retriever
+from quant_retrieval.retrieval.checkpoint import verify_checkpoint
 from quant_retrieval.retrieval.dense import DenseRetriever
 from quant_retrieval.retrieval.hybrid import HybridRetriever
 from quant_retrieval.retrieval.index_artifacts import read_manifest, verify_export_files
@@ -152,6 +153,7 @@ class SearchService:
                 and corpus_fingerprint(corpus) != manifest.corpus_sha256):
             raise ValueError("artifact corpus fingerprint does not match answer text and order")
         payload = read_manifest(manifest_path)
+        verify_checkpoint(checkpoint, payload)
         if "sha256" in payload or "schema_version" in payload:
             root = manifest_path.parent
             if (document_ids_path.resolve() != (root / "answer_ids.npy").resolve()
