@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import pytest
 
-from quant_retrieval.eval.ann_analysis import validate_ann_report
+from quant_retrieval.eval.ann_analysis import analyze_ann_report, validate_ann_report
 
 
 def fixture_report():
@@ -71,3 +71,38 @@ def test_complete_reports_must_cover_the_declared_sweep_and_match_raw_data(chang
         report["runs"][1]["neighbours"] = 16
     with pytest.raises(ValueError):
         validate_ann_report(report)
+
+
+def test_operating_points_honor_recall_and_do_not_trust_saved_summaries():
+    report = fixture_report()
+    report["summary"] = "stale summary must be ignored"
+    point = analyze_ann_report(report)["artifacts"][0]
+    assert point["observed_winner"] == "hnsw"
+    assert point["speedup"] == 2
+    assert len(point["pareto_frontier"]) == 2
+    point = analyze_ann_report(report, 1.)["artifacts"][0]
+    assert point["observed_winner"] == "exact"
+    assert point["best_eligible_hnsw"] is None
+
+
+def test_dominated_hnsw_point_is_removed_from_frontier():
+    report = fixture_report()
+    slower = {**report["runs"][1], "ef_search": 32, "p50_ms": 3., "p95_ms": 3.,
+              "latencies_ms": [3., 3.]}
+    report["runs"].append(slower)
+    report["ef_search"].append(32)
+    point = analyze_ann_report(report)["artifacts"][0]
+    assert point["best_eligible_hnsw"]["ef_search"] == 16
+    assert [row["ef_search"] for row in point["pareto_frontier"]] == [16, None]
+
+
+def test_equal_size_corpora_keep_separate_operating_points():
+    report = fixture_report()
+    report["artifacts"].append({"directory": "corpus-b", "manifest": {"documents": 100}})
+    other = deepcopy(report["runs"])
+    for row in other:
+        row["artifact"] = "corpus-b"
+    other[0].update(p50_ms=1., p95_ms=1., latencies_ms=[1., 1.])
+    report["runs"].extend(other)
+    assert [row["observed_winner"] for row in analyze_ann_report(report)["artifacts"]] == [
+        "hnsw", "exact"]
