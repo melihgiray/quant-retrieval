@@ -27,6 +27,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 import pandas as pd  # noqa: E402
 
 from quant_retrieval.eval.fingerprints import corpus_fingerprint  # noqa: E402
+from quant_retrieval.retrieval.checkpoint import checkpoint_hashes, verify_checkpoint  # noqa: E402
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
 from quant_retrieval.retrieval.index_artifacts import corpus_ids, publish_index  # noqa: E402
 from quant_retrieval.retrieval.vectors import validate_embeddings  # noqa: E402
@@ -63,6 +64,7 @@ def main() -> None:
     set_seed(args.seed)
     corpus = pd.read_parquet(args.corpus or args.data / "corpus.parquet")
     answer_ids = corpus_ids(corpus)
+    identity = {"checkpoint_sha256": checkpoint_hashes(args.checkpoint)}
     retriever = DenseRetriever(
         str(args.checkpoint), batch_size=args.batch_size, max_length=args.max_length
     )
@@ -71,8 +73,10 @@ def main() -> None:
     embeddings = retriever._encode(corpus["text"].tolist())
     seconds = time.perf_counter() - started
     validate_embeddings(embeddings, len(answer_ids), atol=1e-4)
+    verify_checkpoint(args.checkpoint, identity)
 
     manifest = {
+        **identity,
         "corpus_sha256": corpus_fingerprint(corpus),
         "seed": args.seed,
         "batch_size": args.batch_size,

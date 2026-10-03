@@ -7,6 +7,7 @@ import pytest
 from scripts import export_index
 
 from quant_retrieval.eval.fingerprints import corpus_fingerprint
+from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES, verify_checkpoint
 from quant_retrieval.retrieval.index_artifacts import (
     corpus_ids,
     publish_index,
@@ -41,7 +42,12 @@ def prepare_export(tmp_path, monkeypatch, embeddings):
     monkeypatch.setattr(export_index, "DenseRetriever", lambda *args, **kwargs:
                         SimpleNamespace(_encode=lambda texts: embeddings, device="cpu"))
     output = tmp_path / "export"
-    monkeypatch.setattr("sys.argv", ["export", "--data", str(tmp_path), "--out", str(output)])
+    checkpoint = tmp_path / "model"
+    checkpoint.mkdir()
+    for name in CHECKPOINT_FILES:
+        (checkpoint / name).write_text(name)
+    monkeypatch.setattr("sys.argv", ["export", "--data", str(tmp_path), "--out", str(output),
+                                    "--checkpoint", str(checkpoint)])
     return output
 
 
@@ -96,6 +102,7 @@ def test_export_records_the_exact_corpus_and_encoding_settings(tmp_path, monkeyp
     assert manifest["corpus_sha256"] == corpus_fingerprint(corpus)
     assert manifest["corpus_sha256"] != corpus_fingerprint(corpus.iloc[::-1])
     assert (manifest["seed"], manifest["batch_size"], manifest["pooling"]) == (17, 128, "mean")
+    assert verify_checkpoint(tmp_path / "model", manifest)
 
 
 def test_export_hashes_detect_changed_vectors_even_with_the_same_shape(tmp_path, monkeypatch):
@@ -131,3 +138,17 @@ def test_direct_publication_validates_ids_before_creating_output(tmp_path, ids):
     with pytest.raises(ValueError, match="IDs"):
         publish_index(tmp_path / "export", ids, np.eye(len(ids)), {})
     assert list(tmp_path.iterdir()) == []
+
+
+def test_export_refuses_a_checkpoint_changed_during_encoding(tmp_path, monkeypatch):
+    output = prepare_export(tmp_path, monkeypatch, np.eye(3))
+
+    def encode(texts):
+        (tmp_path / "model" / "model.safetensors").write_text("changed weights")
+        return np.eye(3)
+
+    monkeypatch.setattr(export_index, "DenseRetriever", lambda *args, **kwargs:
+                        SimpleNamespace(_encode=encode, device="cpu"))
+    with pytest.raises(ValueError, match="checkpoint checksum mismatch"):
+        export_index.main()
+    assert not output.exists()
