@@ -123,3 +123,11 @@ def test_manifest_reader_rejects_ambiguous_json(tmp_path, contents):
     path.write_text(contents)
     with pytest.raises(ValueError, match="manifest"):
         read_manifest(path)
+
+
+@pytest.mark.parametrize("ids", [np.array([1, 1]), np.array([0]), np.array([True]),
+    np.array([1.5]), np.array([[1]]), np.array([2**63], dtype=np.uint64), np.array([])])
+def test_direct_publication_validates_ids_before_creating_output(tmp_path, ids):
+    with pytest.raises(ValueError, match="IDs"):
+        publish_index(tmp_path / "export", ids, np.eye(len(ids)), {})
+    assert list(tmp_path.iterdir()) == []

@@ -70,16 +70,26 @@ def corpus_ids(corpus: pd.DataFrame) -> np.ndarray:
     return ids.to_numpy(dtype=np.int64)
 
 
+def validate_document_ids(ids: np.ndarray) -> None:
+    if (not isinstance(ids, np.ndarray) or ids.ndim != 1 or not len(ids)
+            or not np.issubdtype(ids.dtype, np.integer)
+            or np.any(ids <= 0) or np.any(ids > np.iinfo(np.int64).max)):
+        raise ValueError("document IDs must be a nonempty vector of positive int64 integers")
+    if len(np.unique(ids)) != len(ids):
+        raise ValueError("document IDs must be unique")
+
+
 def publish_index(destination: Path, ids: np.ndarray, vectors: np.ndarray, metadata: dict) -> dict:
     if destination.exists() or destination.is_symlink():
         raise FileExistsError("export destination already exists; choose a new version directory")
+    validate_document_ids(ids)
     validate_embeddings(vectors, len(ids), atol=1e-4)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
         dir=destination.parent, prefix=f".{destination.name}."
     ) as staging_name:
         staging = Path(staging_name)
-        np.save(staging / "answer_ids.npy", ids)
+        np.save(staging / "answer_ids.npy", ids.astype(np.int64, copy=False))
         sizes = {}
         for name, dtype in (("fp32", np.float32), ("fp16", np.float16)):
             converted = vectors.astype(dtype, copy=False)
