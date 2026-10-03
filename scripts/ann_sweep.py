@@ -73,7 +73,9 @@ def time_search(
     retriever, queries: np.ndarray, k: int, warmup: int = 0, repeats: int = 1
 ) -> tuple[list, list[float]]:
     """Keep one ranking per query and latency samples from every measured pass."""
-    if warmup < 0 or len(queries) == 0 or repeats <= 0:
+    if (type(warmup) is not int or type(repeats) is not int or type(k) is not int
+            or warmup < 0 or repeats <= 0 or k <= 0
+            or not isinstance(queries, np.ndarray) or queries.ndim != 2 or not len(queries)):
         raise ValueError("warmup must be nonnegative; queries and repeats must be positive")
     for index in range(warmup):
         retriever.search_vector(queries[index % len(queries)], k)
@@ -89,6 +91,10 @@ def time_search(
 
 
 def summarise(latencies: list[float]) -> dict[str, float | int]:
+    values = np.asarray(latencies)
+    if (values.ndim != 1 or not len(values) or values.dtype.kind not in "fiu"
+            or not np.isfinite(values).all() or np.any(values < 0)):
+        raise ValueError("latencies must be nonempty finite nonnegative numbers")
     return {
         "samples": len(latencies),
         "p50_ms": float(np.percentile(latencies, 50)),
@@ -171,6 +177,7 @@ def main() -> None:
         pooling=manifests[0].get("pooling", "mean"),
     )
     query_vectors = encoder._encode(selected["text"].tolist())
+    validate_embeddings(query_vectors, len(selected), atol=1e-4)
     if query_vectors.shape != (len(selected), manifests[0]["dimensions"]):
         raise ValueError("query encoder dimensions disagree with exported vectors")
     print(f"encoded {len(query_vectors)} queries on {encoder.device}")

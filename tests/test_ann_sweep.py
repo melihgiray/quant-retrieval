@@ -65,7 +65,7 @@ def test_failed_graph_build_keeps_completed_exact_measurement(tmp_path, monkeypa
     monkeypatch.setattr(ann_sweep.pd, "read_parquet", lambda path: queries)
     monkeypatch.setattr(ann_sweep.np, "load", lambda path: np.array([1]))
     monkeypatch.setattr(ann_sweep, "DenseRetriever", lambda *args, **kwargs:
-                        SimpleNamespace(_encode=lambda texts: np.ones((1, 2)), device="cpu"))
+                        SimpleNamespace(_encode=lambda texts: np.array([[1., 0.]]), device="cpu"))
 
     class Retriever:
         def __init__(self, *args, exact=False, **kwargs):
@@ -171,3 +171,16 @@ def test_legacy_ann_exports_still_require_valid_ids_and_vectors(tmp_path, ids, v
     }))
     with pytest.raises(ValueError):
         load_manifest(tmp_path, tmp_path)
+
+
+@pytest.mark.parametrize("latencies", [[], [True], [-1.], [float("nan")],
+                                      [float("inf")], [[1.]], ["1"]])
+def test_latency_summaries_refuse_unusable_measurements(latencies):
+    with pytest.raises(ValueError, match="latencies"):
+        ann_sweep.summarise(latencies)
+
+
+@pytest.mark.parametrize("settings", [{"repeats": True}, {"warmup": 0.5}, {"k": False}])
+def test_timing_counts_must_be_integers(settings):
+    with pytest.raises(ValueError):
+        time_search(None, np.eye(2), **{"k": 1, **settings})
