@@ -64,10 +64,11 @@ python -m scripts.ann_sweep --embeddings artifacts artifacts/scale_100000 \
   --output results/ann_scaling_new.json
 ```
 
-Every artifact must name the requested checkpoint and agree on encoder length
-and dimensions. Manifest counts must match the stored IDs and matrix. These
-checks compare paths and metadata, not a hash of checkpoint weights. Preserve
-the actual model and artifact files alongside a report.
+Every artifact must agree on encoder length, dimensions and pooling. Manifest
+counts must match unique positive IDs and normalized float32 vectors. New
+exports verify model and tokenizer hashes as well as array checksums. Legacy
+exports compare checkpoint paths instead and explicitly lack content proof.
+Preserve the actual model and artifact files alongside a report.
 
 The encoder runs once. Search latency includes query-vector normalization and
 index lookup, but not text encoding. Both exact and approximate indexes use the
@@ -83,6 +84,11 @@ order do not eliminate thermal drift or background activity.
 Completed points are saved after each measurement. If the command fails, inspect
 `complete` before using the report. This preserves partial evidence but does not
 resume a sweep. Use a new filename for another run.
+
+Existing sweep outputs need explicit `--overwrite`; input paths remain protected
+even with that flag. Exact and approximate indexes are released between builds
+to avoid keeping both full indexes in memory. See [offline ANN analysis](ANN.md)
+for raw sample auditing, operating points and query-level diagnostics.
 
 ## Inspect retrieval errors
 
