@@ -7,6 +7,7 @@ import pytest
 from scripts import ann_sweep
 from scripts.ann_sweep import best_settings, load_manifest, main, time_search
 
+from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES, checkpoint_hashes
 from quant_retrieval.retrieval.index_artifacts import publish_index
 
 
@@ -184,3 +185,19 @@ def test_latency_summaries_refuse_unusable_measurements(latencies):
 def test_timing_counts_must_be_integers(settings):
     with pytest.raises(ValueError):
         time_search(None, np.eye(2), **{"k": 1, **settings})
+
+
+def test_ann_checks_model_content_even_when_checkpoint_path_is_unchanged(tmp_path):
+    model = tmp_path / "model"
+    model.mkdir()
+    for name in CHECKPOINT_FILES:
+        (model / name).write_text(name)
+    root = tmp_path / "export"
+    publish_index(root, np.array([1, 2]), np.eye(2), {
+        "max_length": 64, "checkpoint": "/old/machine/model",
+        "checkpoint_sha256": checkpoint_hashes(model),
+    })
+    assert load_manifest(root, model)["documents"] == 2
+    (model / "config.json").write_text("changed configuration")
+    with pytest.raises(ValueError, match="checkpoint checksum mismatch"):
+        load_manifest(root, model)

@@ -32,6 +32,7 @@ from quant_retrieval.eval.benchmark import benchmark_context  # noqa: E402
 from quant_retrieval.eval.results import write_result  # noqa: E402
 from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.retrieval.ann import ApproximateRetriever, recall_against_exact  # noqa: E402
+from quant_retrieval.retrieval.checkpoint import verify_checkpoint  # noqa: E402
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
 from quant_retrieval.retrieval.index_artifacts import (  # noqa: E402
     read_manifest,
@@ -51,7 +52,8 @@ def load_manifest(directory: Path, checkpoint: Path) -> dict:
             raise ValueError(f"{directory}: {key} must be a positive integer")
     if not isinstance(manifest.get("checkpoint"), str) or not manifest["checkpoint"]:
         raise ValueError(f"{directory}: checkpoint is required")
-    if Path(manifest["checkpoint"]).resolve() != checkpoint.resolve():
+    verified = verify_checkpoint(checkpoint, manifest)
+    if not verified and Path(manifest["checkpoint"]).resolve() != checkpoint.resolve():
         raise ValueError(f"{directory}: checkpoint does not match the query encoder")
     if manifest.get("pooling", "mean") not in {"mean", "cls"}:
         raise ValueError(f"{directory}: unsupported pooling strategy")
@@ -191,7 +193,8 @@ def main() -> None:
         "recall_reference": "exact_top_k_overlap",
         "artifacts": [
             {"directory": str(directory.resolve()), "manifest": manifest,
-             "payload_checksums_verified": manifest.get("sha256") is not None}
+             "payload_checksums_verified": manifest.get("sha256") is not None,
+             "checkpoint_checksums_verified": "checkpoint_sha256" in manifest}
             for directory, manifest in zip(args.embeddings, manifests, strict=True)
         ],
         "checkpoint": str(args.checkpoint),
