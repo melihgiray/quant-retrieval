@@ -49,6 +49,8 @@ def load_manifest(directory: Path, checkpoint: Path) -> dict:
         raise ValueError(f"{directory}: checkpoint is required")
     if Path(manifest["checkpoint"]).resolve() != checkpoint.resolve():
         raise ValueError(f"{directory}: checkpoint does not match the query encoder")
+    if manifest.get("pooling", "mean") not in {"mean", "cls"}:
+        raise ValueError(f"{directory}: unsupported pooling strategy")
     verify_export_files(directory, manifest, ("answer_ids.npy", "embeddings_fp32.npy"))
     ids = np.load(directory / "answer_ids.npy", mmap_mode="r")
     vectors = np.load(directory / "embeddings_fp32.npy", mmap_mode="r")
@@ -149,14 +151,16 @@ def main() -> None:
 
     set_seed(args.seed)
     manifests = [load_manifest(directory, args.checkpoint) for directory in args.embeddings]
-    if len({(m["dimensions"], m["max_length"]) for m in manifests}) != 1:
-        parser.error("all embedding sets must use the same dimensions and max_length")
+    if len({(m["dimensions"], m["max_length"], m.get("pooling", "mean"))
+            for m in manifests}) != 1:
+        parser.error("all embedding sets must use the same dimensions, max_length and pooling")
 
     # Encode the queries once, on whatever device is available, then never again.
     queries = pd.read_parquet(args.data / "queries.parquet")
     selected = sample_queries(queries, args.queries, args.seed)
     encoder = DenseRetriever(
-        str(args.checkpoint), max_length=manifests[0]["max_length"], show_progress=False
+        str(args.checkpoint), max_length=manifests[0]["max_length"], show_progress=False,
+        pooling=manifests[0].get("pooling", "mean"),
     )
     query_vectors = encoder._encode(selected["text"].tolist())
     if query_vectors.shape != (len(selected), manifests[0]["dimensions"]):

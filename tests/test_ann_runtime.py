@@ -108,6 +108,7 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
     checkpoint = tmp_path / "model"
     (tmp_path / "manifest.json").write_text(json.dumps({
         "documents": 2, "dimensions": 2, "max_length": 64, "checkpoint": str(checkpoint),
+        "pooling": "cls",
     }))
     pd.DataFrame({"question_id": [1, 2], "text": ["one", "two"], "split": ["val"] * 2
                   }).to_parquet(tmp_path / "queries.parquet")
@@ -130,6 +131,7 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
     assert created[1].hnsw.efSearch == 32
     assert threads == [2]
     assert encoder_settings[0]["max_length"] == 64
+    assert encoder_settings[0]["pooling"] == "cls"
     assert len(report["runs"]) == 3
     assert all(row["samples"] == 4 and row["recall_at_k"] == 1 for row in report["runs"])
     assert len(report["question_ids"]) == 2

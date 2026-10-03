@@ -46,7 +46,8 @@ def test_manifest_matches_vectors_and_encoder(tmp_path):
     assert load_manifest(tmp_path, checkpoint) == manifest
     with pytest.raises(ValueError, match="checkpoint"):
         load_manifest(tmp_path, tmp_path / "other")
-    for key, value in [("documents", 3), ("dimensions", 4), ("max_length", True)]:
+    for key, value in [("documents", 3), ("dimensions", 4), ("max_length", True),
+                       ("pooling", "unknown")]:
         path.write_text(json.dumps({**manifest, key: value}))
         with pytest.raises(ValueError):
             load_manifest(tmp_path, checkpoint)
