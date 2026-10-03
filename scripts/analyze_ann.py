@@ -8,7 +8,7 @@ import argparse
 import hashlib
 from pathlib import Path
 
-from quant_retrieval.eval.ann_analysis import analyze_ann_report
+from quant_retrieval.eval.ann_analysis import analyze_ann_report, query_diagnostics
 from quant_retrieval.eval.results import parse_record, write_result
 
 
@@ -17,6 +17,7 @@ def main() -> None:
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--recall-target", type=float)
+    parser.add_argument("--worst-queries", type=int, default=10, help="examples per graph setting")
     args = parser.parse_args()
     if args.output.resolve() == args.report.resolve():
         parser.error("analysis output must differ from the measurement report")
@@ -26,6 +27,7 @@ def main() -> None:
     report = parse_record(contents, args.report)
     try:
         result = analyze_ann_report(report, args.recall_target)
+        result["query_diagnostics"] = query_diagnostics(report, args.worst_queries)
     except ValueError as error:
         parser.error(str(error))
     result["source"] = {

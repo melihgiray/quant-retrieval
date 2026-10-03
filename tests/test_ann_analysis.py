@@ -2,10 +2,15 @@ import hashlib
 import json
 from copy import deepcopy
 
+import numpy as np
 import pytest
 from scripts import analyze_ann
 
-from quant_retrieval.eval.ann_analysis import analyze_ann_report, validate_ann_report
+from quant_retrieval.eval.ann_analysis import (
+    analyze_ann_report,
+    query_diagnostics,
+    validate_ann_report,
+)
 
 
 def fixture_report():
@@ -130,3 +135,16 @@ def test_analysis_cli_preserves_source_identity_and_protects_existing_files(tmp_
     with pytest.raises(SystemExit):
         analyze_ann.main()
     assert source.read_bytes() == original
+
+
+def test_query_diagnostics_align_repeated_samples_with_question_identity():
+    report = fixture_report()
+    report["repeats"] = 2
+    for row, values in zip(report["runs"], ([2., 8., 4., 10.], [1., 7., 3., 9.]), strict=True):
+        row.update(latencies_ms=values, samples=4, p50_ms=float(np.percentile(values, 50)),
+                   p95_ms=float(np.percentile(values, 95)))
+    details = query_diagnostics(report, limit=1)[0]["worst_queries"]
+    assert details == [{"question_id": 10, "recall_at_k": .9,
+                        "hnsw_p50_ms": 2., "exact_p50_ms": 3.}]
+    with pytest.raises(ValueError, match="limit"):
+        query_diagnostics(report, limit=0)

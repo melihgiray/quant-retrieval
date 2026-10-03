@@ -151,3 +151,26 @@ def analyze_ann_report(report: dict, recall_target: float | None = None) -> dict
         })
     return {"scope": "index_search_only", "recall_target": target, "artifacts": summaries,
             "interpretation": "Observed p50 comparisons, not significance or relevance quality."}
+
+
+def query_diagnostics(report: dict, limit: int = 10) -> list[dict]:
+    """Locate lost neighbors while keeping repeated timings aligned to question IDs."""
+    validate_ann_report(report)
+    _integer(limit, "query diagnostic limit")
+    shape = (report["repeats"], report["queries"])
+    exact = {row["artifact"]: np.median(np.array(row["latencies_ms"]).reshape(shape), axis=0)
+             for row in report["runs"] if row["index"] == "exact"}
+    diagnostics = []
+    for row in report["runs"]:
+        if row["index"] != "hnsw":
+            continue
+        medians = np.median(np.array(row["latencies_ms"]).reshape(shape), axis=0)
+        details = [{"question_id": question_id, "recall_at_k": row["per_query_recall"][index],
+                    "hnsw_p50_ms": float(medians[index]),
+                    "exact_p50_ms": float(exact[row["artifact"]][index])}
+                   for index, question_id in enumerate(report["question_ids"])]
+        details.sort(key=lambda item: (item["recall_at_k"], -item["hnsw_p50_ms"],
+                                      item["question_id"]))
+        diagnostics.append({"artifact": row["artifact"], "ef_search": row["ef_search"],
+                            "worst_queries": details[:limit]})
+    return diagnostics
