@@ -35,8 +35,10 @@ from quant_retrieval.retrieval.ann import ApproximateRetriever, recall_against_e
 from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
 from quant_retrieval.retrieval.index_artifacts import (  # noqa: E402
     read_manifest,
+    validate_document_ids,
     verify_export_files,
 )
+from quant_retrieval.retrieval.vectors import validate_embeddings  # noqa: E402
 from quant_retrieval.runtime import set_seed  # noqa: E402
 
 DEFAULT_EF_SEARCH = (16, 32, 64, 128, 256)
@@ -60,6 +62,10 @@ def load_manifest(directory: Path, checkpoint: Path) -> dict:
         raise ValueError(f"{directory}: document count disagrees with answer IDs")
     if vectors.shape != (manifest["documents"], manifest["dimensions"]):
         raise ValueError(f"{directory}: vector shape disagrees with manifest")
+    validate_document_ids(ids)
+    if vectors.dtype != np.float32:
+        raise ValueError(f"{directory}: ANN exports must use float32 vectors")
+    validate_embeddings(vectors, len(ids), atol=1e-4)
     return manifest
 
 
@@ -147,15 +153,15 @@ def main() -> None:
     if len({path.resolve() for path in args.embeddings}) != len(args.embeddings):
         parser.error("embedding directories must be unique")
 
-    import faiss
-
-    faiss.omp_set_num_threads(args.threads)
-
-    set_seed(args.seed)
     manifests = [load_manifest(directory, args.checkpoint) for directory in args.embeddings]
     if len({(m["dimensions"], m["max_length"], m.get("pooling", "mean"))
             for m in manifests}) != 1:
         parser.error("all embedding sets must use the same dimensions, max_length and pooling")
+
+    import faiss
+
+    faiss.omp_set_num_threads(args.threads)
+    set_seed(args.seed)
 
     # Encode the queries once, on whatever device is available, then never again.
     queries = pd.read_parquet(args.data / "queries.parquet")

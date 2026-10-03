@@ -40,7 +40,7 @@ def test_manifest_matches_vectors_and_encoder(tmp_path):
     manifest = {"documents": 2, "dimensions": 3, "max_length": 128,
                 "checkpoint": str(checkpoint)}
     np.save(tmp_path / "answer_ids.npy", [1, 2])
-    np.save(tmp_path / "embeddings_fp32.npy", np.ones((2, 3), dtype=np.float32))
+    np.save(tmp_path / "embeddings_fp32.npy", np.eye(3, dtype=np.float32)[:2])
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps(manifest))
     assert load_manifest(tmp_path, checkpoint) == manifest
@@ -153,3 +153,21 @@ def test_ambiguous_sweep_settings_fail_before_runtime_import(monkeypatch, option
     with pytest.raises(SystemExit) as error:
         main()
     assert error.value.code == 2
+
+
+@pytest.mark.parametrize("ids,vectors", [
+    ([1, 1], np.eye(2, dtype=np.float32)),
+    ([1, 2], np.zeros((2, 2), dtype=np.float32)),
+    ([1, 2], np.eye(2, dtype=np.float16)),
+    ([1, 2], np.full((2, 2), np.nan, dtype=np.float32)),
+])
+def test_legacy_ann_exports_still_require_valid_ids_and_vectors(tmp_path, ids, vectors):
+    import json
+
+    np.save(tmp_path / "answer_ids.npy", ids)
+    np.save(tmp_path / "embeddings_fp32.npy", vectors)
+    (tmp_path / "manifest.json").write_text(json.dumps({
+        "documents": 2, "dimensions": 2, "max_length": 64, "checkpoint": str(tmp_path),
+    }))
+    with pytest.raises(ValueError):
+        load_manifest(tmp_path, tmp_path)
