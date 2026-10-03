@@ -47,3 +47,27 @@ def test_invalid_measurements_are_rejected(key, value):
     report["runs"][0][key] = value
     with pytest.raises(ValueError):
         validate_ann_report(report)
+
+
+@pytest.mark.parametrize("change", ["missing", "duplicate", "count", "latency", "recall",
+                                    "samples", "undeclared", "graph"])
+def test_complete_reports_must_cover_the_declared_sweep_and_match_raw_data(change):
+    report = fixture_report()
+    if change == "missing":
+        report["runs"].pop()
+    elif change == "duplicate":
+        report["runs"].append(deepcopy(report["runs"][0]))
+    elif change == "count":
+        report["runs"][0]["documents"] += 1
+    elif change == "latency":
+        report["runs"][0]["latencies_ms"][0] = 8.
+    elif change == "recall":
+        report["runs"][1]["per_query_recall"][0] = .1
+    elif change == "samples":
+        report["repeats"] = 2
+    elif change == "undeclared":
+        report["runs"][1]["ef_search"] = 32
+    else:
+        report["runs"][1]["neighbours"] = 16
+    with pytest.raises(ValueError):
+        validate_ann_report(report)
