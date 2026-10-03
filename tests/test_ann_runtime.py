@@ -1,6 +1,7 @@
 """Exercise wrapper behavior without loading the platform FAISS runtime."""
 
 import json
+import subprocess
 import sys
 import weakref
 from types import SimpleNamespace
@@ -11,6 +12,8 @@ import pytest
 from scripts import ann_sweep
 
 from quant_retrieval.retrieval.ann import ApproximateRetriever
+from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES, checkpoint_hashes
+from quant_retrieval.retrieval.index_artifacts import publish_index
 
 
 class FakeIndex:
@@ -113,13 +116,15 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
 
     fake_faiss.IndexFlatIP = fake_faiss.IndexHNSWFlat = CountingIndex
     fake_faiss.omp_set_num_threads = threads.append
-    np.save(tmp_path / "answer_ids.npy", [10, 20])
-    np.save(tmp_path / "embeddings_fp32.npy", np.eye(2, dtype=np.float32))
     checkpoint = tmp_path / "model"
-    (tmp_path / "manifest.json").write_text(json.dumps({
+    checkpoint.mkdir()
+    for name in CHECKPOINT_FILES:
+        (checkpoint / name).write_text(name)
+    artifact = tmp_path / "export"
+    publish_index(artifact, np.array([10, 20]), np.eye(2, dtype=np.float32), {
         "documents": 2, "dimensions": 2, "max_length": 64, "checkpoint": str(checkpoint),
-        "pooling": "cls",
-    }))
+        "pooling": "cls", "checkpoint_sha256": checkpoint_hashes(checkpoint),
+    })
     pd.DataFrame({"question_id": [1, 2], "text": ["one", "two"], "split": ["val"] * 2
                   }).to_parquet(tmp_path / "queries.parquet")
     encoder_settings = []
@@ -130,7 +135,7 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
 
     monkeypatch.setattr(ann_sweep, "DenseRetriever", encoder)
     output = tmp_path / "sweep.json"
-    monkeypatch.setattr("sys.argv", ["ann", "--embeddings", str(tmp_path), "--data", str(tmp_path),
+    monkeypatch.setattr("sys.argv", ["ann", "--embeddings", str(artifact), "--data", str(tmp_path),
         "--checkpoint", str(checkpoint), "--output", str(output), "--ef-search", "16", "32",
         "--warmup", "1", "--repeats", "2", "--threads", "2", "--k", "1"])
     ann_sweep.main()
@@ -149,8 +154,23 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
     assert report["summary"][0]["best"]["index"] == "hnsw"
     assert report["scope"] == "index_search_only"
     assert report["latency_order"] == "repeat_major_query_minor"
+    assert report["artifacts"][0]["payload_checksums_verified"]
+    assert report["artifacts"][0]["checkpoint_checksums_verified"]
     for row in report["runs"]:
         assert row["build_seconds"] >= 0
         assert len(row["latencies_ms"]) == 4
         assert row["p50_ms"] == pytest.approx(np.percentile(row["latencies_ms"], 50))
         assert row["per_query_recall"] == [1., 1.]
+    analysis_path = tmp_path / "analysis.json"
+    # A fresh process proves that report analysis does not load either native runtime.
+    completed = subprocess.run([
+        sys.executable, "-c",
+        "import runpy, sys; runpy.run_module('scripts.analyze_ann', run_name='__main__'); "
+        "assert 'torch' not in sys.modules; assert 'faiss' not in sys.modules",
+        "--report", str(output), "--output", str(analysis_path),
+    ], capture_output=True, text=True, check=True)
+    assert "audited 1 artifacts" in completed.stdout
+    analysis = json.loads(analysis_path.read_text())
+    assert analysis["source"]["benchmark"]["question_ids"] == report["question_ids"]
+    assert len(analysis["query_diagnostics"]) == 2
+    assert all(len(row["worst_queries"]) == 2 for row in analysis["query_diagnostics"])
