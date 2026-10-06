@@ -10,6 +10,7 @@ from quant_retrieval.retrieval.query_artifacts import (
     load_queries,
     publish_queries,
     validate_query_manifest,
+    verify_query_compatibility,
 )
 
 
@@ -99,3 +100,14 @@ def test_query_loader_rejects_linked_payloads(tmp_path):
     path.symlink_to(tmp_path / "outside.npy")
     with pytest.raises(ValueError, match="unlinked"):
         load_queries(root)
+
+
+def test_cached_queries_match_encoder_contents_not_paths_or_corpus_size():
+    queries = query_metadata()
+    index = {**queries, "checkpoint": "/another/machine/model", "documents": 100000}
+    verify_query_compatibility(queries, index)
+    for key, value in [("dimensions", 3), ("max_length", 128), ("pooling", "cls"),
+                       ("checkpoint_sha256", None),
+                       ("checkpoint_sha256", {name: "d" * 64 for name in CHECKPOINT_FILES})]:
+        with pytest.raises(ValueError):
+            verify_query_compatibility(queries, {**index, key: value})

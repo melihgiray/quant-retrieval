@@ -82,3 +82,16 @@ def load_queries(directory: Path) -> tuple[dict, np.ndarray]:
     if vectors.dtype != np.float32 or vectors.shape[1] != manifest["dimensions"]:
         raise ValueError("query vectors disagree with manifest dtype or dimensions")
     return manifest, vectors
+
+
+def verify_query_compatibility(queries: dict, index: dict) -> None:
+    """Require equal embedding spaces, not equal model paths or corpus sizes."""
+    validate_query_manifest(queries)
+    validate_checkpoint_hashes(index.get("checkpoint_sha256"))
+    if queries["checkpoint_sha256"] != index["checkpoint_sha256"]:
+        raise ValueError("cached queries and document vectors use different checkpoints")
+    for name in ("dimensions", "max_length"):
+        if type(index.get(name)) is not int or queries[name] != index[name]:
+            raise ValueError(f"cached query {name} does not match the index")
+    if queries["pooling"] != index.get("pooling", "mean"):
+        raise ValueError("cached query pooling does not match the index")
