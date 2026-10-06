@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 
 import numpy as np
@@ -5,7 +6,11 @@ import pytest
 
 from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES
 from quant_retrieval.retrieval.index_artifacts import file_digest
-from quant_retrieval.retrieval.query_artifacts import publish_queries, validate_query_manifest
+from quant_retrieval.retrieval.query_artifacts import (
+    load_queries,
+    publish_queries,
+    validate_query_manifest,
+)
 
 
 def query_metadata():
@@ -63,3 +68,34 @@ def test_invalid_query_vectors_fail_before_publication(tmp_path, vectors):
     with pytest.raises(ValueError):
         publish_queries(tmp_path / "queries", vectors, query_metadata())
     assert list(tmp_path.iterdir()) == []
+
+
+def test_loaded_queries_are_read_only_and_detect_same_shape_changes(tmp_path):
+    root = tmp_path / "queries"
+    publish_queries(root, np.eye(2, dtype=np.float32), query_metadata())
+    metadata, vectors = load_queries(root)
+    assert metadata["question_ids"] == [20, 10]
+    assert isinstance(vectors, np.memmap) and not vectors.flags.writeable
+    np.save(root / "query_vectors.npy", np.eye(2, dtype=np.float32)[::-1])
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        load_queries(root)
+
+
+def test_checksums_do_not_replace_query_vector_validation(tmp_path):
+    root = tmp_path / "queries"
+    manifest = publish_queries(root, np.eye(2, dtype=np.float32), query_metadata())
+    np.save(root / "query_vectors.npy", np.zeros((2, 2), dtype=np.float32))
+    manifest["vectors_sha256"] = file_digest(root / "query_vectors.npy")
+    (root / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="normalized"):
+        load_queries(root)
+
+
+def test_query_loader_rejects_linked_payloads(tmp_path):
+    root = tmp_path / "queries"
+    publish_queries(root, np.eye(2, dtype=np.float32), query_metadata())
+    path = root / "query_vectors.npy"
+    path.rename(tmp_path / "outside.npy")
+    path.symlink_to(tmp_path / "outside.npy")
+    with pytest.raises(ValueError, match="unlinked"):
+        load_queries(root)

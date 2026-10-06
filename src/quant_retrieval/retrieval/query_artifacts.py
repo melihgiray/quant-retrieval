@@ -9,7 +9,7 @@ import numpy as np
 
 from quant_retrieval.eval.results import write_result
 from quant_retrieval.retrieval.checkpoint import validate_checkpoint_hashes
-from quant_retrieval.retrieval.index_artifacts import file_digest
+from quant_retrieval.retrieval.index_artifacts import file_digest, read_manifest
 from quant_retrieval.retrieval.vectors import validate_embeddings
 
 QUERY_VECTOR_FILE = "query_vectors.npy"
@@ -63,3 +63,22 @@ def publish_queries(destination: Path, vectors: np.ndarray, metadata: dict) -> d
             raise FileExistsError("query destination appeared during publication")
         staging.rename(destination)
     return manifest
+
+
+def load_queries(directory: Path) -> tuple[dict, np.ndarray]:
+    if not directory.is_dir() or directory.is_symlink():
+        raise ValueError("query artifact must be a regular directory")
+    for name in ("manifest.json", QUERY_VECTOR_FILE):
+        path = directory / name
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"query artifact needs an unlinked regular file: {name}")
+    manifest = read_manifest(directory / "manifest.json")
+    validate_query_manifest(manifest)
+    path = directory / QUERY_VECTOR_FILE
+    if file_digest(path) != manifest["vectors_sha256"]:
+        raise ValueError("query vector checksum mismatch")
+    vectors = np.load(path, mmap_mode="r", allow_pickle=False)
+    validate_embeddings(vectors, manifest["queries"], atol=1e-4)
+    if vectors.dtype != np.float32 or vectors.shape[1] != manifest["dimensions"]:
+        raise ValueError("query vectors disagree with manifest dtype or dimensions")
+    return manifest, vectors
