@@ -23,16 +23,21 @@ def checkpoint_hashes(directory: Path) -> dict[str, str]:
     return {name: file_digest(directory / name) for name in names}
 
 
-def verify_checkpoint(directory: Path, manifest: dict) -> bool:
-    """Legacy exports have no identity proof; present but invalid proofs must fail."""
-    if "checkpoint_sha256" not in manifest:
-        return False
-    expected = manifest["checkpoint_sha256"]
+def validate_checkpoint_hashes(expected: dict) -> None:
+    """Check an archived identity without requiring local model files."""
     if (not isinstance(expected, dict) or not set(CHECKPOINT_FILES) <= set(expected)
             or not set(expected) <= set(CHECKPOINT_FILES + TOKENIZER_EXTRAS)
             or any(not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None
                    for value in expected.values())):
         raise ValueError("checkpoint checksums must describe the encoder and tokenizer files")
+
+
+def verify_checkpoint(directory: Path, manifest: dict) -> bool:
+    """Legacy exports have no identity proof; present but invalid proofs must fail."""
+    if "checkpoint_sha256" not in manifest:
+        return False
+    expected = manifest["checkpoint_sha256"]
+    validate_checkpoint_hashes(expected)
     if checkpoint_hashes(directory) != expected:
         raise ValueError("checkpoint checksum mismatch: encoder or tokenizer changed")
     return True

@@ -3,6 +3,7 @@ import pytest
 from quant_retrieval.retrieval.checkpoint import (
     CHECKPOINT_FILES,
     checkpoint_hashes,
+    validate_checkpoint_hashes,
     verify_checkpoint,
 )
 
@@ -47,3 +48,12 @@ def test_optional_tokenizer_files_are_part_of_model_identity(tmp_path):
     for invalid in (None, {}, {"../weights": "0" * 64}):
         with pytest.raises(ValueError, match="checksums"):
             verify_checkpoint(root, {"checkpoint_sha256": invalid})
+
+
+def test_archived_identity_can_be_validated_without_loading_checkpoint_files():
+    hashes = {name: "a" * 64 for name in CHECKPOINT_FILES}
+    validate_checkpoint_hashes(hashes)
+    for invalid in (None, {**hashes, "../weights": "b" * 64},
+                    {**hashes, "model.safetensors": "not-a-digest"}):
+        with pytest.raises(ValueError, match="checksums"):
+            validate_checkpoint_hashes(invalid)
