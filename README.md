@@ -103,6 +103,9 @@ coverage, not newly measured model-quality results.
 measured settings within each corpus and identifies queries that lose neighbors.
 New index exports also bind vectors to model and tokenizer file hashes; legacy
 exports retain weaker checks until regenerated.
+ANN sweeps can also use verified query caches in a separate process, keeping the
+encoder and FAISS runtimes apart on macOS. The native path has a small real-FAISS
+fixture test; full-corpus scaling measurements still need to be collected.
 
     pytest
 
