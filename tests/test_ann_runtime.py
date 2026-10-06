@@ -133,7 +133,7 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
         encoder_settings.append(kwargs)
         return SimpleNamespace(_encode=lambda texts: np.eye(2, dtype=np.float32), device="cpu")
 
-    monkeypatch.setattr(ann_sweep, "DenseRetriever", encoder)
+    monkeypatch.setattr("quant_retrieval.retrieval.dense.DenseRetriever", encoder)
     output = tmp_path / "sweep.json"
     monkeypatch.setattr("sys.argv", ["ann", "--embeddings", str(artifact), "--data", str(tmp_path),
         "--checkpoint", str(checkpoint), "--output", str(output), "--ef-search", "16", "32",

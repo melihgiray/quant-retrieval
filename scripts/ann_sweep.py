@@ -33,16 +33,26 @@ from quant_retrieval.eval.results import write_result  # noqa: E402
 from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.retrieval.ann import ApproximateRetriever, recall_against_exact  # noqa: E402
 from quant_retrieval.retrieval.checkpoint import verify_checkpoint  # noqa: E402
-from quant_retrieval.retrieval.dense import DenseRetriever  # noqa: E402
 from quant_retrieval.retrieval.index_artifacts import (  # noqa: E402
     read_manifest,
     validate_document_ids,
     verify_export_files,
 )
 from quant_retrieval.retrieval.vectors import validate_embeddings  # noqa: E402
-from quant_retrieval.runtime import set_seed  # noqa: E402
 
 DEFAULT_EF_SEARCH = (16, 32, 64, 128, 256)
+
+
+def encode_live_queries(checkpoint: Path, selected: pd.DataFrame, manifest: dict, seed: int):
+    from quant_retrieval.retrieval.dense import DenseRetriever
+    from quant_retrieval.runtime import set_seed
+
+    set_seed(seed)
+    encoder = DenseRetriever(str(checkpoint), max_length=manifest["max_length"],
+                             show_progress=False, pooling=manifest.get("pooling", "mean"))
+    vectors = encoder._encode(selected["text"].tolist())
+    print(f"encoded {len(vectors)} queries on {encoder.device}")
+    return vectors
 
 
 def load_manifest(directory: Path, checkpoint: Path) -> dict:
@@ -169,20 +179,14 @@ def main() -> None:
     import faiss
 
     faiss.omp_set_num_threads(args.threads)
-    set_seed(args.seed)
 
     # Encode the queries once, on whatever device is available, then never again.
     queries = pd.read_parquet(args.data / "queries.parquet")
     selected = sample_queries(queries, args.queries, args.seed)
-    encoder = DenseRetriever(
-        str(args.checkpoint), max_length=manifests[0]["max_length"], show_progress=False,
-        pooling=manifests[0].get("pooling", "mean"),
-    )
-    query_vectors = encoder._encode(selected["text"].tolist())
+    query_vectors = encode_live_queries(args.checkpoint, selected, manifests[0], args.seed)
     validate_embeddings(query_vectors, len(selected), atol=1e-4)
     if query_vectors.shape != (len(selected), manifests[0]["dimensions"]):
         raise ValueError("query encoder dimensions disagree with exported vectors")
-    print(f"encoded {len(query_vectors)} queries on {encoder.device}")
 
     runs = []
     report = {

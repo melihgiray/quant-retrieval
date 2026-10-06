@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import numpy as np
@@ -59,14 +61,12 @@ def test_failed_graph_build_keeps_completed_exact_measurement(tmp_path, monkeypa
     queries = pd.DataFrame({"question_id": [1], "text": ["query"], "split": ["val"]})
     monkeypatch.setitem(__import__("sys").modules, "faiss",
                         SimpleNamespace(omp_set_num_threads=lambda threads: None))
-    monkeypatch.setattr(ann_sweep, "set_seed", lambda seed: None)
     monkeypatch.setattr(ann_sweep, "benchmark_context", lambda *args: {})
     monkeypatch.setattr(ann_sweep, "load_manifest", lambda *args:
                         {"documents": 1, "dimensions": 2, "max_length": 128})
     monkeypatch.setattr(ann_sweep.pd, "read_parquet", lambda path: queries)
     monkeypatch.setattr(ann_sweep.np, "load", lambda path: np.array([1]))
-    monkeypatch.setattr(ann_sweep, "DenseRetriever", lambda *args, **kwargs:
-                        SimpleNamespace(_encode=lambda texts: np.array([[1., 0.]]), device="cpu"))
+    monkeypatch.setattr(ann_sweep, "encode_live_queries", lambda *args: np.array([[1., 0.]]))
 
     class Retriever:
         def __init__(self, *args, exact=False, **kwargs):
@@ -201,3 +201,10 @@ def test_ann_checks_model_content_even_when_checkpoint_path_is_unchanged(tmp_pat
     (model / "config.json").write_text("changed configuration")
     with pytest.raises(ValueError, match="checkpoint checksum mismatch"):
         load_manifest(root, model)
+
+
+def test_importing_sweep_does_not_load_either_native_runtime():
+    subprocess.run([sys.executable, "-c",
+        "import scripts.ann_sweep; import sys; "
+        "assert 'torch' not in sys.modules; assert 'faiss' not in sys.modules"],
+        check=True, capture_output=True, text=True)
