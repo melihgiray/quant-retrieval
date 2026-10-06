@@ -53,8 +53,9 @@ measures index approximation on fixed embeddings, not quality on those sites.
 
 ## Compare exact and approximate search
 
-Install the optional runtime with `pip install -e ".[ann,dev]"`, then run on a
-machine where FAISS and the encoder runtime coexist:
+Install the optional runtime with `pip install -e ".[ann,dev]"`. For live query
+encoding, run on Linux where FAISS and the encoder runtime coexist. On macOS,
+use the separate-process query-cache workflow in [ANN benchmarking](ANN.md):
 
 ```sh
 python -m scripts.ann_sweep --embeddings artifacts artifacts/scale_100000 \

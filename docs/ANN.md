@@ -7,10 +7,40 @@ tests, and a faster fixture search does not establish a production crossover.
 
 ## Run a sweep
 
-Prepare exports with the same checkpoint, sequence length and pooling, then use
-the command in [benchmarking](BENCHMARKING.md). The live sweep still needs a
-machine where the encoder and FAISS runtimes coexist. The macOS runtime conflict
-has not been removed by adding an offline analyzer.
+Prepare exports with the same checkpoint, sequence length and pooling. A live
+sweep on Linux can use the command in [benchmarking](BENCHMARKING.md). On macOS,
+run encoding and search in separate processes using a portable query cache:
+
+```sh
+python -m scripts.export_queries --index artifacts/quant-v2 \
+  --checkpoint checkpoints/minilm_tuned/epoch-3 --queries 200 --seed 17 \
+  --output artifacts/queries-v1
+
+python -m scripts.ann_sweep --embeddings artifacts/quant-v2 artifacts/scale_100000 \
+  --query-cache artifacts/queries-v1 --k 10 --warmup 10 --repeats 3 --threads 1 \
+  --ef-search 16 32 64 128 256 --output results/ann_scaling_new.json
+```
+
+These are two separate command invocations, not two calls in one notebook
+kernel. The first loads the encoder but never FAISS. The second loads FAISS but
+never the encoder, and needs neither model files nor the original query table.
+All document exports must include production-time checkpoint hashes and array
+checksums. The existing legacy export cannot be upgraded by adding current
+hashes; first generate a new document export as described in
+[index exports](INDEXES.md). No such real export is implied by the code tests.
+
+Cache mode rejects `--data`, `--checkpoint`, `--queries` and `--seed` instead of
+silently ignoring them. Sampling and encoder settings come from the cache.
+Each document export must match its checkpoint hashes, pooling, maximum length
+and dimensions. Different corpus sizes can reuse the same queries when those
+settings match.
+
+The macOS guard refuses live encoding inside the sweep or a cached sweep in a
+process that has already loaded torch. It also refuses query encoding in a
+process that already loaded FAISS. Start a fresh terminal command when this
+happens. The incompatible runtimes themselves have not been repaired; the new
+workflow avoids loading them together. A real FAISS subprocess test verifies
+exact and HNSW retrieval over three synthetic documents on the local Mac.
 
 Use a fresh output path. A previous report is preserved unless `--overwrite` is
 explicit, and that option cannot target the index inputs or checkpoint files.
@@ -26,6 +56,8 @@ Version 1 reports contain:
 - Individual millisecond timings ordered by repetition, then query.
 - Recall per query, measured as overlap with the exact top-k on that corpus.
 - Unrounded build times. HNSW settings share one graph build, not separate builds.
+- Query source metadata and FAISS/NumPy versions. Cached encoding provenance
+  stays under `query_source.manifest`, separate from the benchmark machine.
 
 Warmup does not enter the saved timing samples. Repetition increases the number
 of timings, not the number of independent questions. Exact top-k ties can admit
@@ -47,6 +79,10 @@ file cannot be replaced. Legacy aggregate-only reports need a fresh sweep; do
 not invent raw timings to make them pass the audit.
 
 The analysis retains a SHA-256 of the source report and its measurement context.
+For cached sweeps, it also checks query IDs, seed and fingerprint against the
+cache metadata and checks encoding compatibility against each document export.
+Older version 1 reports without `query_source` remain readable with their
+earlier provenance limits.
 Changing `--recall-target` analyzes the same measurements under another threshold;
 it does not measure a new run or improve the model.
 
