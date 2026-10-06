@@ -9,16 +9,20 @@ import pandas as pd
 from quant_retrieval.eval.results import current_commit
 
 
-def benchmark_context(queries: pd.DataFrame, seed: int) -> dict:
-    payload = queries[["question_id", "text", "split"]].to_json(orient="records", force_ascii=True)
+def runtime_context() -> dict:
+    """Describe the process taking measurements, independently of where queries were encoded."""
     return {
-        "seed": seed,
         "commit": current_commit(),
         "created_at": datetime.now(UTC).isoformat(),
-        "question_ids": queries["question_id"].astype(int).tolist(),
-        "query_sha256": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
         "environment": {
             "python": platform.python_version(), "platform": platform.platform(),
             "machine": platform.machine(),
         },
     }
+
+
+def benchmark_context(queries: pd.DataFrame, seed: int) -> dict:
+    payload = queries[["question_id", "text", "split"]].to_json(orient="records", force_ascii=True)
+    return {**runtime_context(), "seed": seed,
+            "question_ids": queries["question_id"].astype(int).tolist(),
+            "query_sha256": hashlib.sha256(payload.encode("utf-8")).hexdigest()}
