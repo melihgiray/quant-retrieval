@@ -1,5 +1,6 @@
 """Stable query samples for validation-only performance studies."""
 
+import numpy as np
 import pandas as pd
 
 
@@ -18,8 +19,9 @@ def sample_queries(queries: pd.DataFrame, count: int, seed: int, split: str = "v
     if selected.empty:
         raise ValueError(f"no queries available for {split}")
     ids = selected["question_id"]
-    if not pd.api.types.is_integer_dtype(ids.dtype) or ids.isna().any() or (ids <= 0).any():
-        raise ValueError("query IDs must be positive integers")
+    if (not pd.api.types.is_integer_dtype(ids.dtype) or ids.isna().any() or (ids <= 0).any()
+            or (ids > np.iinfo(np.int64).max).any()):
+        raise ValueError("query IDs must be positive int64 integers")
     if not all(isinstance(text, str) and text.strip() for text in selected["text"]):
         raise ValueError("query texts must be nonempty strings")
     if selected["question_id"].duplicated().any():

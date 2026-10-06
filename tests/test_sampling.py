@@ -35,3 +35,12 @@ def test_bad_selected_queries_fail_before_sampling(column, value):
     queries[column] = value
     with pytest.raises(ValueError):
         sample_queries(queries, 1, 17)
+
+
+def test_sampling_rejects_unsigned_ids_that_would_wrap_in_benchmark_metadata():
+    queries = pd.DataFrame({"question_id": pd.Series([2**63], dtype="uint64"),
+                            "text": ["query"], "split": ["val"]})
+    with pytest.raises(ValueError, match="int64"):
+        sample_queries(queries, 1, 17)
+    queries["question_id"] = pd.Series([2**63 - 1], dtype="uint64")
+    assert sample_queries(queries, 1, 17).question_id.tolist() == [2**63 - 1]
