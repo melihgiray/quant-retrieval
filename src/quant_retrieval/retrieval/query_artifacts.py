@@ -1,8 +1,18 @@
 """Portable validation-query vectors for model-free index benchmarks."""
 
 import re
+import tempfile
+from copy import deepcopy
+from pathlib import Path
 
+import numpy as np
+
+from quant_retrieval.eval.results import write_result
 from quant_retrieval.retrieval.checkpoint import validate_checkpoint_hashes
+from quant_retrieval.retrieval.index_artifacts import file_digest
+from quant_retrieval.retrieval.vectors import validate_embeddings
+
+QUERY_VECTOR_FILE = "query_vectors.npy"
 
 
 def validate_query_manifest(manifest: dict) -> None:
@@ -29,3 +39,27 @@ def validate_query_manifest(manifest: dict) -> None:
         if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
             raise ValueError(f"query artifact {name} must be a SHA-256 string")
     validate_checkpoint_hashes(manifest.get("checkpoint_sha256"))
+
+
+def publish_queries(destination: Path, vectors: np.ndarray, metadata: dict) -> dict:
+    """Publish a complete new query version without replacing an earlier one."""
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError("query destination exists; choose a new version directory")
+    validate_embeddings(vectors, len(metadata.get("question_ids", [])), atol=1e-4)
+    if vectors.dtype != np.float32:
+        raise ValueError("saved query vectors must be float32")
+    manifest = {**deepcopy(metadata), "schema_version": 1, "kind": "ann_queries",
+                "queries": len(vectors), "dimensions": vectors.shape[1], "dtype": "float32",
+                "vectors_sha256": "0" * 64}
+    validate_query_manifest(manifest)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=destination.parent,
+                                     prefix=f".{destination.name}.") as temporary:
+        staging = Path(temporary)
+        np.save(staging / QUERY_VECTOR_FILE, vectors)
+        manifest["vectors_sha256"] = file_digest(staging / QUERY_VECTOR_FILE)
+        write_result(manifest, staging / "manifest.json")
+        if destination.exists() or destination.is_symlink():
+            raise FileExistsError("query destination appeared during publication")
+        staging.rename(destination)
+    return manifest
