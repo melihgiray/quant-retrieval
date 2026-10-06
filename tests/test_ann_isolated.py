@@ -42,3 +42,7 @@ def test_real_faiss_cached_sweep_runs_without_importing_torch(tmp_path):
     assert len(report["runs"]) == 3
     assert all(row["recall_at_k"] == 1 and row["samples"] == 4 for row in report["runs"])
     assert analyze_ann_report(report)["artifacts"][0]["documents"] == 3
+    assert isinstance(report["ann_runtime"]["faiss"], str)
+    report["query_source"]["manifest"]["question_ids"].reverse()
+    with pytest.raises(ValueError, match="question_ids"):
+        analyze_ann_report(report)

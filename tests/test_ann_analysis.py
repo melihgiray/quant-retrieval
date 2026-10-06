@@ -148,3 +148,11 @@ def test_query_diagnostics_align_repeated_samples_with_question_identity():
                         "hnsw_p50_ms": 2., "exact_p50_ms": 3.}]
     with pytest.raises(ValueError, match="limit"):
         query_diagnostics(report, limit=0)
+
+
+@pytest.mark.parametrize("source", [None, {"kind": "unknown"}, {"kind": "cache"}])
+def test_analysis_rejects_missing_or_unknown_cached_query_provenance(source):
+    report = fixture_report()
+    report["query_source"] = source
+    with pytest.raises(ValueError):
+        analyze_ann_report(report)

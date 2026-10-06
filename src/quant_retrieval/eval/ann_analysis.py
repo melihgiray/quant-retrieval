@@ -5,6 +5,11 @@ import re
 
 import numpy as np
 
+from quant_retrieval.retrieval.query_artifacts import (
+    validate_query_manifest,
+    verify_query_compatibility,
+)
+
 
 def _integer(value, name: str, minimum: int = 1) -> None:
     if type(value) is not int or value < minimum:
@@ -62,6 +67,27 @@ def validate_ann_report(report: dict) -> None:
         elif row.get("ef_search") is not None or row["recall_at_k"] != 1:
             raise ValueError("exact rows must have unit recall and no search breadth")
     _validate_coverage(report)
+    _validate_query_source(report)
+
+
+def _validate_query_source(report: dict) -> None:
+    if "query_source" not in report:
+        return  # Earlier version 1 reports predate portable query vectors.
+    source = report["query_source"]
+    if not isinstance(source, dict) or source.get("kind") not in ("live", "cache"):
+        raise ValueError("unknown ANN query source")
+    if source["kind"] == "live":
+        return
+    manifest = source.get("manifest")
+    validate_query_manifest(manifest)
+    digest = source.get("manifest_sha256")
+    if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError("cached query source must identify its manifest")
+    for key in ("queries", "question_ids", "query_sha256", "seed"):
+        if manifest[key] != report.get(key):
+            raise ValueError(f"cached query source disagrees with report {key}")
+    for artifact in report["artifacts"]:
+        verify_query_compatibility(manifest, artifact["manifest"])
 
 
 def _validate_coverage(report: dict) -> None:

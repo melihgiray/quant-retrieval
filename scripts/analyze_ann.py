@@ -35,6 +35,7 @@ def main() -> None:
         "benchmark": {key: report.get(key) for key in (
             "commit", "created_at", "environment", "seed", "query_sha256", "question_ids",
             "queries", "repeats", "warmup", "threads", "k", "neighbours", "ef_construction",
+            "query_source", "ann_runtime",
         )},
     }
     write_result(result, args.output, overwrite=False)

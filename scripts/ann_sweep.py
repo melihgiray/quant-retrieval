@@ -233,6 +233,7 @@ def main() -> None:
     report = {
         **context,
         "query_source": query_source,
+        "ann_runtime": {"faiss": getattr(faiss, "__version__", None), "numpy": np.__version__},
         "schema_version": 1,
         "scope": "index_search_only",
         "latency_order": "repeat_major_query_minor",
