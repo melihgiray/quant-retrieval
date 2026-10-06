@@ -14,6 +14,7 @@ from scripts import ann_sweep
 from quant_retrieval.retrieval.ann import ApproximateRetriever
 from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES, checkpoint_hashes
 from quant_retrieval.retrieval.index_artifacts import publish_index
+from quant_retrieval.retrieval.query_artifacts import publish_queries
 
 
 class FakeIndex:
@@ -174,3 +175,31 @@ def test_complete_sweep_reuses_graph_and_saves_reproducible_report(
     assert analysis["source"]["benchmark"]["question_ids"] == report["question_ids"]
     assert len(analysis["query_diagnostics"]) == 2
     assert all(len(row["worst_queries"]) == 2 for row in analysis["query_diagnostics"])
+
+
+def test_cached_sweep_needs_no_checkpoint_files_or_source_query_table(
+    tmp_path, fake_faiss, monkeypatch
+):
+    fake_faiss.omp_set_num_threads = lambda threads: None
+    identity = {name: "a" * 64 for name in CHECKPOINT_FILES}
+    index, cache = tmp_path / "index", tmp_path / "queries"
+    publish_index(index, np.array([10, 20]), np.eye(2), {"checkpoint": "/absent/model",
+        "checkpoint_sha256": identity, "max_length": 64, "pooling": "mean"})
+    publish_queries(cache, np.eye(2, dtype=np.float32), {"seed": 17, "question_ids": [1, 2],
+        "query_sha256": "b" * 64, "split": "val", "checkpoint_sha256": identity,
+        "max_length": 64, "pooling": "mean", "commit": "encoding-revision"})
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("cached sweep must not encode or read source queries")
+
+    monkeypatch.setattr(ann_sweep, "encode_live_queries", forbidden)
+    monkeypatch.setattr(ann_sweep.pd, "read_parquet", forbidden)
+    output = tmp_path / "report.json"
+    monkeypatch.setattr("sys.argv", ["ann", "--embeddings", str(index), "--query-cache", str(cache),
+                                    "--output", str(output), "--ef-search", "16", "--k", "1"])
+    ann_sweep.main()
+    report = json.loads(output.read_text())
+    assert report["complete"] is True and report["question_ids"] == [1, 2]
+    assert report["query_source"]["manifest"]["commit"] == "encoding-revision"
+    assert report["commit"] != "encoding-revision"
+    assert report["checkpoint"] is None

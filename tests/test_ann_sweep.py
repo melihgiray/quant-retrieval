@@ -208,3 +208,13 @@ def test_importing_sweep_does_not_load_either_native_runtime():
         "import scripts.ann_sweep; import sys; "
         "assert 'torch' not in sys.modules; assert 'faiss' not in sys.modules"],
         check=True, capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("option,value", [("--seed", "17"), ("--queries", "2"),
+                                          ("--data", "data"), ("--checkpoint", "model")])
+def test_cached_mode_rejects_ignored_live_encoding_options(monkeypatch, option, value):
+    monkeypatch.setattr("sys.argv", ["ann", "--embeddings", "missing", "--query-cache", "cache",
+                                    option, value])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2

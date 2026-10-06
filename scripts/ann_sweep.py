@@ -28,15 +28,20 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from quant_retrieval.eval.benchmark import benchmark_context  # noqa: E402
+from quant_retrieval.eval.benchmark import benchmark_context, runtime_context  # noqa: E402
 from quant_retrieval.eval.results import write_result  # noqa: E402
 from quant_retrieval.eval.sampling import sample_queries  # noqa: E402
 from quant_retrieval.retrieval.ann import ApproximateRetriever, recall_against_exact  # noqa: E402
 from quant_retrieval.retrieval.checkpoint import verify_checkpoint  # noqa: E402
 from quant_retrieval.retrieval.index_artifacts import (  # noqa: E402
+    file_digest,
     read_manifest,
     validate_document_ids,
     verify_export_files,
+)
+from quant_retrieval.retrieval.query_artifacts import (  # noqa: E402
+    load_queries,
+    verify_query_compatibility,
 )
 from quant_retrieval.retrieval.vectors import validate_embeddings  # noqa: E402
 
@@ -55,19 +60,27 @@ def encode_live_queries(checkpoint: Path, selected: pd.DataFrame, manifest: dict
     return vectors
 
 
-def load_manifest(directory: Path, checkpoint: Path) -> dict:
+def load_manifest(directory: Path, checkpoint: Path | None, query_manifest: dict | None = None):
     manifest = read_manifest(directory / "manifest.json")
     for key in ("documents", "dimensions", "max_length"):
         if type(manifest.get(key)) is not int or manifest[key] <= 0:
             raise ValueError(f"{directory}: {key} must be a positive integer")
     if not isinstance(manifest.get("checkpoint"), str) or not manifest["checkpoint"]:
         raise ValueError(f"{directory}: checkpoint is required")
-    verified = verify_checkpoint(checkpoint, manifest)
-    if not verified and Path(manifest["checkpoint"]).resolve() != checkpoint.resolve():
-        raise ValueError(f"{directory}: checkpoint does not match the query encoder")
+    if query_manifest is not None:
+        verify_query_compatibility(query_manifest, manifest)
+    elif checkpoint is not None:
+        verified = verify_checkpoint(checkpoint, manifest)
+        if not verified and Path(manifest["checkpoint"]).resolve() != checkpoint.resolve():
+            raise ValueError(f"{directory}: checkpoint does not match the query encoder")
+    else:
+        raise ValueError("a query checkpoint or verified query cache is required")
     if manifest.get("pooling", "mean") not in {"mean", "cls"}:
         raise ValueError(f"{directory}: unsupported pooling strategy")
-    verify_export_files(directory, manifest, ("answer_ids.npy", "embeddings_fp32.npy"))
+    verified_files = verify_export_files(directory, manifest,
+                                         ("answer_ids.npy", "embeddings_fp32.npy"))
+    if query_manifest is not None and not verified_files:
+        raise ValueError("cached-query sweeps require checksum-verified document exports")
     ids = np.load(directory / "answer_ids.npy", mmap_mode="r")
     vectors = np.load(directory / "embeddings_fp32.npy", mmap_mode="r")
     if ids.shape != (manifest["documents"],):
@@ -131,10 +144,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--embeddings", nargs="+", type=Path, required=True,
                         help="directories written by scripts/export_index.py")
-    parser.add_argument("--data", type=Path, default=Path("data/processed"))
-    parser.add_argument("--checkpoint", type=Path,
-                        default=Path("checkpoints/minilm_tuned/epoch-3"))
-    parser.add_argument("--queries", type=int, default=200)
+    parser.add_argument("--data", type=Path)
+    parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--queries", type=int)
+    parser.add_argument("--query-cache", type=Path, help="saved vectors; no model runtime needed")
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--repeats", type=int, default=3)
@@ -143,35 +156,50 @@ def main() -> None:
     parser.add_argument("--ef-construction", type=int, default=200)
     parser.add_argument("--threads", type=int, default=1, help="FAISS CPU threads")
     parser.add_argument("--recall-target", type=float, default=0.95)
-    parser.add_argument("--seed", type=int, default=17)
+    parser.add_argument("--seed", type=int)
     parser.add_argument("--output", type=Path, default=Path("results/ann_scaling.json"))
     parser.add_argument("--overwrite", action="store_true", help="replace an earlier report")
     args = parser.parse_args()
-    inputs = [args.data / "queries.parquet"]
+    if args.query_cache:
+        live_options = (args.data, args.checkpoint, args.queries, args.seed)
+        if any(value is not None for value in live_options):
+            parser.error("query-cache cannot be combined with data, checkpoint, queries or seed")
+    else:
+        args.data = args.data or Path("data/processed")
+        args.checkpoint = args.checkpoint or Path("checkpoints/minilm_tuned/epoch-3")
+        args.queries = 200 if args.queries is None else args.queries
+        args.seed = 17 if args.seed is None else args.seed
+    inputs = [args.data / "queries.parquet"] if args.data else []
     for directory in args.embeddings:
         inputs.extend(directory / name for name in (
             "manifest.json", "answer_ids.npy", "embeddings_fp32.npy", "embeddings_fp16.npy"
         ))
     if (args.output.resolve() in {path.resolve() for path in inputs}
-            or args.output.resolve().is_relative_to(args.checkpoint.resolve())):
+            or any(args.output.resolve().is_relative_to(root.resolve())
+                   for root in (args.checkpoint, args.query_cache) if root is not None)):
         parser.error("output must not replace benchmark inputs or checkpoint files")
     if (args.output.exists() or args.output.is_symlink()) and not args.overwrite:
         parser.error("output exists; choose a new path or pass --overwrite")
-    if any(value <= 0 for value in [args.queries, args.k, args.neighbours, args.repeats,
-                                    args.ef_construction, args.threads, *args.ef_search]):
+    if any(value <= 0 for value in [args.k, args.neighbours, args.repeats,
+                                    args.ef_construction, args.threads, *args.ef_search]
+           + ([] if args.queries is None else [args.queries])):
         parser.error("query counts, graph settings and threads must be positive")
     if args.warmup < 0:
         parser.error("warmup must be nonnegative")
     if not 0 <= args.recall_target <= 1:
         parser.error("recall target must lie between zero and one")
-    if not 0 <= args.seed < 2**32:
+    if args.seed is not None and not 0 <= args.seed < 2**32:
         parser.error("seed must fit uint32")
     if len(set(args.ef_search)) != len(args.ef_search):
         parser.error("ef-search settings must be unique")
     if len({path.resolve() for path in args.embeddings}) != len(args.embeddings):
         parser.error("embedding directories must be unique")
 
-    manifests = [load_manifest(directory, args.checkpoint) for directory in args.embeddings]
+    query_manifest = None
+    if args.query_cache:
+        query_manifest, query_vectors = load_queries(args.query_cache)
+    manifests = [load_manifest(directory, args.checkpoint, query_manifest)
+                 for directory in args.embeddings]
     if len({(m["dimensions"], m["max_length"], m.get("pooling", "mean"))
             for m in manifests}) != 1:
         parser.error("all embedding sets must use the same dimensions, max_length and pooling")
@@ -180,17 +208,26 @@ def main() -> None:
 
     faiss.omp_set_num_threads(args.threads)
 
-    # Encode the queries once, on whatever device is available, then never again.
-    queries = pd.read_parquet(args.data / "queries.parquet")
-    selected = sample_queries(queries, args.queries, args.seed)
-    query_vectors = encode_live_queries(args.checkpoint, selected, manifests[0], args.seed)
-    validate_embeddings(query_vectors, len(selected), atol=1e-4)
-    if query_vectors.shape != (len(selected), manifests[0]["dimensions"]):
-        raise ValueError("query encoder dimensions disagree with exported vectors")
+    if query_manifest is None:
+        queries = pd.read_parquet(args.data / "queries.parquet")
+        selected = sample_queries(queries, args.queries, args.seed)
+        query_vectors = encode_live_queries(args.checkpoint, selected, manifests[0], args.seed)
+        validate_embeddings(query_vectors, len(selected), atol=1e-4)
+        if query_vectors.shape != (len(selected), manifests[0]["dimensions"]):
+            raise ValueError("query encoder dimensions disagree with exported vectors")
+        context = benchmark_context(selected, args.seed)
+        query_source = {"kind": "live"}
+    else:
+        context = {**runtime_context(), **{key: query_manifest[key]
+                   for key in ("seed", "question_ids", "query_sha256")}}
+        query_source = {"kind": "cache", "directory": str(args.query_cache.resolve()),
+                        "manifest_sha256": file_digest(args.query_cache / "manifest.json"),
+                        "manifest": query_manifest}
 
     runs = []
     report = {
-        **benchmark_context(selected, args.seed),
+        **context,
+        "query_source": query_source,
         "schema_version": 1,
         "scope": "index_search_only",
         "latency_order": "repeat_major_query_minor",
@@ -201,7 +238,7 @@ def main() -> None:
              "checkpoint_checksums_verified": "checkpoint_sha256" in manifest}
             for directory, manifest in zip(args.embeddings, manifests, strict=True)
         ],
-        "checkpoint": str(args.checkpoint),
+        "checkpoint": str(args.checkpoint) if args.checkpoint else None,
         "k": args.k, "queries": len(query_vectors), "warmup": args.warmup,
         "repeats": args.repeats,
         "threads": args.threads, "neighbours": args.neighbours,
