@@ -43,6 +43,7 @@ from quant_retrieval.retrieval.query_artifacts import (  # noqa: E402
     load_queries,
     verify_query_compatibility,
 )
+from quant_retrieval.retrieval.runtime_isolation import ensure_ann_runtime  # noqa: E402
 from quant_retrieval.retrieval.vectors import validate_embeddings  # noqa: E402
 
 DEFAULT_EF_SEARCH = (16, 32, 64, 128, 256)
@@ -194,6 +195,10 @@ def main() -> None:
         parser.error("ef-search settings must be unique")
     if len({path.resolve() for path in args.embeddings}) != len(args.embeddings):
         parser.error("embedding directories must be unique")
+    try:
+        ensure_ann_runtime(args.query_cache is not None)
+    except ValueError as error:
+        parser.error(str(error))
 
     query_manifest = None
     if args.query_cache:

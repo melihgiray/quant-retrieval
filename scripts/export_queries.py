@@ -15,12 +15,14 @@ from quant_retrieval.retrieval.index_artifacts import (
     verify_export_files,
 )
 from quant_retrieval.retrieval.query_artifacts import publish_queries, validate_query_manifest
+from quant_retrieval.retrieval.runtime_isolation import ensure_encoder_runtime
 
 
 def encode_queries(
     checkpoint: Path, texts: list[str], metadata: dict, batch_size: int, device: str
 ):
     os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+    ensure_encoder_runtime()
     from quant_retrieval.retrieval.dense import DenseRetriever
     from quant_retrieval.runtime import set_seed
 

@@ -32,6 +32,7 @@ class FakeIndex:
 
 @pytest.fixture
 def fake_faiss(monkeypatch):
+    monkeypatch.setattr(ann_sweep, "ensure_ann_runtime", lambda cached_queries: None)
     def normalize(vectors):
         vectors /= np.linalg.norm(vectors, axis=1, keepdims=True)
 

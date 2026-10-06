@@ -57,6 +57,7 @@ def test_manifest_matches_vectors_and_encoder(tmp_path):
 
 
 def test_failed_graph_build_keeps_completed_exact_measurement(tmp_path, monkeypatch):
+    monkeypatch.setattr(ann_sweep, "ensure_ann_runtime", lambda cached_queries: None)
     output = tmp_path / "report.json"
     queries = pd.DataFrame({"question_id": [1], "text": ["query"], "split": ["val"]})
     monkeypatch.setitem(__import__("sys").modules, "faiss",
