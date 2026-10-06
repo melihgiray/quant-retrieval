@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import numpy as np
 import pytest
+from scripts import inspect_queries
 
 from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES
 from quant_retrieval.retrieval.index_artifacts import file_digest
@@ -111,3 +112,23 @@ def test_cached_queries_match_encoder_contents_not_paths_or_corpus_size():
                        ("checkpoint_sha256", {name: "d" * 64 for name in CHECKPOINT_FILES})]:
         with pytest.raises(ValueError):
             verify_query_compatibility(queries, {**index, key: value})
+
+
+def test_query_inspection_reports_storage_and_preserves_inputs(tmp_path, monkeypatch):
+    root, output = tmp_path / "queries", tmp_path / "inspection.json"
+    publish_queries(root, np.eye(2, dtype=np.float32), query_metadata())
+    monkeypatch.setattr("sys.argv", ["inspect", "--queries", str(root), "--output", str(output)])
+    inspect_queries.main()
+    report = json.loads(output.read_text())
+    assert report["array_bytes"] == 16
+    assert report["file_bytes"] > report["array_bytes"]
+    assert report["payload_checksum_verified"]
+    saved = output.read_bytes()
+    with pytest.raises(SystemExit):
+        inspect_queries.main()
+    assert saved == output.read_bytes()
+    monkeypatch.setattr("sys.argv", ["inspect", "--queries", str(root),
+                                    "--output", str(root / "manifest.json")])
+    with pytest.raises(SystemExit):
+        inspect_queries.main()
+    load_queries(root)
