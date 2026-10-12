@@ -90,6 +90,25 @@ def test_search_service_rejects_invalid_retriever_output(results, message):
         service.search("delta")
 
 
+@pytest.mark.parametrize("identifier,score", [(20.0, 1.0), (True, 1.0), ("20", 1.0),
+                                            ([], 1.0), (20, True), (20, "0.5"), (20, None)])
+def test_search_service_rejects_coercible_result_types(identifier, score):
+    service = SearchService(StubRetriever(), corpus())
+    service.retriever.search = lambda *a: [SearchResult(document_id=identifier, score=score)]
+    with pytest.raises(RuntimeError, match="must be"):
+        service.search("delta")
+
+
+def test_search_service_converts_numpy_results_to_json_scalars():
+    service = SearchService(StubRetriever(), corpus())
+    service.retriever.search = lambda *a: [SearchResult(document_id=np.int64(20),
+                                                       score=np.float32(.5))]
+    hit = service.search("delta")[0].to_dict()
+    assert type(hit["answer_id"]) is int
+    assert type(hit["score"]) is float
+    assert json.loads(json.dumps(hit))["answer_id"] == 20
+
+
 def test_search_service_rejects_more_results_than_requested():
     service = SearchService(StubRetriever(), corpus())
     service.retriever.search = lambda query, k: [

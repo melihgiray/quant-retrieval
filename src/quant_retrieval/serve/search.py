@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import asdict, dataclass
+from numbers import Integral, Real
 from pathlib import Path
 from threading import Lock
 
@@ -207,6 +208,12 @@ class SearchService:
         seen: set[int] = set()
         previous_score = math.inf
         for result in ranked:
+            if (not isinstance(result.document_id, Integral)
+                    or isinstance(result.document_id, bool)
+                    or not 1 <= result.document_id <= 2**63 - 1):
+                raise RuntimeError("retriever answer IDs must be positive int64 integers")
+            if not isinstance(result.score, Real) or isinstance(result.score, bool):
+                raise RuntimeError("retriever scores must be real numbers")
             if result.document_id in seen:
                 raise RuntimeError(f"retriever returned duplicate answer {result.document_id}")
             seen.add(result.document_id)
@@ -222,9 +229,9 @@ class SearchService:
             question_id, text = self.answers[result.document_id]
             hits.append(
                 SearchHit(
-                    answer_id=result.document_id,
+                    answer_id=int(result.document_id),
                     question_id=question_id,
-                    score=result.score,
+                    score=float(result.score),
                     text=make_snippet(text),
                     url=f"https://quant.stackexchange.com/a/{result.document_id}",
                 )
