@@ -227,3 +227,13 @@ def test_checksum_replace_failure_preserves_previous_record(tmp_path, monkeypatc
         write_checksums(output)
     assert (output / CHECKSUM_FILE).read_bytes() == original
     assert list(output.glob(".checksums.json.*")) == []
+
+
+def test_preparation_preserves_optional_tokenizer_files_but_not_optimizer_state(tmp_path):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    (checkpoint / "added_tokens.json").write_text('{"token": 1}')
+    (checkpoint / "optimizer.pt").write_text("training only")
+    output = prepare_demo_snapshot(checkpoint, corpus, artifacts, tmp_path / "output")
+    assert (output / "added_tokens.json").read_text() == '{"token": 1}'
+    assert not (output / "optimizer.pt").exists()
+    assert "added_tokens.json" in verify_snapshot(output)

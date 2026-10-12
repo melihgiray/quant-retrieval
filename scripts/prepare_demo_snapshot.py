@@ -6,6 +6,7 @@ import argparse
 import shutil
 from pathlib import Path
 
+from quant_retrieval.retrieval.checkpoint import TOKENIZER_EXTRAS
 from quant_retrieval.serve.artifacts import (
     CHECKSUM_FILE,
     MODEL_FILES,
@@ -32,6 +33,8 @@ def prepare_demo_snapshot(
     if nested_sources:
         raise ValueError(f"snapshot output is nested inside source directories: {nested_sources}")
     sources = {name: checkpoint / name for name in MODEL_FILES}
+    sources.update({name: checkpoint / name for name in TOKENIZER_EXTRAS
+                    if (checkpoint / name).exists() or (checkpoint / name).is_symlink()})
     sources.update(
         {
             f"demo/{name}": corpus if name == "corpus.parquet" else artifacts / name
