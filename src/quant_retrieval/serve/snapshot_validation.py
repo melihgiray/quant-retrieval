@@ -6,7 +6,12 @@ import numpy as np
 import pandas as pd
 
 from quant_retrieval.eval.fingerprints import corpus_fingerprint
-from quant_retrieval.retrieval.index_artifacts import corpus_ids
+from quant_retrieval.retrieval.index_artifacts import (
+    corpus_ids,
+    validate_document_ids,
+    verify_export_files,
+)
+from quant_retrieval.retrieval.vectors import validate_embeddings
 
 
 def validate_snapshot_corpus(path: Path, manifest: dict) -> pd.DataFrame:
@@ -29,3 +34,17 @@ def validate_snapshot_corpus(path: Path, manifest: dict) -> pd.DataFrame:
     if expected is not None and expected != corpus_fingerprint(corpus):
         raise ValueError("snapshot corpus fingerprint mismatch")
     return corpus
+
+
+def validate_snapshot_vectors(directory: Path, manifest: dict, corpus: pd.DataFrame) -> None:
+    verify_export_files(directory, manifest, ("answer_ids.npy", "embeddings_fp16.npy"))
+    ids = np.load(directory / "answer_ids.npy", allow_pickle=False, mmap_mode="r")
+    validate_document_ids(ids)
+    if not np.array_equal(ids, corpus_ids(corpus)):
+        raise ValueError("snapshot document IDs must match corpus order")
+    vectors = np.load(directory / "embeddings_fp16.npy", allow_pickle=False, mmap_mode="r")
+    if vectors.dtype != np.float16:
+        raise ValueError("snapshot embeddings must use float16")
+    validate_embeddings(vectors, len(ids))
+    if vectors.shape[1] != manifest["dimensions"]:
+        raise ValueError("snapshot vector dimensions differ from manifest")

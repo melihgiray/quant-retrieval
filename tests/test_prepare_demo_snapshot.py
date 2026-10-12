@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Barrier
 
+import numpy as np
 import pandas as pd
 import pytest
 from scripts import prepare_demo_snapshot as snapshot_script
@@ -35,6 +36,8 @@ def source_files(tmp_path: Path):
                   "text": ["bond", "equity"]}).to_parquet(corpus)
     (artifacts / "manifest.json").write_text(json.dumps(
         {"documents": 2, "dimensions": 2, "max_length": 32}))
+    np.save(artifacts / "answer_ids.npy", np.array([1, 2], dtype=np.int64))
+    np.save(artifacts / "embeddings_fp16.npy", np.eye(2, dtype=np.float16))
     return checkpoint, corpus, artifacts
 
 
