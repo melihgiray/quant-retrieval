@@ -181,6 +181,21 @@ def test_remote_snapshot_paths_configure_the_server(tmp_path: Path):
     assert environ["DEVICE"] == "cpu"
 
 
+@pytest.mark.parametrize("value", ["another-model", "", "  "])
+def test_remote_snapshot_rejects_mixed_asset_paths_atomically(tmp_path, value):
+    environ = {"MODEL_PATH": value, "DEVICE": "cpu"}
+    original = dict(environ)
+    with pytest.raises(ValueError, match="conflicts.*MODEL_PATH"):
+        configure_asset_environment(tmp_path, environ)
+    assert environ == original
+
+
+def test_remote_snapshot_accepts_an_equivalent_explicit_path(tmp_path):
+    environ = {"MODEL_PATH": str(tmp_path / ".")}
+    configure_asset_environment(tmp_path, environ)
+    assert environ["CORPUS_PATH"] == str(tmp_path / "demo/corpus.parquet")
+
+
 def test_launcher_accepts_a_valid_port():
     assert valid_port("7860") == 7860
 

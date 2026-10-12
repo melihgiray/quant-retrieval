@@ -43,6 +43,11 @@ def configure_asset_environment(
         "DOCUMENT_IDS_PATH": root / "demo/answer_ids.npy",
         "EMBEDDINGS_PATH": root / "demo/embeddings_fp16.npy",
     }
+    conflicts = [name for name, path in defaults.items()
+                 if name in values and (not values[name].strip()
+                                        or Path(values[name]).resolve() != path.resolve())]
+    if conflicts:
+        raise ValueError(f"remote snapshot conflicts with configured asset paths: {conflicts}")
     for name, path in defaults.items():
         values.setdefault(name, str(path))
 
