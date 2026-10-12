@@ -54,6 +54,15 @@ def test_search_service_rejects_invalid_requests(query, k):
         SearchService(StubRetriever(), corpus()).search(query, k=k)
 
 
+@pytest.mark.parametrize("query,k", [(None, 1), (123, 1), (b"delta", 1),
+                                     ("delta", True), ("delta", 1.5), ("delta", "2")])
+def test_invalid_request_types_fail_before_retrieval(query, k):
+    service = SearchService(StubRetriever(), corpus())
+    service.retriever.search = lambda *args: pytest.fail("retrieval must not run")
+    with pytest.raises(ValueError):
+        service.search(query, k)
+
+
 def test_search_service_rejects_unknown_ranked_answers():
     service = SearchService(StubRetriever(), corpus())
     service.retriever.search = lambda query, k: [SearchResult(document_id=99, score=1.0)]

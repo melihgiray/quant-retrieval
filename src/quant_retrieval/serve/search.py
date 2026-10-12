@@ -190,11 +190,13 @@ class SearchService:
         return cls(retriever, corpus, artifact_commit=manifest.commit)
 
     def search(self, query: str, k: int = 10) -> list[SearchHit]:
+        if not isinstance(query, str):
+            raise ValueError("query must be a string")
         query = query.strip()
         if not query:
             raise ValueError("query must not be empty")
-        if not 1 <= k <= 20:
-            raise ValueError("k must be between 1 and 20")
+        if type(k) is not int or not 1 <= k <= 20:
+            raise ValueError("k must be an integer between 1 and 20")
 
         with self._search_lock:
             ranked = self.retriever.search(query, k)
