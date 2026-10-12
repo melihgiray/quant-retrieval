@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Barrier
 
+import pandas as pd
 import pytest
 from scripts import prepare_demo_snapshot as snapshot_script
 from scripts.prepare_demo_snapshot import prepare_demo_snapshot
@@ -30,7 +31,8 @@ def source_files(tmp_path: Path):
     for name in RETRIEVAL_FILES:
         if name != "corpus.parquet":
             (artifacts / name).write_bytes(f"artifact:{name}".encode())
-    corpus.write_bytes(b"corpus")
+    pd.DataFrame({"answer_id": [1, 2], "question_id": [10, 20],
+                  "text": ["bond", "equity"]}).to_parquet(corpus)
     (artifacts / "manifest.json").write_text(json.dumps(
         {"documents": 2, "dimensions": 2, "max_length": 32}))
     return checkpoint, corpus, artifacts
@@ -42,7 +44,7 @@ def test_prepare_snapshot_copies_the_complete_contract(tmp_path: Path):
     output = prepare_demo_snapshot(checkpoint, corpus, artifacts, tmp_path / "output")
 
     assert all((output / relative).is_file() for relative in REQUIRED_FILES)
-    assert (output / "demo/corpus.parquet").read_bytes() == b"corpus"
+    assert pd.read_parquet(output / "demo/corpus.parquet").answer_id.tolist() == [1, 2]
     assert (output / CHECKSUM_FILE).is_file()
     assert not (output / f".{CHECKSUM_FILE}.tmp").exists()
     assert set(json.loads((output / CHECKSUM_FILE).read_text())) == set(REQUIRED_FILES) - {

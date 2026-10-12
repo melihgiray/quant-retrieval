@@ -15,6 +15,7 @@ from quant_retrieval.serve.artifacts import (
     linked_paths,
     write_checksums,
 )
+from quant_retrieval.serve.snapshot_validation import validate_snapshot_corpus
 
 
 def prepare_demo_snapshot(
@@ -66,6 +67,7 @@ def prepare_demo_snapshot(
 
     manifest = read_manifest(artifacts / "manifest.json")
     verify_checkpoint(checkpoint, manifest)
+    validate_snapshot_corpus(corpus, manifest)
 
     (output / CHECKSUM_FILE).unlink(missing_ok=True)
     for relative, source in sources.items():
