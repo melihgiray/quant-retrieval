@@ -55,7 +55,7 @@ def file_sha256(path: Path) -> str:
 
 
 def write_checksums(root: Path) -> dict[str, str]:
-    checksums = {relative: file_sha256(root / relative) for relative in PAYLOAD_FILES}
+    checksums = {relative: file_sha256(root / relative) for relative in snapshot_payloads(root)}
     destination = root / CHECKSUM_FILE
     temporary = None
     try:
