@@ -12,6 +12,7 @@ from quant_retrieval.retrieval.index_artifacts import read_manifest
 from quant_retrieval.serve.artifacts import (
     MODEL_FILES,
     RETRIEVAL_FILES,
+    file_sha256,
     linked_paths,
     write_checksums,
 )
@@ -71,6 +72,7 @@ def prepare_demo_snapshot(
     if output.exists():
         raise FileExistsError("snapshot output already exists; choose a new version directory")
 
+    source_hashes = {relative: file_sha256(source) for relative, source in sources.items()}
     manifest = read_manifest(artifacts / "manifest.json")
     verify_checkpoint(checkpoint, manifest)
     frame = validate_snapshot_corpus(corpus, manifest)
@@ -83,6 +85,8 @@ def prepare_demo_snapshot(
             destination = staging / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
+            if file_sha256(destination) != source_hashes[relative]:
+                raise ValueError(f"snapshot source changed during preparation: {relative}")
         write_checksums(staging)
         inspect_snapshot(staging)
         if output.exists() or output.is_symlink():

@@ -210,6 +210,23 @@ def test_snapshot_preparation_preserves_an_existing_version(tmp_path):
     assert (output / CHECKSUM_FILE).read_bytes() == previous
 
 
+def test_snapshot_preparation_detects_source_changes_during_copy(tmp_path, monkeypatch):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    real_copy = snapshot_script.shutil.copy2
+
+    def changing_copy(source, destination):
+        if source.name == "config.json":
+            source.write_bytes(b"changed but nonempty")
+        return real_copy(source, destination)
+
+    monkeypatch.setattr(snapshot_script.shutil, "copy2", changing_copy)
+    output = tmp_path / "output"
+    with pytest.raises(ValueError, match="source changed.*config.json"):
+        prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
+    assert not output.exists()
+    assert list(tmp_path.glob(".output.*")) == []
+
+
 def test_concurrent_checksum_writers_do_not_share_temporary_files(tmp_path, monkeypatch):
     checkpoint, corpus, artifacts = source_files(tmp_path)
     output = prepare_demo_snapshot(checkpoint, corpus, artifacts, tmp_path / "output")
