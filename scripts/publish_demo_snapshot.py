@@ -9,7 +9,7 @@ from typing import Any
 from huggingface_hub import HfApi
 from scripts.hub_auth import nonempty_hub_value, read_token_file
 
-from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
+from quant_retrieval.serve.artifacts import verify_snapshot
 
 
 def publish_demo_snapshot(
@@ -21,7 +21,7 @@ def publish_demo_snapshot(
     api: Any | None = None,
 ) -> str:
     repo_id = nonempty_hub_value(repo_id, "repo_id")
-    verify_snapshot(snapshot)
+    verified_files = verify_snapshot(snapshot)
     client = api or HfApi(token=token)
     client.create_repo(repo_id=repo_id, repo_type="model", private=private, exist_ok=True)
     repository = client.repo_info(repo_id=repo_id, repo_type="model")
@@ -36,7 +36,7 @@ def publish_demo_snapshot(
         repo_id=repo_id,
         repo_type="model",
         folder_path=str(snapshot),
-        allow_patterns=list(REQUIRED_FILES),
+        allow_patterns=list(verified_files),
         commit_message="Publish search demo snapshot",
     )
     return str(result)

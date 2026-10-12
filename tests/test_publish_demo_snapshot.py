@@ -63,3 +63,14 @@ def test_publish_rejects_an_existing_repo_with_different_visibility(tmp_path: Pa
 def test_publish_rejects_an_empty_repository_id(tmp_path: Path):
     with pytest.raises(ValueError, match="repo_id must not be empty"):
         publish_demo_snapshot("  ", snapshot(tmp_path), api=FakeApi())
+
+
+def test_publication_uploads_exactly_the_verified_optional_contract(tmp_path):
+    root = snapshot(tmp_path)
+    (root / "added_tokens.json").write_text("{}")
+    (root / "private-notes.txt").write_text("must not upload")
+    write_checksums(root)
+    api = FakeApi(private=True)
+    publish_demo_snapshot("owner/model", root, api=api)
+    assert "added_tokens.json" in api.uploaded["allow_patterns"]
+    assert "private-notes.txt" not in api.uploaded["allow_patterns"]
