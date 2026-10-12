@@ -10,6 +10,7 @@ a partial upload fails during the build instead of during the first request.
 from __future__ import annotations
 
 import argparse
+import tempfile
 from pathlib import Path
 
 from huggingface_hub import snapshot_download
@@ -25,17 +26,25 @@ def download_demo_assets(
     revision = nonempty_hub_value(revision, "revision")
     if output.exists() and not output.is_dir():
         raise ValueError(f"asset output must be a directory: {output}")
-    downloaded = Path(
-        snapshot_download(
+    if output.is_symlink() or (output.exists() and any(output.iterdir())):
+        raise FileExistsError("asset output must be a new or empty unlinked directory")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=output.parent, prefix=f".{output.name}.") as temporary:
+        staging = Path(temporary) / "assets"
+        downloaded = Path(snapshot_download(
             repo_id=repo_id,
             revision=revision,
-            local_dir=output,
+            local_dir=staging,
             allow_patterns=list(ALLOWED_FILES),
             token=token,
-        )
-    )
-    verify_snapshot(downloaded)
-    return downloaded
+        ))
+        if downloaded.resolve() != staging.resolve():
+            raise RuntimeError("asset download returned an unexpected directory")
+        verify_snapshot(staging)
+        if output.is_symlink() or (output.exists() and any(output.iterdir())):
+            raise FileExistsError("asset output changed during download")
+        staging.rename(output)
+    return output
 
 
 def main() -> None:

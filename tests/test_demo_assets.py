@@ -28,6 +28,7 @@ def fake_snapshot(
     def download(**kwargs):
         assert kwargs["repo_id"] == "owner/model"
         assert kwargs["revision"] == "abc123"
+        output = Path(kwargs["local_dir"])
         for relative in PAYLOAD_FILES:
             if relative == missing:
                 continue
@@ -55,6 +56,22 @@ def test_download_checks_and_returns_the_snapshot(tmp_path: Path, monkeypatch):
 
     assert downloaded == tmp_path
     assert all((downloaded / relative).is_file() for relative in REQUIRED_FILES)
+
+
+def test_failed_download_does_not_publish_partial_assets(tmp_path, monkeypatch):
+    output = tmp_path / "new-assets"
+    monkeypatch.setattr(assets, "snapshot_download", fake_snapshot(output, "config.json"))
+    with pytest.raises(RuntimeError, match="config.json"):
+        assets.download_demo_assets("owner/model", output, "abc123")
+    assert not output.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_download_preserves_a_nonempty_output(tmp_path):
+    (tmp_path / "keep.txt").write_text("keep")
+    with pytest.raises(FileExistsError, match="new or empty"):
+        assets.download_demo_assets("owner/model", tmp_path)
+    assert (tmp_path / "keep.txt").read_text() == "keep"
 
 
 @pytest.mark.parametrize("repo_id", ["", "  ", "\n"])
