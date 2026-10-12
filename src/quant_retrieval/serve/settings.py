@@ -32,13 +32,17 @@ class ServeSettings:
     @classmethod
     def from_environment(cls, environ: Mapping[str, str] | None = None) -> ServeSettings:
         values = os.environ if environ is None else environ
+        for name in ("MODEL_PATH", "CORPUS_PATH", "MANIFEST_PATH", "DOCUMENT_IDS_PATH",
+                     "EMBEDDINGS_PATH", "DEVICE"):
+            if name in values and (not isinstance(values[name], str) or not values[name].strip()):
+                raise ValueError(f"{name} must be a nonempty string")
         settings = cls(
             model_path=Path(values.get("MODEL_PATH", cls.model_path)),
             corpus_path=Path(values.get("CORPUS_PATH", cls.corpus_path)),
             manifest_path=Path(values.get("MANIFEST_PATH", cls.manifest_path)),
             document_ids_path=Path(values.get("DOCUMENT_IDS_PATH", cls.document_ids_path)),
             embeddings_path=Path(values.get("EMBEDDINGS_PATH", cls.embeddings_path)),
-            device=values.get("DEVICE", cls.device),
+            device=values.get("DEVICE", cls.device).strip(),
             depth=_positive_setting(values, "RETRIEVAL_DEPTH", cls.depth),
             rrf_k=_positive_setting(values, "RRF_K", cls.rrf_k),
         )

@@ -41,3 +41,15 @@ def test_settings_read_deployment_overrides():
 def test_settings_reject_invalid_retrieval_parameters(name, value):
     with pytest.raises(ValueError, match=f"{name} must be a positive integer"):
         ServeSettings.from_environment({name: value})
+
+
+@pytest.mark.parametrize("name", ["MODEL_PATH", "CORPUS_PATH", "MANIFEST_PATH",
+                                 "DOCUMENT_IDS_PATH", "EMBEDDINGS_PATH", "DEVICE"])
+@pytest.mark.parametrize("value", ["", "  ", "\n", None])
+def test_blank_asset_settings_cannot_resolve_to_the_working_directory(name, value):
+    with pytest.raises(ValueError, match=f"{name} must be a nonempty string"):
+        ServeSettings.from_environment({name: value})
+
+
+def test_device_setting_trims_surrounding_whitespace():
+    assert ServeSettings.from_environment({"DEVICE": " cpu "}).device == "cpu"
