@@ -13,6 +13,9 @@ from quant_retrieval.retrieval.vectors import validate_embeddings
 def inspect_index(directory: Path, chunk_size: int = 4096) -> dict:
     manifest_path = directory / "manifest.json"
     manifest = parse_record(manifest_path.read_bytes(), manifest_path)
+    for name in ("documents", "dimensions"):
+        if type(manifest.get(name)) is not int or manifest[name] < 1:
+            raise ValueError(f"manifest {name} must be a positive integer")
     verified = verify_export_files(directory, manifest)
     ids = np.load(directory / "answer_ids.npy", mmap_mode="r")
     if (ids.ndim != 1 or not np.issubdtype(ids.dtype, np.integer) or not len(ids)
@@ -56,6 +59,10 @@ def main() -> None:
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.output.exists() or args.output.is_symlink():
+        parser.error("inspection output exists; choose a new path")
+    if args.output.resolve().is_relative_to(args.artifacts.resolve()):
+        parser.error("inspection output must be outside the artifact directory")
     write_result(inspect_index(args.artifacts), args.output, overwrite=False)
     print(f"wrote {args.output}")
 
