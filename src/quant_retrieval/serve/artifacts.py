@@ -73,6 +73,8 @@ def write_checksums(root: Path) -> dict[str, str]:
 
 
 def verify_snapshot(root: Path) -> tuple[str, ...]:
+    if not root.is_dir():
+        raise RuntimeError("asset repository root must be a directory")
     payloads = snapshot_payloads(root)
     required = payloads + (CHECKSUM_FILE,)
     linked = linked_paths(root, required)

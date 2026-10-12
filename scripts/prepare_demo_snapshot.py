@@ -22,6 +22,8 @@ def prepare_demo_snapshot(
     artifacts: Path,
     output: Path,
 ) -> Path:
+    if checkpoint.is_symlink() or artifacts.is_symlink():
+        raise ValueError("snapshot sources contain linked directories")
     if output.exists() and not output.is_dir():
         raise ValueError(f"snapshot output must be a directory: {output}")
     resolved_output = output.resolve()

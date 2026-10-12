@@ -237,3 +237,16 @@ def test_preparation_preserves_optional_tokenizer_files_but_not_optimizer_state(
     assert (output / "added_tokens.json").read_text() == '{"token": 1}'
     assert not (output / "optimizer.pt").exists()
     assert "added_tokens.json" in verify_snapshot(output)
+
+
+@pytest.mark.parametrize("linked_source", ["checkpoint", "artifacts"])
+def test_preparation_rejects_linked_source_roots(tmp_path, linked_source):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    alias = tmp_path / "alias"
+    alias.symlink_to(checkpoint if linked_source == "checkpoint" else artifacts,
+                     target_is_directory=True)
+    with pytest.raises(ValueError, match="linked directories"):
+        prepare_demo_snapshot(alias if linked_source == "checkpoint" else checkpoint, corpus,
+                              alias if linked_source == "artifacts" else artifacts,
+                              tmp_path / "output")
+    assert not (tmp_path / "output").exists()
