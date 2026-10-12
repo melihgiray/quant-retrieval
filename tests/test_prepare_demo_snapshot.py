@@ -19,6 +19,7 @@ from quant_retrieval.serve.artifacts import (
     verify_snapshot,
     write_checksums,
 )
+from quant_retrieval.serve.snapshot_validation import inspect_snapshot
 
 
 def source_files(tmp_path: Path):
@@ -54,6 +55,11 @@ def test_prepare_snapshot_copies_the_complete_contract(tmp_path: Path):
         CHECKSUM_FILE
     }
     verify_snapshot(output)
+    report = inspect_snapshot(output)
+    assert report["documents"] == 2
+    assert report["runtime_tested"] is False
+    assert report["checkpoint_identity_verified"] is False
+    assert report["export_identity_verified"] is False
 
 
 def test_prepare_snapshot_checks_every_source_before_copying(tmp_path: Path):
