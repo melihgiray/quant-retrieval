@@ -71,21 +71,23 @@ def write_checksums(root: Path) -> dict[str, str]:
     return checksums
 
 
-def verify_snapshot(root: Path) -> None:
-    linked = linked_paths(root, REQUIRED_FILES)
+def verify_snapshot(root: Path) -> tuple[str, ...]:
+    payloads = snapshot_payloads(root)
+    required = payloads + (CHECKSUM_FILE,)
+    linked = linked_paths(root, required)
     if linked:
         raise RuntimeError(f"asset repository contains linked files: {linked}")
-    missing = [relative for relative in REQUIRED_FILES if not (root / relative).is_file()]
+    missing = [relative for relative in required if not (root / relative).is_file()]
     if missing:
         raise RuntimeError(f"asset repository is missing files: {missing}")
-    empty = [relative for relative in PAYLOAD_FILES if (root / relative).stat().st_size == 0]
+    empty = [relative for relative in payloads if (root / relative).stat().st_size == 0]
     if empty:
         raise RuntimeError(f"asset repository contains empty files: {empty}")
     try:
         expected = json.loads((root / CHECKSUM_FILE).read_text())
     except (UnicodeError, json.JSONDecodeError) as error:
         raise RuntimeError("asset checksum file is not valid JSON") from error
-    if not isinstance(expected, dict) or set(expected) != set(PAYLOAD_FILES):
+    if not isinstance(expected, dict) or set(expected) != set(payloads):
         raise RuntimeError("asset checksum file does not match the required payload")
     invalid = [
         relative
@@ -96,8 +98,9 @@ def verify_snapshot(root: Path) -> None:
         raise RuntimeError(f"asset checksum file contains invalid SHA-256 values: {invalid}")
     mismatched = [
         relative
-        for relative in PAYLOAD_FILES
+        for relative in payloads
         if expected.get(relative) != file_sha256(root / relative)
     ]
     if mismatched:
         raise RuntimeError(f"asset checksum mismatch: {mismatched}")
+    return required
