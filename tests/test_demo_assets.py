@@ -200,6 +200,24 @@ def test_launcher_accepts_a_valid_port():
     assert valid_port("7860") == 7860
 
 
+def test_explicit_launcher_port_can_override_an_invalid_environment(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setenv("PORT", "invalid")
+    monkeypatch.delenv("ASSET_REPO", raising=False)
+    monkeypatch.setattr(sys, "argv", ["start_demo", "--port", "8080"])
+    monkeypatch.setattr(start_demo.uvicorn, "run", lambda *a, **kw: calls.append(kw))
+    start_demo.main()
+    assert calls[0]["port"] == 8080
+
+
+def test_invalid_default_launcher_port_is_an_argument_error(monkeypatch):
+    monkeypatch.setenv("PORT", "invalid")
+    monkeypatch.setattr(sys, "argv", ["start_demo"])
+    with pytest.raises(SystemExit) as error:
+        start_demo.main()
+    assert error.value.code == 2
+
+
 @pytest.mark.parametrize("value", ["not-a-port", "0", "65536", "-1"])
 def test_launcher_rejects_an_invalid_port(value):
     with pytest.raises(argparse.ArgumentTypeError, match="1 to 65535"):

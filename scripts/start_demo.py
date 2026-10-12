@@ -55,7 +55,7 @@ def configure_asset_environment(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", type=nonempty_value, default="0.0.0.0")
-    parser.add_argument("--port", type=valid_port, default=valid_port(os.getenv("PORT", "7860")))
+    parser.add_argument("--port", type=valid_port, default=os.getenv("PORT", "7860"))
     parser.add_argument("--asset-repo", type=nonempty_value, default=os.getenv("ASSET_REPO"))
     parser.add_argument(
         "--asset-revision",
