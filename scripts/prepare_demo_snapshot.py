@@ -6,7 +6,8 @@ import argparse
 import shutil
 from pathlib import Path
 
-from quant_retrieval.retrieval.checkpoint import TOKENIZER_EXTRAS
+from quant_retrieval.retrieval.checkpoint import TOKENIZER_EXTRAS, verify_checkpoint
+from quant_retrieval.retrieval.index_artifacts import read_manifest
 from quant_retrieval.serve.artifacts import (
     CHECKSUM_FILE,
     MODEL_FILES,
@@ -62,6 +63,9 @@ def prepare_demo_snapshot(
     linked = linked_paths(output, tuple(sources))
     if linked:
         raise ValueError(f"snapshot output contains linked paths: {linked}")
+
+    manifest = read_manifest(artifacts / "manifest.json")
+    verify_checkpoint(checkpoint, manifest)
 
     (output / CHECKSUM_FILE).unlink(missing_ok=True)
     for relative, source in sources.items():

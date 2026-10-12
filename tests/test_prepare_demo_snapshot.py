@@ -7,6 +7,7 @@ import pytest
 from scripts import prepare_demo_snapshot as snapshot_script
 from scripts.prepare_demo_snapshot import prepare_demo_snapshot
 
+from quant_retrieval.retrieval.checkpoint import checkpoint_hashes
 from quant_retrieval.serve.artifacts import (
     CHECKSUM_FILE,
     MODEL_FILES,
@@ -30,6 +31,8 @@ def source_files(tmp_path: Path):
         if name != "corpus.parquet":
             (artifacts / name).write_bytes(f"artifact:{name}".encode())
     corpus.write_bytes(b"corpus")
+    (artifacts / "manifest.json").write_text(json.dumps(
+        {"documents": 2, "dimensions": 2, "max_length": 32}))
     return checkpoint, corpus, artifacts
 
 
@@ -249,4 +252,16 @@ def test_preparation_rejects_linked_source_roots(tmp_path, linked_source):
         prepare_demo_snapshot(alias if linked_source == "checkpoint" else checkpoint, corpus,
                               alias if linked_source == "artifacts" else artifacts,
                               tmp_path / "output")
+    assert not (tmp_path / "output").exists()
+
+
+def test_preparation_checks_model_identity_before_copying(tmp_path):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    path = artifacts / "manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["checkpoint_sha256"] = checkpoint_hashes(checkpoint)
+    path.write_text(json.dumps(manifest))
+    (checkpoint / "tokenizer.json").write_text("changed tokenizer")
+    with pytest.raises(ValueError, match="checkpoint checksum mismatch"):
+        prepare_demo_snapshot(checkpoint, corpus, artifacts, tmp_path / "output")
     assert not (tmp_path / "output").exists()
