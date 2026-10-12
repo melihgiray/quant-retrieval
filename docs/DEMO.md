@@ -118,19 +118,37 @@ python -m scripts.start_demo \
   --asset-revision COMMIT_SHA
 ```
 
-Pinning a commit instead of `main` keeps the model, corpus, and embedding matrix
-on one known version.
+Use the full 40-character commit SHA to keep the model, corpus, and embedding
+matrix on one known version. A download receipt records the requested revision
+and checksum identity, never the access token. An existing download is reused
+only when its receipt matches that repository and full SHA and all checksums
+still pass. Branch names such as `main` are not eligible for local reuse.
 
 Prepare and publish that repository with:
 
 ```sh
-python scripts/prepare_demo_snapshot.py
-python scripts/publish_demo_snapshot.py OWNER/REPOSITORY --public
+python -m scripts.prepare_demo_snapshot --output demo_assets/v1
+python -m scripts.inspect_snapshot --snapshot demo_assets/v1 --output results/snapshot-v1.json
+python -m scripts.publish_demo_snapshot OWNER/REPOSITORY --snapshot demo_assets/v1 --public
 ```
 
-The publication command reads `~/.hf_token`, checks every snapshot checksum,
+Preparation requires a fresh version directory and validates a staged copy
+before publishing it locally. A failed copy leaves no partial snapshot. Downloads
+similarly stage and verify files before publishing to a new or empty directory;
+they never overwrite a nonempty directory that cannot be safely reused.
+
+The offline inspector checks checksums, corpus order, IDs, vector dimensions,
+normalization, and any recorded model/corpus/export identities. Legacy manifests
+without those identities are reported explicitly. This does not load the encoder,
+prove runtime compatibility, or measure retrieval quality. Its report must be
+outside the snapshot and cannot overwrite an existing file.
+
+The publication command reads `~/.hf_token`, runs the offline consistency checks,
 and uploads only the listed model and retrieval files as one model repository
-commit. It defaults to private unless `--public` is passed.
+commit. Supported optional tokenizer files are included when present. Obsolete
+optional tokenizer files are removed in that same remote commit; unrelated files
+such as the model card are left alone. It defaults to private unless `--public`
+is passed.
 If the Hub repository already exists, its visibility must match the chosen
 option. The command checks this before uploading and does not change the
 repository's visibility for you.
@@ -167,5 +185,7 @@ hosted URL.
 
 The service accepts `MODEL_PATH`, `CORPUS_PATH`, `MANIFEST_PATH`,
 `DOCUMENT_IDS_PATH`, and `EMBEDDINGS_PATH`. `DEVICE`, `RETRIEVAL_DEPTH`, and
-`RRF_K` control runtime and fusion settings. Explicit path settings take
-priority over paths inferred from a downloaded snapshot.
+`RRF_K` control runtime and fusion settings. In remote-asset mode, explicit path
+settings must resolve to the downloaded snapshot paths; conflicting or blank
+settings fail instead of silently combining assets from different versions.
+Without remote-asset mode, the explicit local paths remain independent overrides.
