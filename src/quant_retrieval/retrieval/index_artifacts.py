@@ -29,6 +29,12 @@ def file_digest(path: Path) -> str:
 
 def verify_export_files(directory: Path, manifest: dict, names=INDEX_PAYLOADS) -> bool:
     """Verify requested payloads, returning False for legacy manifests without hashes."""
+    if not isinstance(manifest, dict):
+        raise ValueError("index manifest must be an object")
+    if (not isinstance(names, (tuple, list)) or not names
+            or any(not isinstance(name, str) or name not in INDEX_PAYLOADS for name in names)
+            or len(set(names)) != len(names)):
+        raise ValueError("index verification requires unique supported payload names")
     if "schema_version" in manifest and (
         type(manifest["schema_version"]) is not int or manifest["schema_version"] != 1
     ):
