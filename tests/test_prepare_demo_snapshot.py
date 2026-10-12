@@ -179,11 +179,9 @@ def test_verify_snapshot_rejects_empty_payload_files(tmp_path: Path):
         verify_snapshot(output)
 
 
-def test_failed_snapshot_copy_removes_a_stale_checksum(tmp_path: Path, monkeypatch):
+def test_failed_snapshot_copy_leaves_no_partial_output(tmp_path: Path, monkeypatch):
     checkpoint, corpus, artifacts = source_files(tmp_path)
     output = tmp_path / "output"
-    output.mkdir()
-    (output / CHECKSUM_FILE).write_text("stale")
     real_copy = snapshot_script.shutil.copy2
     calls = 0
 
@@ -199,7 +197,17 @@ def test_failed_snapshot_copy_removes_a_stale_checksum(tmp_path: Path, monkeypat
     with pytest.raises(OSError, match="copy interrupted"):
         prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
 
-    assert not (output / CHECKSUM_FILE).exists()
+    assert not output.exists()
+    assert list(tmp_path.glob(".output.*")) == []
+
+
+def test_snapshot_preparation_preserves_an_existing_version(tmp_path):
+    checkpoint, corpus, artifacts = source_files(tmp_path)
+    output = prepare_demo_snapshot(checkpoint, corpus, artifacts, tmp_path / "output")
+    previous = (output / CHECKSUM_FILE).read_bytes()
+    with pytest.raises(FileExistsError, match="already exists"):
+        prepare_demo_snapshot(checkpoint, corpus, artifacts, output)
+    assert (output / CHECKSUM_FILE).read_bytes() == previous
 
 
 def test_concurrent_checksum_writers_do_not_share_temporary_files(tmp_path, monkeypatch):

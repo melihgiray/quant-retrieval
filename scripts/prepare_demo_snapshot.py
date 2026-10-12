@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import tempfile
 from pathlib import Path
 
 from quant_retrieval.retrieval.checkpoint import TOKENIZER_EXTRAS, verify_checkpoint
 from quant_retrieval.retrieval.index_artifacts import read_manifest
 from quant_retrieval.serve.artifacts import (
-    CHECKSUM_FILE,
     MODEL_FILES,
     RETRIEVAL_FILES,
     linked_paths,
     write_checksums,
 )
 from quant_retrieval.serve.snapshot_validation import (
+    inspect_snapshot,
     validate_snapshot_corpus,
     validate_snapshot_vectors,
 )
@@ -67,18 +68,26 @@ def prepare_demo_snapshot(
     linked = linked_paths(output, tuple(sources))
     if linked:
         raise ValueError(f"snapshot output contains linked paths: {linked}")
+    if output.exists():
+        raise FileExistsError("snapshot output already exists; choose a new version directory")
 
     manifest = read_manifest(artifacts / "manifest.json")
     verify_checkpoint(checkpoint, manifest)
     frame = validate_snapshot_corpus(corpus, manifest)
     validate_snapshot_vectors(artifacts, manifest, frame)
 
-    (output / CHECKSUM_FILE).unlink(missing_ok=True)
-    for relative, source in sources.items():
-        destination = output / relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
-    write_checksums(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=output.parent, prefix=f".{output.name}.") as temporary:
+        staging = Path(temporary) / "snapshot"
+        for relative, source in sources.items():
+            destination = staging / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+        write_checksums(staging)
+        inspect_snapshot(staging)
+        if output.exists() or output.is_symlink():
+            raise FileExistsError("snapshot output appeared during preparation")
+        staging.rename(output)
     return output
 
 
