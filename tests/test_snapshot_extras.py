@@ -1,4 +1,5 @@
 import hashlib
+import json
 
 import pytest
 
@@ -39,4 +40,13 @@ def test_undeclared_optional_files_cannot_bypass_snapshot_verification(tmp_path)
     write_checksums(root)
     (root / "added_tokens.json").write_text("{}")
     with pytest.raises(RuntimeError, match="required payload"):
+        verify_snapshot(root)
+
+
+def test_duplicate_checksum_fields_are_rejected_even_if_the_last_value_matches(tmp_path):
+    root = payload_fixture(tmp_path)
+    checksums = write_checksums(root)
+    content = '{"config.json": "' + "0" * 64 + '",' + json.dumps(checksums)[1:]
+    (root / "checksums.json").write_text(content)
+    with pytest.raises(RuntimeError, match="not valid JSON"):
         verify_snapshot(root)

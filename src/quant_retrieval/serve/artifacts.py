@@ -8,6 +8,7 @@ import re
 import tempfile
 from pathlib import Path
 
+from quant_retrieval.eval.results import parse_record
 from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES, TOKENIZER_EXTRAS
 
 MODEL_FILES = CHECKPOINT_FILES
@@ -84,8 +85,8 @@ def verify_snapshot(root: Path) -> tuple[str, ...]:
     if empty:
         raise RuntimeError(f"asset repository contains empty files: {empty}")
     try:
-        expected = json.loads((root / CHECKSUM_FILE).read_text())
-    except (UnicodeError, json.JSONDecodeError) as error:
+        expected = parse_record((root / CHECKSUM_FILE).read_bytes(), root / CHECKSUM_FILE)
+    except SystemExit as error:
         raise RuntimeError("asset checksum file is not valid JSON") from error
     if not isinstance(expected, dict) or set(expected) != set(payloads):
         raise RuntimeError("asset checksum file does not match the required payload")
