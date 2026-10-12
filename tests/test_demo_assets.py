@@ -197,3 +197,17 @@ def test_snapshot_contract_places_only_retrieval_files_under_demo():
         | {f"demo/{name}" for name in RETRIEVAL_FILES}
         | {CHECKSUM_FILE}
     )
+
+
+def test_download_requests_and_verifies_supported_optional_tokenizers(tmp_path, monkeypatch):
+    def download(**kwargs):
+        assert "added_tokens.json" in kwargs["allow_patterns"]
+        assert "optimizer.pt" not in kwargs["allow_patterns"]
+        output = Path(fake_snapshot(tmp_path)(**kwargs))
+        (output / "added_tokens.json").write_text("{}")
+        write_checksums(output)
+        return str(output)
+
+    monkeypatch.setattr(assets, "snapshot_download", download)
+    root = assets.download_demo_assets("owner/model", tmp_path, "abc123")
+    assert (root / "added_tokens.json").read_text() == "{}"

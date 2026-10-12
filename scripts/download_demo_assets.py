@@ -15,7 +15,7 @@ from pathlib import Path
 from huggingface_hub import snapshot_download
 from scripts.hub_auth import nonempty_hub_value, read_token_file
 
-from quant_retrieval.serve.artifacts import REQUIRED_FILES, verify_snapshot
+from quant_retrieval.serve.artifacts import ALLOWED_FILES, verify_snapshot
 
 
 def download_demo_assets(
@@ -30,7 +30,7 @@ def download_demo_assets(
             repo_id=repo_id,
             revision=revision,
             local_dir=output,
-            allow_patterns=list(REQUIRED_FILES),
+            allow_patterns=list(ALLOWED_FILES),
             token=token,
         )
     )
