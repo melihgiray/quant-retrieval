@@ -10,13 +10,14 @@ a partial upload fails during the build instead of during the first request.
 from __future__ import annotations
 
 import argparse
+import re
 import tempfile
 from pathlib import Path
 
 from huggingface_hub import snapshot_download
 from scripts.hub_auth import nonempty_hub_value, read_token_file
 
-from quant_retrieval.eval.results import write_result
+from quant_retrieval.eval.results import parse_record, write_result
 from quant_retrieval.serve.artifacts import (
     ALLOWED_FILES,
     CHECKSUM_FILE,
@@ -27,6 +28,24 @@ from quant_retrieval.serve.artifacts import (
 RECEIPT_FILE = ".download-receipt.json"
 
 
+def reusable_snapshot(output: Path, repo_id: str, revision: str) -> bool:
+    """Only immutable revisions can reuse a verified local download."""
+    receipt_path = output / RECEIPT_FILE
+    if (re.fullmatch(r"[0-9a-f]{40}", revision) is None or output.is_symlink()
+            or not receipt_path.is_file() or receipt_path.is_symlink()):
+        return False
+    try:
+        receipt = parse_record(receipt_path.read_bytes(), receipt_path)
+    except SystemExit:
+        return False
+    if (type(receipt.get("schema_version")) is not int or receipt["schema_version"] != 1
+            or receipt.get("repo_id") != repo_id
+            or receipt.get("requested_revision") != revision):
+        return False
+    verify_snapshot(output)
+    return receipt.get("checksums_sha256") == file_sha256(output / CHECKSUM_FILE)
+
+
 def download_demo_assets(
     repo_id: str, output: Path, revision: str = "main", *, token: str | None = None
 ) -> Path:
@@ -34,6 +53,8 @@ def download_demo_assets(
     revision = nonempty_hub_value(revision, "revision")
     if output.exists() and not output.is_dir():
         raise ValueError(f"asset output must be a directory: {output}")
+    if output.is_dir() and reusable_snapshot(output, repo_id, revision):
+        return output
     if output.is_symlink() or (output.exists() and any(output.iterdir())):
         raise FileExistsError("asset output must be a new or empty unlinked directory")
     output.parent.mkdir(parents=True, exist_ok=True)

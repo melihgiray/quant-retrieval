@@ -24,10 +24,11 @@ def fake_snapshot(
     missing: str | None = None,
     corrupt: str | None = None,
     checksum_contents: str | None = None,
+    revision: str = "abc123",
 ):
     def download(**kwargs):
         assert kwargs["repo_id"] == "owner/model"
-        assert kwargs["revision"] == "abc123"
+        assert kwargs["revision"] == revision
         output = Path(kwargs["local_dir"])
         for relative in PAYLOAD_FILES:
             if relative == missing:
@@ -76,6 +77,21 @@ def test_download_preserves_a_nonempty_output(tmp_path):
     with pytest.raises(FileExistsError, match="new or empty"):
         assets.download_demo_assets("owner/model", tmp_path)
     assert (tmp_path / "keep.txt").read_text() == "keep"
+
+
+def test_pinned_download_reuses_only_matching_verified_assets(tmp_path, monkeypatch):
+    revision = "a" * 40
+    monkeypatch.setattr(assets, "snapshot_download", fake_snapshot(tmp_path, revision=revision))
+    assets.download_demo_assets("owner/model", tmp_path, revision)
+    monkeypatch.setattr(assets, "snapshot_download", lambda **kw: pytest.fail("unexpected network"))
+    assert assets.download_demo_assets("owner/model", tmp_path, revision) == tmp_path
+    for repo, ref in [("other/model", revision), ("owner/model", "b" * 40),
+                      ("owner/model", "main")]:
+        with pytest.raises(FileExistsError):
+            assets.download_demo_assets(repo, tmp_path, ref)
+    (tmp_path / "config.json").write_bytes(b"changed")
+    with pytest.raises(RuntimeError, match="checksum mismatch"):
+        assets.download_demo_assets("owner/model", tmp_path, revision)
 
 
 @pytest.mark.parametrize("repo_id", ["", "  ", "\n"])
