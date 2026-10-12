@@ -1,6 +1,9 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
+import pandas as pd
 import pytest
 from scripts.publish_demo_snapshot import publish_demo_snapshot
 
@@ -30,6 +33,12 @@ def snapshot(tmp_path: Path) -> Path:
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(relative.encode())
+    pd.DataFrame({"answer_id": [1, 2], "question_id": [10, 20],
+                  "text": ["bond", "equity"]}).to_parquet(tmp_path / "demo/corpus.parquet")
+    np.save(tmp_path / "demo/answer_ids.npy", np.array([1, 2], dtype=np.int64))
+    np.save(tmp_path / "demo/embeddings_fp16.npy", np.eye(2, dtype=np.float16))
+    (tmp_path / "demo/manifest.json").write_text(json.dumps(
+        {"documents": 2, "dimensions": 2, "max_length": 32}))
     write_checksums(tmp_path)
     return tmp_path
 
@@ -74,3 +83,14 @@ def test_publication_uploads_exactly_the_verified_optional_contract(tmp_path):
     publish_demo_snapshot("owner/model", root, api=api)
     assert "added_tokens.json" in api.uploaded["allow_patterns"]
     assert "private-notes.txt" not in api.uploaded["allow_patterns"]
+
+
+def test_publication_checks_semantics_before_any_remote_mutation(tmp_path):
+    root = snapshot(tmp_path)
+    np.save(root / "demo/answer_ids.npy", np.array([2, 1], dtype=np.int64))
+    write_checksums(root)
+    api = FakeApi(private=True)
+    with pytest.raises(ValueError, match="corpus order"):
+        publish_demo_snapshot("owner/model", root, api=api)
+    assert api.created is None
+    assert api.uploaded is None
