@@ -108,6 +108,10 @@ class SearchService:
 
     @staticmethod
     def _validate_corpus(corpus: pd.DataFrame) -> None:
+        if not corpus.columns.is_unique:
+            raise ValueError("corpus columns must be unique")
+        if corpus.empty:
+            raise ValueError("corpus must contain at least one answer")
         required = {"answer_id", "question_id", "text"}
         missing = required - set(corpus.columns)
         if missing:
@@ -118,6 +122,7 @@ class SearchService:
                 not pd.api.types.is_integer_dtype(values.dtype)
                 or values.isna().any()
                 or (values <= 0).any()
+                or (values > 2**63 - 1).any()
             ):
                 raise ValueError(f"corpus {name} values must be positive integers")
         if not all(isinstance(text, str) and text.strip() for text in corpus["text"]):

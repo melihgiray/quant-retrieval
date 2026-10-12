@@ -125,6 +125,8 @@ def test_search_service_validates_corpus_before_indexing(tmp_path: Path, monkeyp
         ("answer_id", [10, None]),
         ("question_id", [0, 2]),
         ("question_id", [True, False]),
+        ("answer_id", pd.Series([10, 2**63], dtype="uint64")),
+        ("question_id", pd.Series([1, 2**63], dtype="uint64")),
     ],
 )
 def test_search_service_rejects_invalid_corpus_ids(column, values):
@@ -142,6 +144,17 @@ def test_search_service_rejects_missing_or_nontext_answers(invalid):
 
     with pytest.raises(ValueError, match="nonempty strings"):
         SearchService(StubRetriever(), data)
+
+
+def test_search_service_rejects_duplicate_corpus_columns():
+    data = pd.concat([corpus(), corpus()[["answer_id"]]], axis=1)
+    with pytest.raises(ValueError, match="columns must be unique"):
+        SearchService(StubRetriever(), data)
+
+
+def test_search_service_rejects_an_empty_corpus():
+    with pytest.raises(ValueError, match="at least one answer"):
+        SearchService(StubRetriever(), corpus().iloc[:0])
 
 
 def test_search_service_checks_query_encoder_before_reporting_ready(tmp_path: Path, monkeypatch):
