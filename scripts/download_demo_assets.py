@@ -16,7 +16,15 @@ from pathlib import Path
 from huggingface_hub import snapshot_download
 from scripts.hub_auth import nonempty_hub_value, read_token_file
 
-from quant_retrieval.serve.artifacts import ALLOWED_FILES, verify_snapshot
+from quant_retrieval.eval.results import write_result
+from quant_retrieval.serve.artifacts import (
+    ALLOWED_FILES,
+    CHECKSUM_FILE,
+    file_sha256,
+    verify_snapshot,
+)
+
+RECEIPT_FILE = ".download-receipt.json"
 
 
 def download_demo_assets(
@@ -41,6 +49,12 @@ def download_demo_assets(
         if downloaded.resolve() != staging.resolve():
             raise RuntimeError("asset download returned an unexpected directory")
         verify_snapshot(staging)
+        write_result({
+            "schema_version": 1,
+            "repo_id": repo_id,
+            "requested_revision": revision,
+            "checksums_sha256": file_sha256(staging / CHECKSUM_FILE),
+        }, staging / RECEIPT_FILE, overwrite=False)
         if output.is_symlink() or (output.exists() and any(output.iterdir())):
             raise FileExistsError("asset output changed during download")
         staging.rename(output)

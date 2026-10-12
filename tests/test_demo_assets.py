@@ -56,6 +56,10 @@ def test_download_checks_and_returns_the_snapshot(tmp_path: Path, monkeypatch):
 
     assert downloaded == tmp_path
     assert all((downloaded / relative).is_file() for relative in REQUIRED_FILES)
+    receipt = json.loads((downloaded / assets.RECEIPT_FILE).read_text())
+    assert receipt["repo_id"] == "owner/model"
+    assert receipt["requested_revision"] == "abc123"
+    assert len(receipt["checksums_sha256"]) == 64
 
 
 def test_failed_download_does_not_publish_partial_assets(tmp_path, monkeypatch):
@@ -106,6 +110,7 @@ def test_download_passes_a_private_repository_token(tmp_path: Path, monkeypatch)
     assert assets.download_demo_assets(
         "owner/model", tmp_path, "abc123", token="fixture-token"
     ) == tmp_path
+    assert "fixture-token" not in (tmp_path / assets.RECEIPT_FILE).read_text()
 
 
 def test_download_rejects_an_incomplete_snapshot(tmp_path: Path, monkeypatch):
