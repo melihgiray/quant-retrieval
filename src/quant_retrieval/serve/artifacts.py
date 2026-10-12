@@ -8,12 +8,9 @@ import re
 import tempfile
 from pathlib import Path
 
-MODEL_FILES = (
-    "config.json",
-    "model.safetensors",
-    "tokenizer.json",
-    "tokenizer_config.json",
-)
+from quant_retrieval.retrieval.checkpoint import CHECKPOINT_FILES, TOKENIZER_EXTRAS
+
+MODEL_FILES = CHECKPOINT_FILES
 
 RETRIEVAL_FILES = (
     "answer_ids.npy",
@@ -25,7 +22,14 @@ RETRIEVAL_FILES = (
 PAYLOAD_FILES = MODEL_FILES + tuple(f"demo/{name}" for name in RETRIEVAL_FILES)
 CHECKSUM_FILE = "checksums.json"
 REQUIRED_FILES = PAYLOAD_FILES + (CHECKSUM_FILE,)
+ALLOWED_FILES = REQUIRED_FILES + TOKENIZER_EXTRAS
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+
+
+def snapshot_payloads(root: Path) -> tuple[str, ...]:
+    """Include only known inference extras, never arbitrary checkpoint contents."""
+    return PAYLOAD_FILES + tuple(name for name in TOKENIZER_EXTRAS
+                                if (root / name).exists() or (root / name).is_symlink())
 
 
 def linked_paths(root: Path, relatives: tuple[str, ...]) -> list[str]:

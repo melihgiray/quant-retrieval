@@ -12,6 +12,7 @@ from quant_retrieval.serve.artifacts import (
     MODEL_FILES,
     REQUIRED_FILES,
     RETRIEVAL_FILES,
+    snapshot_payloads,
     verify_snapshot,
     write_checksums,
 )
@@ -204,6 +205,13 @@ def test_concurrent_checksum_writers_do_not_share_temporary_files(tmp_path, monk
         assert first.result() == second.result()
     verify_snapshot(output)
     assert list(output.glob(".checksums.json.*")) == []
+
+
+def test_snapshot_payload_registry_includes_only_supported_tokenizer_extras(tmp_path):
+    (tmp_path / "added_tokens.json").write_text("{}")
+    (tmp_path / "optimizer.pt").write_text("private training state")
+    assert "added_tokens.json" in snapshot_payloads(tmp_path)
+    assert "optimizer.pt" not in snapshot_payloads(tmp_path)
 
 
 def test_checksum_replace_failure_preserves_previous_record(tmp_path, monkeypatch):
