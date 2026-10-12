@@ -9,6 +9,7 @@ from typing import Any
 from huggingface_hub import HfApi
 from scripts.hub_auth import nonempty_hub_value, read_token_file
 
+from quant_retrieval.retrieval.checkpoint import TOKENIZER_EXTRAS
 from quant_retrieval.serve.snapshot_validation import inspect_snapshot
 
 
@@ -37,6 +38,7 @@ def publish_demo_snapshot(
         repo_type="model",
         folder_path=str(snapshot),
         allow_patterns=list(verified_files),
+        delete_patterns=[name for name in TOKENIZER_EXTRAS if name not in verified_files],
         commit_message="Publish search demo snapshot",
     )
     return str(result)

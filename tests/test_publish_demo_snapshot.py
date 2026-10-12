@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 from scripts.publish_demo_snapshot import publish_demo_snapshot
 
+from quant_retrieval.retrieval.checkpoint import TOKENIZER_EXTRAS
 from quant_retrieval.serve.artifacts import PAYLOAD_FILES, REQUIRED_FILES, write_checksums
 
 
@@ -83,6 +84,9 @@ def test_publication_uploads_exactly_the_verified_optional_contract(tmp_path):
     publish_demo_snapshot("owner/model", root, api=api)
     assert "added_tokens.json" in api.uploaded["allow_patterns"]
     assert "private-notes.txt" not in api.uploaded["allow_patterns"]
+    assert "added_tokens.json" not in api.uploaded["delete_patterns"]
+    assert set(api.uploaded["delete_patterns"]) == set(TOKENIZER_EXTRAS) - {"added_tokens.json"}
+    assert "README.md" not in api.uploaded["delete_patterns"]
 
 
 def test_publication_checks_semantics_before_any_remote_mutation(tmp_path):
