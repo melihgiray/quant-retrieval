@@ -143,3 +143,21 @@ def test_chunked_bootstrap_preserves_seeded_results(monkeypatch):
     monkeypatch.setattr(significance, "MAX_DRAW_ELEMENTS", 15)
     actual = paired_bootstrap(baseline, candidate, iterations=107, seed=9)
     assert actual == expected
+
+
+@pytest.mark.parametrize("seed", [True, -1, 2**32, 1.5, None])
+def test_bootstrap_rejects_ambiguous_randomness(seed):
+    with pytest.raises(ValueError, match="seed"):
+        paired_bootstrap({1: .1}, {1: .2}, seed=seed)
+
+
+@pytest.mark.parametrize("key", [True, "1", 1.0, -1, 2**63])
+def test_bootstrap_rejects_ambiguous_query_keys(key):
+    with pytest.raises(ValueError, match="query IDs"):
+        paired_bootstrap({key: .1}, {key: .2})
+
+
+@pytest.mark.parametrize("run", [None, [], [1]])
+def test_bootstrap_requires_mapping_inputs(run):
+    with pytest.raises(ValueError, match="must be mappings"):
+        paired_bootstrap(run, run)

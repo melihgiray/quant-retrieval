@@ -51,6 +51,13 @@ def paired_bootstrap(
         raise ValueError("iterations must be a positive integer")
     if not isinstance(confidence, Real) or not 0 < confidence < 1:
         raise ValueError("confidence must be between 0 and 1")
+    if isinstance(seed, bool) or not isinstance(seed, Integral) or not 0 <= seed < 2**32:
+        raise ValueError("bootstrap seed must be an integer fitting uint32")
+    if not isinstance(baseline, Mapping) or not isinstance(candidate, Mapping):
+        raise ValueError("bootstrap scores must be mappings")
+    if any(isinstance(key, bool) or not isinstance(key, Integral) or not 0 <= key < 2**63
+           for run in (baseline, candidate) for key in run):
+        raise ValueError("bootstrap query IDs must be nonnegative int64 integers")
 
     shared = sorted(set(baseline) & set(candidate))
     if not shared:
