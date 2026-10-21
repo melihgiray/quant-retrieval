@@ -208,3 +208,19 @@ def audit_timing(record: dict) -> dict:
         "reported": {name: timing[name] for name in fields},
         "percentiles_recomputed": False,
     }
+
+
+def audit_result(record: dict) -> dict:
+    protocol = audit_protocol(record)
+    return {
+        "schema_version": 1,
+        "scope": "saved_evaluation_consistency",
+        "protocol": protocol,
+        "metrics": audit_metrics(record),
+        "provenance": audit_provenance(record),
+        "diagnostics": audit_diagnostics(record),
+        "rankings": audit_rankings(record),
+        "timing": audit_timing(record),
+        "relevance_recomputed": False,
+        "interpretation": "Checks saved evidence, not model quality or statistical significance.",
+    }
