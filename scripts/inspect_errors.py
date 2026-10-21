@@ -16,13 +16,16 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--rank-limit", type=int, default=10)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
     if args.output.resolve() == args.run.resolve():
         parser.error("analysis output must not replace its source evaluation")
+    if args.output.is_symlink() or (args.output.exists() and not args.overwrite):
+        parser.error("analysis output exists; choose a new path or pass --overwrite")
     payload = args.run.read_bytes()
     report = error_report(parse_record(payload, args.run), args.metric, args.limit, args.rank_limit)
     report["source_sha256"] = hashlib.sha256(payload).hexdigest()
-    write_result(report, args.output)
+    write_result(report, args.output, overwrite=args.overwrite)
     print(f"wrote {args.output}: {report['queries']} queries, {report['status_counts']}")
 
 

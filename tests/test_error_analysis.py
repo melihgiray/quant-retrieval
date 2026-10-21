@@ -86,7 +86,8 @@ def test_error_cli_preserves_source_and_rejects_duplicate_json(tmp_path, monkeyp
         main()
     assert source.read_text() == payload
     source.write_text('{"split":"val","split":"test"}')
-    monkeypatch.setattr("sys.argv", ["inspect", "--run", str(source), "--output", str(output)])
+    monkeypatch.setattr("sys.argv", ["inspect", "--run", str(source), "--output", str(output),
+                                    "--overwrite"])
     with pytest.raises(SystemExit, match="duplicate JSON"):
         main()
     assert json.loads(output.read_text())["queries"] == 2
@@ -149,3 +150,17 @@ def test_error_report_rejects_identifiers_outside_int64():
     source["diagnostics"][str(2**63)] = source["diagnostics"].pop("1")
     with pytest.raises(ValueError, match="question IDs"):
         error_report(source, "ndcg_at_10")
+
+
+def test_error_cli_requires_explicit_report_replacement(tmp_path, monkeypatch):
+    source, output = tmp_path / "source.json", tmp_path / "report.json"
+    source.write_text(json.dumps(record()))
+    output.write_text("keep")
+    args = ["inspect", "--run", str(source), "--output", str(output)]
+    monkeypatch.setattr("sys.argv", args)
+    with pytest.raises(SystemExit, match="2"):
+        main()
+    assert output.read_text() == "keep"
+    monkeypatch.setattr("sys.argv", [*args, "--overwrite"])
+    main()
+    assert json.loads(output.read_text())["queries"] == 2
