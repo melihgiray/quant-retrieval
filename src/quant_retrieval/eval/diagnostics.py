@@ -17,6 +17,10 @@ def ranking_diagnostics(rankings: dict, qrels: dict, cutoff: int = 10) -> dict:
                 or len(set(ranking)) != len(ranking)):
             raise ValueError("diagnostic rankings require unique positive int64 answer IDs")
         labels = qrels.get(question_id, {})
+        if (not isinstance(labels, Mapping)
+                or any(type(key) is not int or not 0 < key < 2**63 for key in labels)
+                or any(type(grade) is not int or grade not in (1, 2) for grade in labels.values())):
+            raise ValueError("diagnostic labels require positive int64 IDs and grades in {1, 2}")
         primary = {answer_id for answer_id, grade in labels.items() if grade >= 2}
         positions = [rank for rank, answer_id in enumerate(ranking, 1) if answer_id in primary]
         first = min(positions, default=None)

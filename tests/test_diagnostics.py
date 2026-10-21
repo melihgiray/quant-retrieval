@@ -40,3 +40,16 @@ def test_diagnostics_reject_invalid_rankings(ranking):
 def test_diagnostics_reject_invalid_question_identifiers(identifier):
     with pytest.raises(ValueError, match="question IDs"):
         ranking_diagnostics({identifier: []}, {})
+
+
+@pytest.mark.parametrize("labels", [None, [], {1: True}, {1: 0}, {1: 3}, {1: 1.5},
+                                    {"1": 2}, {2**63: 1}])
+def test_diagnostics_reject_labels_outside_the_evaluation_contract(labels):
+    with pytest.raises(ValueError, match="grades in"):
+        ranking_diagnostics({1: [1]}, {1: labels})
+
+
+def test_missing_labels_remain_explicitly_unjudged():
+    row = ranking_diagnostics({1: [4, 5]}, {})[1]
+    assert row["status"] == "no_primary_label"
+    assert row["unjudged_retrieved"] == row["returned"] == 2
