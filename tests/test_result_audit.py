@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import pytest
 
-from quant_retrieval.eval.audit import audit_metrics, validated_scores
+from quant_retrieval.eval.audit import audit_metrics, audit_protocol, validated_scores
 from quant_retrieval.eval.metrics import METRIC_NAMES
 
 
@@ -55,3 +55,20 @@ def test_metric_audit_rejects_invalid_aggregates(value):
     record["metrics"]["ndcg_at_10"] = value
     with pytest.raises(ValueError, match="aggregate metrics must be finite"):
         audit_metrics(record)
+
+
+@pytest.mark.parametrize("name,value", [("queries", True), ("queries", 3),
+                                       ("corpus_documents", 0), ("max_results", 10)])
+def test_protocol_audit_rejects_counts_incompatible_with_metrics(name, value):
+    record = result_record()
+    record["counts"][name] = value
+    with pytest.raises(ValueError):
+        audit_protocol(record)
+
+
+def test_protocol_audit_rejects_held_out_runs_and_preserves_inputs():
+    record = result_record()
+    assert audit_protocol(record)["counts"] == record["counts"]
+    record["split"] = "test"
+    with pytest.raises(ValueError, match="train or val"):
+        audit_protocol(record)

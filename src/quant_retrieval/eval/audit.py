@@ -41,3 +41,24 @@ def audit_metrics(record: dict) -> dict:
         raise ValueError("aggregate metrics disagree with saved per-query scores")
     return {"recomputed": recomputed, "absolute_error": errors,
             "serialization_tolerance": SCORE_ROUNDING_TOLERANCE}
+
+
+def audit_protocol(record: dict) -> dict:
+    scores = validated_scores(record)
+    if record.get("split") not in ("train", "val"):
+        raise ValueError("offline development audits accept only train or val runs")
+    for name in ("run_name", "retriever"):
+        if not isinstance(record.get(name), str) or not record[name].strip():
+            raise ValueError(f"evaluation {name} must be a nonempty string")
+    counts = record.get("counts")
+    if not isinstance(counts, dict):
+        raise ValueError("evaluation counts must be an object")
+    for name in ("queries", "corpus_documents", "max_results"):
+        if type(counts.get(name)) is not int or counts[name] < 1:
+            raise ValueError(f"evaluation {name} must be a positive integer")
+    if counts["queries"] != len(scores):
+        raise ValueError("evaluation query count differs from score coverage")
+    if counts["max_results"] < 100:
+        raise ValueError("Recall@100 requires a retrieval depth of at least 100")
+    return {"split": record["split"], "run_name": record["run_name"],
+            "retriever": record["retriever"], "counts": dict(counts)}
