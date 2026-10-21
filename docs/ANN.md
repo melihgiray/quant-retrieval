@@ -85,14 +85,28 @@ Older version 1 reports without `query_source` remain readable with their
 earlier provenance limits.
 Changing `--recall-target` analyzes the same measurements under another threshold;
 it does not measure a new run or improve the model.
+The optional `--max-p95-ms` similarly filters operating points against a chosen
+nonnegative index-search tail-latency budget. It does not include query encoding,
+network time, queueing, or response formatting, and is not an end-to-end service
+guarantee. The selected budget is recorded in the analysis JSON.
 
 ## Read the output
 
 `best_eligible_hnsw` is the lowest observed p50 among settings that meet the
-recall target. It is null when none qualify. Ties use p95, then search breadth.
-`observed_winner` stays exact when the best qualifying graph is no faster.
+recall target and optional p95 budget. It is null when none qualify. Ties use
+p95, then search breadth. `observed_winner` selects the lowest p50 among eligible
+options, preferring exact on a tie. It is null if neither option meets the budget.
+`exact_meets_latency_budget` states whether the exact baseline is eligible.
 `speedup` is exact p50 divided by the qualifying graph's p50, and is null when
 the denominator is zero or no graph qualifies.
+
+`estimated_queries_to_amortize_build` divides the graph's extra build time by
+its observed p50 saving per query, converts seconds to milliseconds, and rounds
+up. It is zero if a faster graph costs no more to build, and null when no graph
+qualifies or there is no positive p50 saving. This is a rough serial-work estimate,
+not a measured workload crossover: medians do not predict total request time,
+and the calculation ignores concurrency, cache effects, rebuild frequency, and
+memory cost. It can remain null for numeric values too large to represent.
 
 The `pareto_frontier` retains points for which no measured alternative is both
 at least as fast and at least as accurate, with one strict improvement. This

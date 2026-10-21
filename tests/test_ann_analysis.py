@@ -150,12 +150,14 @@ def test_analysis_cli_preserves_source_identity_and_protects_existing_files(tmp_
     source.write_text(json.dumps(fixture_report()))
     original = source.read_bytes()
     monkeypatch.setattr("sys.argv", ["analyze", "--report", str(source),
-                                    "--output", str(output), "--recall-target", "1"])
+                                    "--output", str(output), "--recall-target", "1",
+                                    "--max-p95-ms", "4"])
     analyze_ann.main()
     result = json.loads(output.read_text())
     assert result["source"]["sha256"] == hashlib.sha256(original).hexdigest()
     assert result["source"]["benchmark"]["question_ids"] == [10, 20]
     assert result["artifacts"][0]["observed_winner"] == "exact"
+    assert result["max_p95_ms"] == 4
     saved = output.read_bytes()
     with pytest.raises(SystemExit):
         analyze_ann.main()
