@@ -45,6 +45,8 @@ def publish_queries(destination: Path, vectors: np.ndarray, metadata: dict) -> d
     """Publish a complete new query version without replacing an earlier one."""
     if destination.exists() or destination.is_symlink():
         raise FileExistsError("query destination exists; choose a new version directory")
+    if not isinstance(metadata, dict) or not isinstance(metadata.get("question_ids"), list):
+        raise ValueError("query metadata must contain a question_ids list")
     validate_embeddings(vectors, len(metadata.get("question_ids", [])), atol=1e-4)
     if vectors.dtype != np.float32:
         raise ValueError("saved query vectors must be float32")

@@ -54,6 +54,14 @@ def test_query_publication_preserves_order_and_refuses_replacement(tmp_path):
         publish_queries(destination, vectors, query_metadata())
 
 
+@pytest.mark.parametrize("metadata", [None, [], {}, {"question_ids": None},
+                                     {"question_ids": "20,10"}])
+def test_query_publication_rejects_malformed_metadata_before_writing(tmp_path, metadata):
+    with pytest.raises(ValueError, match="question_ids list"):
+        publish_queries(tmp_path / "queries", np.eye(2, dtype=np.float32), metadata)
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_failed_query_write_leaves_no_partial_version(tmp_path, monkeypatch):
     def fail(*args, **kwargs):
         raise OSError("disk full")
