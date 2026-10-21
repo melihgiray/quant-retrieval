@@ -2,6 +2,7 @@
 
 import math
 from collections import Counter
+from collections.abc import Mapping
 
 from quant_retrieval.eval.metrics import METRIC_NAMES
 
@@ -32,8 +33,12 @@ def validate_diagnostic(detail: dict) -> None:
 
 def paired_query_changes(baseline: dict, candidate: dict, limit: int = 10) -> dict:
     """Locate observed wins and losses; this is not a significance test."""
-    if not baseline or set(baseline) != set(candidate) or limit <= 0:
+    if (not isinstance(baseline, Mapping) or not isinstance(candidate, Mapping)
+            or not baseline or set(baseline) != set(candidate)
+            or type(limit) is not int or limit <= 0):
         raise ValueError("paired changes need identical nonempty questions and a positive limit")
+    if any(type(key) is not int or not 0 < key < 2**63 for key in baseline):
+        raise ValueError("paired question IDs must be positive int64 integers")
     for value in [*baseline.values(), *candidate.values()]:
         if (isinstance(value, bool) or not isinstance(value, (float, int))
                 or not math.isfinite(value) or not 0 <= value <= 1):

@@ -52,6 +52,24 @@ def test_paired_changes_find_local_wins_and_losses_even_when_mean_is_unchanged()
         paired_query_changes({1: 0}, {2: 0})
 
 
+@pytest.mark.parametrize("limit", [True, 1.5, "2", None, 0])
+def test_paired_changes_validate_limits_before_slicing(limit):
+    with pytest.raises(ValueError, match="positive limit"):
+        paired_query_changes({1: 0}, {1: 1}, limit)
+
+
+@pytest.mark.parametrize("identifier", [True, "1", 1.0, 0, 2**63])
+def test_paired_changes_require_canonical_numeric_identifiers(identifier):
+    with pytest.raises(ValueError, match="positive int64"):
+        paired_query_changes({identifier: 0}, {identifier: 1})
+
+
+@pytest.mark.parametrize("value", [None, [], [1]])
+def test_paired_changes_require_score_mappings(value):
+    with pytest.raises(ValueError, match="identical nonempty"):
+        paired_query_changes(value, value)
+
+
 def test_error_cli_preserves_source_and_rejects_duplicate_json(tmp_path, monkeypatch):
     source = tmp_path / "source.json"
     payload = json.dumps(record())
