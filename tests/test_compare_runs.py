@@ -119,6 +119,10 @@ def test_comparison_command_records_reproduction_inputs(tmp_path, monkeypatch):
 
     report_path = next(output.glob("*.json"))
     original = report_path.read_bytes()
+    with pytest.raises(SystemExit):
+        compare_runs.main()
+    assert report_path.read_bytes() == original
+    monkeypatch.setattr(sys, "argv", [*sys.argv, "--overwrite"])
 
     def fail_replace(self, target):
         raise OSError("comparison write interrupted")

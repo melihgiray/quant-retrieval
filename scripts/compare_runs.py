@@ -89,7 +89,13 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--confidence", type=float, default=0.95)
     parser.add_argument("--out", type=Path, default=Path("results/comparisons"))
+    parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
+    output = args.out / f"{args.baseline.stem}_vs_{args.candidate.stem}_{args.metric}.json"
+    if output.resolve() in (args.baseline.resolve(), args.candidate.resolve()):
+        parser.error("comparison output must not replace an input run")
+    if output.is_symlink() or (output.exists() and not args.overwrite):
+        parser.error("comparison output exists; choose a new directory or pass --overwrite")
 
     baseline_bytes = args.baseline.read_bytes()
     candidate_bytes = args.candidate.read_bytes()
@@ -124,8 +130,7 @@ def main() -> None:
         **result,
     }
 
-    output = args.out / f"{args.baseline.stem}_vs_{args.candidate.stem}_{args.metric}.json"
-    write_result(record, output)
+    write_result(record, output, overwrite=args.overwrite)
 
     print(f"wrote {output}")
     print(
