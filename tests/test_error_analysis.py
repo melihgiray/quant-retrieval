@@ -133,3 +133,19 @@ def test_error_examples_reject_malformed_rankings(ranking):
     source["rankings"] = {"1": [9], "2": ranking}
     with pytest.raises(ValueError, match="ranking"):
         error_report(source, "ndcg_at_10")
+
+
+@pytest.mark.parametrize("counts", [[], {}, {"queries": True}, {"queries": 3}])
+def test_error_report_rejects_inaccurate_query_coverage(counts):
+    source = record()
+    source["counts"] = counts
+    with pytest.raises(ValueError, match="query count"):
+        error_report(source, "ndcg_at_10")
+
+
+def test_error_report_rejects_identifiers_outside_int64():
+    source = record()
+    source["per_query"][str(2**63)] = source["per_query"].pop("1")
+    source["diagnostics"][str(2**63)] = source["diagnostics"].pop("1")
+    with pytest.raises(ValueError, match="question IDs"):
+        error_report(source, "ndcg_at_10")

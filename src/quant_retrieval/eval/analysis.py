@@ -57,6 +57,8 @@ def paired_query_changes(baseline: dict, candidate: dict, limit: int = 10) -> di
 
 
 def error_report(record: dict, metric: str, limit: int = 20, rank_limit: int = 10) -> dict:
+    if not isinstance(record, dict):
+        raise ValueError("error analysis requires a result object")
     if (metric not in METRIC_NAMES
             or any(type(value) is not int or value <= 0 for value in (limit, rank_limit))):
         raise ValueError("choose a supported metric and a positive example limit")
@@ -67,13 +69,19 @@ def error_report(record: dict, metric: str, limit: int = 20, rank_limit: int = 1
         raise ValueError("run must contain per-query scores and diagnostics")
     if set(scores) != set(diagnostics):
         raise ValueError("diagnostics and scores must cover the same questions")
+    counts = record.get("counts")
+    if counts is not None:
+        if (not isinstance(counts, dict) or type(counts.get("queries")) is not int
+                or counts["queries"] != len(scores)):
+            raise ValueError("recorded query count must match per-query coverage")
     rankings = record.get("rankings")
     if rankings is not None and (not isinstance(rankings, dict) or set(rankings) != set(scores)):
         raise ValueError("saved rankings and scores must cover the same questions")
     rows = []
     statuses = {"top_k", "below_cutoff", "not_retrieved", "no_primary_label"}
     for key, values in scores.items():
-        if not isinstance(key, str) or not key.isascii() or not key.isdecimal() or int(key) <= 0:
+        if (not isinstance(key, str) or not key.isascii() or not key.isdecimal()
+                or not 0 < int(key) < 2**63):
             raise ValueError("question IDs must be positive integer strings")
         if str(int(key)) != key:
             raise ValueError("question IDs must use canonical integer spelling")
@@ -89,7 +97,8 @@ def error_report(record: dict, metric: str, limit: int = 20, rank_limit: int = 1
         if rankings is not None:
             ranking = rankings[key]
             if (not isinstance(ranking, list)
-                    or any(type(answer_id) is not int or answer_id <= 0 for answer_id in ranking)
+                    or any(type(answer_id) is not int or not 0 < answer_id < 2**63
+                           for answer_id in ranking)
                     or len(set(ranking)) != len(ranking) or len(ranking) != detail["returned"]):
                 raise ValueError("saved ranking needs unique positive IDs matching its count")
             row["top_answer_ids"] = ranking[:rank_limit]
