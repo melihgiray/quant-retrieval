@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import pytest
 
-from quant_retrieval.eval.audit import validated_scores
+from quant_retrieval.eval.audit import audit_metrics, validated_scores
 from quant_retrieval.eval.metrics import METRIC_NAMES
 
 
@@ -36,3 +36,22 @@ def test_score_audit_requires_the_complete_metric_contract():
     del record["per_query"]["20"]["recall_at_100"]
     with pytest.raises(ValueError, match="exactly the supported metrics"):
         validated_scores(record)
+
+
+def test_metric_audit_recomputes_means_and_tolerates_serialization_rounding():
+    record = result_record()
+    record["metrics"]["mrr_at_10"] += .0000004
+    result = audit_metrics(record)
+    assert result["recomputed"]["mrr_at_10"] == pytest.approx(.4)
+    assert result["absolute_error"]["mrr_at_10"] == pytest.approx(.0000004)
+    record["metrics"]["mrr_at_10"] = .5
+    with pytest.raises(ValueError, match="disagree"):
+        audit_metrics(record)
+
+
+@pytest.mark.parametrize("value", [True, None, float("nan"), -1])
+def test_metric_audit_rejects_invalid_aggregates(value):
+    record = result_record()
+    record["metrics"]["ndcg_at_10"] = value
+    with pytest.raises(ValueError, match="aggregate metrics must be finite"):
+        audit_metrics(record)
