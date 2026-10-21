@@ -180,3 +180,31 @@ def audit_rankings(record: dict) -> dict:
         "maximum_returned": max(lengths),
         "corpus_membership_verified": False,
     }
+
+
+def audit_timing(record: dict) -> dict:
+    timing = record.get("timing")
+    if timing is None:
+        return {"recorded": False}
+    fields = (
+        "index_seconds",
+        "search_total_seconds",
+        "search_ms_per_query_p50",
+        "search_ms_per_query_p95",
+    )
+    if not isinstance(timing, dict) or not set(fields) <= set(timing):
+        raise ValueError("timing summary is missing required fields")
+    if any(
+        type(timing[name]) not in (int, float)
+        or not math.isfinite(timing[name])
+        or timing[name] < 0
+        for name in fields
+    ):
+        raise ValueError("timing values must be finite nonnegative numbers")
+    if timing["search_ms_per_query_p95"] < timing["search_ms_per_query_p50"]:
+        raise ValueError("saved p95 timing cannot be below p50")
+    return {
+        "recorded": True,
+        "reported": {name: timing[name] for name in fields},
+        "percentiles_recomputed": False,
+    }

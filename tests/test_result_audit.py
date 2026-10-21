@@ -8,6 +8,7 @@ from quant_retrieval.eval.audit import (
     audit_protocol,
     audit_provenance,
     audit_rankings,
+    audit_timing,
     validated_scores,
 )
 from quant_retrieval.eval.diagnostics import ranking_diagnostics
@@ -155,3 +156,37 @@ def test_ranking_audit_checks_ids_and_diagnostic_count(ranking):
     record["rankings"]["10"] = ranking
     with pytest.raises(ValueError, match="ranking"):
         audit_rankings(record)
+
+
+def timing_record():
+    return {
+        "timing": {
+            "index_seconds": 0.1,
+            "search_total_seconds": 0.02,
+            "search_ms_per_query_p50": 10.0,
+            "search_ms_per_query_p95": 12.0,
+        }
+    }
+
+
+def test_timing_audit_does_not_claim_to_recompute_missing_raw_samples():
+    assert audit_timing({}) == {"recorded": False}
+    result = audit_timing(timing_record())
+    assert result["recorded"] is True
+    assert result["percentiles_recomputed"] is False
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("index_seconds", True),
+        ("search_total_seconds", float("nan")),
+        ("index_seconds", -1),
+        ("search_ms_per_query_p95", 9),
+    ],
+)
+def test_timing_audit_rejects_invalid_or_contradictory_summaries(field, value):
+    record = timing_record()
+    record["timing"][field] = value
+    with pytest.raises(ValueError):
+        audit_timing(record)
