@@ -59,3 +59,8 @@ def test_metrics_reject_non_positive_cutoffs(metric):
 def test_aggregate_rejects_empty_qrels():
     with pytest.raises(ValueError, match="at least one"):
         aggregate_metrics({}, {})
+@pytest.mark.parametrize("k", [True, 1.5, "2", None])
+def test_metrics_reject_noninteger_cutoffs(k):
+    for metric in (recall_at_k, reciprocal_rank_at_k, ndcg_at_k):
+        with pytest.raises(ValueError, match="positive integer"):
+            metric([], {}, k)

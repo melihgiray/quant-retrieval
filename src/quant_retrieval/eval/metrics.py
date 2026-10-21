@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
+from numbers import Integral
 
 
 def recall_at_k(ranked_ids: Sequence[int], relevant_ids: set[int], k: int) -> float:
@@ -94,5 +95,5 @@ def _dcg(grades: Sequence[int]) -> float:
 
 
 def _check_k(k: int) -> None:
-    if k <= 0:
-        raise ValueError("k must be positive")
+    if isinstance(k, bool) or not isinstance(k, Integral) or k <= 0:
+        raise ValueError("k must be a positive integer")
