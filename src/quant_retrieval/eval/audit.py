@@ -1,6 +1,8 @@
 """Audit saved evaluation evidence without loading data or model runtimes."""
 
 import math
+import re
+from datetime import datetime
 
 from quant_retrieval.eval.metrics import METRIC_NAMES
 
@@ -62,3 +64,27 @@ def audit_protocol(record: dict) -> dict:
         raise ValueError("Recall@100 requires a retrieval depth of at least 100")
     return {"split": record["split"], "run_name": record["run_name"],
             "retriever": record["retriever"], "counts": dict(counts)}
+
+
+def audit_provenance(record: dict) -> dict:
+    hashes = record.get("dataset_sha256")
+    if hashes is not None and (
+        not isinstance(hashes, dict) or set(hashes) != {"corpus", "queries", "qrels"}
+        or any(not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None
+               for value in hashes.values())
+    ):
+        raise ValueError("dataset fingerprints must contain all three SHA-256 identities")
+    commit = record.get("commit")
+    if commit is not None and (not isinstance(commit, str)
+                               or re.fullmatch(r"[0-9a-f]{7,40}", commit) is None):
+        raise ValueError("evaluation commit must be a hexadecimal revision")
+    created = record.get("created_at")
+    if created is not None:
+        try:
+            if not isinstance(created, str) or datetime.fromisoformat(created).utcoffset() is None:
+                raise ValueError("missing timezone")
+        except ValueError as error:
+            raise ValueError("evaluation creation time must include an ISO timezone") from error
+    return {"dataset_sha256": None if hashes is None else dict(hashes),
+            "dataset_identity_recorded": hashes is not None, "commit": commit,
+            "created_at": created, "original_data_reloaded": False}

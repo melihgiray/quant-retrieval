@@ -2,7 +2,12 @@ from copy import deepcopy
 
 import pytest
 
-from quant_retrieval.eval.audit import audit_metrics, audit_protocol, validated_scores
+from quant_retrieval.eval.audit import (
+    audit_metrics,
+    audit_protocol,
+    audit_provenance,
+    validated_scores,
+)
 from quant_retrieval.eval.metrics import METRIC_NAMES
 
 
@@ -72,3 +77,21 @@ def test_protocol_audit_rejects_held_out_runs_and_preserves_inputs():
     record["split"] = "test"
     with pytest.raises(ValueError, match="train or val"):
         audit_protocol(record)
+
+
+def test_provenance_audit_distinguishes_recorded_identity_from_reloaded_data():
+    record = result_record()
+    assert audit_provenance(record)["dataset_identity_recorded"] is False
+    record["dataset_sha256"] = dict.fromkeys(("corpus", "queries", "qrels"), "a" * 64)
+    record["created_at"] = "2026-10-21T12:00:00+00:00"
+    report = audit_provenance(record)
+    assert report["dataset_identity_recorded"] is True
+    assert report["original_data_reloaded"] is False
+
+
+@pytest.mark.parametrize("key,value", [("dataset_sha256", {}), ("commit", "main"),
+    ("created_at", "2026-10-21T12:00:00"), ("created_at", 17), ("created_at", "yesterday")])
+def test_provenance_audit_rejects_malformed_evidence(key, value):
+    record = {**result_record(), key: value}
+    with pytest.raises(ValueError):
+        audit_provenance(record)
