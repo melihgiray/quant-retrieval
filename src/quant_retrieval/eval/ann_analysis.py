@@ -145,6 +145,15 @@ def _validate_coverage(report: dict) -> None:
         raise ValueError("completed report is missing declared sweep points")
 
 
+def estimate_build_amortization(exact: dict, graph: dict | None) -> int | None:
+    """Estimate query count from p50 savings, not a measured traffic crossover."""
+    if graph is None or graph["p50_ms"] >= exact["p50_ms"]:
+        return None
+    additional_seconds = max(0., graph["build_seconds"] - exact["build_seconds"])
+    count = additional_seconds / (exact["p50_ms"] - graph["p50_ms"]) * 1000
+    return math.ceil(count) if math.isfinite(count) else None
+
+
 def analyze_ann_report(
     report: dict, recall_target: float | None = None, *, max_p95_ms: float | None = None
 ) -> dict:
@@ -175,6 +184,7 @@ def analyze_ann_report(
             "exact": {name: exact[name] for name in fields},
             "best_eligible_hnsw": None if best is None else {name: best[name] for name in fields},
             "exact_meets_latency_budget": exact_eligible,
+            "estimated_queries_to_amortize_build": estimate_build_amortization(exact, best),
             "observed_winner": "hnsw" if faster else "exact" if exact_eligible else None,
             "speedup": (exact["p50_ms"] / best["p50_ms"]
                         if best is not None and best["p50_ms"] > 0 else None),
@@ -184,6 +194,8 @@ def analyze_ann_report(
         })
     return {"scope": "index_search_only", "recall_target": target, "max_p95_ms": max_p95_ms,
             "artifacts": summaries,
+            "amortization_basis": "Extra build seconds divided by observed p50 savings; "
+                                  "an estimate, not a measured crossover.",
             "interpretation": "Observed p50 comparisons, not significance or relevance quality."}
 
 

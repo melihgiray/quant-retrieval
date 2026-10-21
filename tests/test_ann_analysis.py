@@ -53,6 +53,18 @@ def test_invalid_tail_latency_budgets_fail(budget):
         analyze_ann_report(fixture_report(), max_p95_ms=budget)
 
 
+def test_build_amortization_uses_extra_build_time_and_millisecond_conversion():
+    report = fixture_report()
+    report["runs"][1]["build_seconds"] = 1.1
+    result = analyze_ann_report(report)
+    assert result["artifacts"][0]["estimated_queries_to_amortize_build"] == 500
+    assert "estimate" in result["amortization_basis"]
+    report["runs"][1]["build_seconds"] = .05
+    assert analyze_ann_report(report)["artifacts"][0]["estimated_queries_to_amortize_build"] == 0
+    report["runs"][1].update(p50_ms=4., p95_ms=4., latencies_ms=[4., 4.])
+    assert analyze_ann_report(report)["artifacts"][0]["estimated_queries_to_amortize_build"] is None
+
+
 @pytest.mark.parametrize("key,value", [
     ("complete", False), ("schema_version", True), ("scope", "end_to_end"),
     ("queries", 0), ("threads", True), ("question_ids", [10, 10]),
