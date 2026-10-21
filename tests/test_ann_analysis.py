@@ -36,6 +36,23 @@ def test_valid_report_is_not_mutated():
     assert report == before
 
 
+def test_operating_points_respect_inclusive_tail_latency_budgets():
+    report = fixture_report()
+    point = analyze_ann_report(report, max_p95_ms=2)["artifacts"][0]
+    assert point["observed_winner"] == "hnsw"
+    assert point["exact_meets_latency_budget"] is False
+    point = analyze_ann_report(report, max_p95_ms=1)["artifacts"][0]
+    assert point["observed_winner"] is None
+    assert point["best_eligible_hnsw"] is None
+    assert analyze_ann_report(report, max_p95_ms=4)["artifacts"][0]["exact_meets_latency_budget"]
+
+
+@pytest.mark.parametrize("budget", [-1, True, float("nan"), float("inf")])
+def test_invalid_tail_latency_budgets_fail(budget):
+    with pytest.raises(ValueError, match="latency budget"):
+        analyze_ann_report(fixture_report(), max_p95_ms=budget)
+
+
 @pytest.mark.parametrize("key,value", [
     ("complete", False), ("schema_version", True), ("scope", "end_to_end"),
     ("queries", 0), ("threads", True), ("question_ids", [10, 10]),

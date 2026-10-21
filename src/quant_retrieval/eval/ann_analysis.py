@@ -145,17 +145,22 @@ def _validate_coverage(report: dict) -> None:
         raise ValueError("completed report is missing declared sweep points")
 
 
-def analyze_ann_report(report: dict, recall_target: float | None = None) -> dict:
+def analyze_ann_report(
+    report: dict, recall_target: float | None = None, *, max_p95_ms: float | None = None
+) -> dict:
     """Choose measured operating points, without claiming significance or a crossover."""
     validate_ann_report(report)
     target = report["recall_target"] if recall_target is None else recall_target
     _number(target, "recall target", 1)
+    if max_p95_ms is not None:
+        _number(max_p95_ms, "p95 latency budget")
     summaries = []
     fields = ("index", "ef_search", "recall_at_k", "p50_ms", "p95_ms", "build_seconds")
     for artifact in report["artifacts"]:
         group = [row for row in report["runs"] if row["artifact"] == artifact["directory"]]
         exact = next(row for row in group if row["index"] == "exact")
-        eligible = [row for row in group if row["index"] == "hnsw" and row["recall_at_k"] >= target]
+        eligible = [row for row in group if row["index"] == "hnsw" and row["recall_at_k"] >= target
+                    and (max_p95_ms is None or row["p95_ms"] <= max_p95_ms)]
         best = min(eligible, key=lambda row: (row["p50_ms"], row["p95_ms"], row["ef_search"]),
                    default=None)
         frontier = [row for row in group if not any(
@@ -163,19 +168,22 @@ def analyze_ann_report(report: dict, recall_target: float | None = None) -> dict
             and (other["p50_ms"] < row["p50_ms"] or other["recall_at_k"] > row["recall_at_k"])
             for other in group
         )]
-        faster = best is not None and best["p50_ms"] < exact["p50_ms"]
+        exact_eligible = max_p95_ms is None or exact["p95_ms"] <= max_p95_ms
+        faster = best is not None and (not exact_eligible or best["p50_ms"] < exact["p50_ms"])
         summaries.append({
             "artifact": artifact["directory"], "documents": exact["documents"],
             "exact": {name: exact[name] for name in fields},
             "best_eligible_hnsw": None if best is None else {name: best[name] for name in fields},
-            "observed_winner": "hnsw" if faster else "exact",
+            "exact_meets_latency_budget": exact_eligible,
+            "observed_winner": "hnsw" if faster else "exact" if exact_eligible else None,
             "speedup": (exact["p50_ms"] / best["p50_ms"]
                         if best is not None and best["p50_ms"] > 0 else None),
             "pareto_frontier": [{name: row[name] for name in fields} for row in sorted(
                 frontier, key=lambda row: (row["p50_ms"], -row["recall_at_k"],
                                           row["ef_search"] or 0))],
         })
-    return {"scope": "index_search_only", "recall_target": target, "artifacts": summaries,
+    return {"scope": "index_search_only", "recall_target": target, "max_p95_ms": max_p95_ms,
+            "artifacts": summaries,
             "interpretation": "Observed p50 comparisons, not significance or relevance quality."}
 
 

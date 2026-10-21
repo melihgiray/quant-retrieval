@@ -17,6 +17,7 @@ def main() -> None:
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--recall-target", type=float)
+    parser.add_argument("--max-p95-ms", type=float, help="optional index-search latency budget")
     parser.add_argument("--worst-queries", type=int, default=10, help="examples per graph setting")
     args = parser.parse_args()
     if args.output.resolve() == args.report.resolve():
@@ -26,7 +27,7 @@ def main() -> None:
     contents = args.report.read_bytes()
     report = parse_record(contents, args.report)
     try:
-        result = analyze_ann_report(report, args.recall_target)
+        result = analyze_ann_report(report, args.recall_target, max_p95_ms=args.max_p95_ms)
         result["query_diagnostics"] = query_diagnostics(report, args.worst_queries)
     except ValueError as error:
         parser.error(str(error))
