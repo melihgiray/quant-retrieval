@@ -3,7 +3,7 @@ import json
 import pytest
 from scripts.inspect_errors import main
 
-from quant_retrieval.eval.analysis import error_report, paired_query_changes
+from quant_retrieval.eval.analysis import error_report, paired_query_changes, validate_diagnostic
 from quant_retrieval.eval.diagnostics import ranking_diagnostics
 
 
@@ -100,6 +100,22 @@ def test_error_report_rejects_contradictory_diagnostic_evidence(key, value):
     source["diagnostics"]["2"][key] = value
     with pytest.raises(ValueError, match="diagnostic"):
         error_report(source, "ndcg_at_10")
+
+
+def test_diagnostic_first_rank_must_leave_room_for_every_primary_hit():
+    detail = {"status": "top_k", "cutoff": 10, "first_primary_rank": 2,
+              "primary_labels": 2, "primary_retrieved": 2, "returned": 2,
+              "sibling_retrieved": 0, "unjudged_retrieved": 0}
+    with pytest.raises(ValueError, match="rank is inconsistent"):
+        validate_diagnostic(detail)
+    detail["first_primary_rank"] = 1
+    validate_diagnostic(detail)
+
+
+@pytest.mark.parametrize("detail", [None, [], "top_k"])
+def test_diagnostic_validation_rejects_nonobjects(detail):
+    with pytest.raises(ValueError, match="detail must be an object"):
+        validate_diagnostic(detail)
 
 
 def test_error_examples_include_bounded_saved_rankings_when_available():

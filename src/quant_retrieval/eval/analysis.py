@@ -8,6 +8,8 @@ from quant_retrieval.eval.metrics import METRIC_NAMES
 
 
 def validate_diagnostic(detail: dict) -> None:
+    if not isinstance(detail, dict):
+        raise ValueError("diagnostic detail must be an object")
     counts = ("primary_labels", "primary_retrieved", "sibling_retrieved",
               "unjudged_retrieved", "returned")
     if any(type(detail.get(key)) is not int or detail[key] < 0 for key in counts):
@@ -20,7 +22,7 @@ def validate_diagnostic(detail: dict) -> None:
             + detail["unjudged_retrieved"] != detail["returned"]):
         raise ValueError("diagnostic retrieval counts are inconsistent")
     if retrieved:
-        if type(first) is not int or not 1 <= first <= detail["returned"]:
+        if type(first) is not int or not 1 <= first <= detail["returned"] - retrieved + 1:
             raise ValueError("diagnostic primary rank is inconsistent")
     elif first is not None:
         raise ValueError("diagnostic primary rank requires a retrieved primary answer")
