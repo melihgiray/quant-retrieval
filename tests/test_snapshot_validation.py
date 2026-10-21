@@ -13,6 +13,10 @@ from quant_retrieval.serve.snapshot_validation import (
     ({"dimensions": True}, "positive integer"),
     ({"corpus_sha256": "0" * 64}, "fingerprint mismatch"),
     ({"pooling": "cls"}, "mean pooling"),
+    ({"commit": "not-a-revision"}, "hexadecimal git revision"),
+    ({"commit": True}, "hexadecimal git revision"),
+    ({"corpus_sha256": None}, "SHA-256 string"),
+    ({"corpus_sha256": ""}, "SHA-256 string"),
 ])
 def test_snapshot_corpus_rejects_inconsistent_metadata(tmp_path, change, message):
     path = tmp_path / "corpus.parquet"

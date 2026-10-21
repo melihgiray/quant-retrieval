@@ -1,5 +1,6 @@
 """Offline consistency checks for deployment assets, without loading the encoder."""
 
+import re
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +24,15 @@ def validate_snapshot_corpus(path: Path, manifest: dict) -> pd.DataFrame:
             raise ValueError(f"snapshot {field} must be a positive integer")
     if manifest.get("pooling", "mean") != "mean":
         raise ValueError("snapshot serving requires mean pooling")
+    commit = manifest.get("commit")
+    if commit is not None and (not isinstance(commit, str)
+                               or re.fullmatch(r"[0-9a-f]{7,40}", commit) is None):
+        raise ValueError("snapshot commit must be a hexadecimal git revision")
+    if "corpus_sha256" in manifest and (
+        not isinstance(manifest["corpus_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", manifest["corpus_sha256"]) is None
+    ):
+        raise ValueError("snapshot corpus fingerprint must be a SHA-256 string")
     corpus = pd.read_parquet(path)
     corpus_ids(corpus)
     if "question_id" not in corpus:
