@@ -22,3 +22,21 @@ def test_empty_ranking_is_a_miss_and_invalid_cutoff_fails():
     assert ranking_diagnostics({1: []}, {1: {2: 2}})[1]["status"] == "not_retrieved"
     with pytest.raises(ValueError, match="cutoff"):
         ranking_diagnostics({}, {}, 0)
+
+
+@pytest.mark.parametrize("cutoff", [True, 1.5, "2", None])
+def test_diagnostics_reject_coercible_cutoffs(cutoff):
+    with pytest.raises(ValueError, match="cutoff"):
+        ranking_diagnostics({}, {}, cutoff)
+
+
+@pytest.mark.parametrize("ranking", [[1, 1], [True], [1.0], [2**63], "1", None])
+def test_diagnostics_reject_invalid_rankings(ranking):
+    with pytest.raises(ValueError, match="rankings require"):
+        ranking_diagnostics({1: ranking}, {})
+
+
+@pytest.mark.parametrize("identifier", [True, "1", 0, 2**63])
+def test_diagnostics_reject_invalid_question_identifiers(identifier):
+    with pytest.raises(ValueError, match="question IDs"):
+        ranking_diagnostics({identifier: []}, {})
