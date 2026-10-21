@@ -150,3 +150,33 @@ def audit_diagnostics(record: dict) -> dict:
         "queries": len(details),
         "status_counts": dict(sorted(statuses.items())),
     }
+
+
+def audit_rankings(record: dict) -> dict:
+    counts = audit_protocol(record)["counts"]
+    rankings = record.get("rankings")
+    if rankings is None:
+        return {"recorded": False}
+    if not isinstance(rankings, dict) or set(rankings) != set(record["per_query"]):
+        raise ValueError("rankings must cover exactly the scored questions")
+    diagnostic_report = audit_diagnostics(record)
+    lengths = []
+    for key, ranking in rankings.items():
+        if (
+            not isinstance(ranking, list)
+            or any(type(value) is not int or not 0 < value < 2**63 for value in ranking)
+            or len(set(ranking)) != len(ranking)
+        ):
+            raise ValueError("saved rankings need unique positive int64 answer IDs")
+        if len(ranking) > min(counts["max_results"], counts["corpus_documents"]):
+            raise ValueError("saved ranking length exceeds corpus size or retrieval depth")
+        if diagnostic_report["recorded"] and len(ranking) != record["diagnostics"][key]["returned"]:
+            raise ValueError("saved ranking length disagrees with diagnostics")
+        lengths.append(len(ranking))
+    return {
+        "recorded": True,
+        "queries": len(rankings),
+        "minimum_returned": min(lengths),
+        "maximum_returned": max(lengths),
+        "corpus_membership_verified": False,
+    }

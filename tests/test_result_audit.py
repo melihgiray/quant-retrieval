@@ -7,6 +7,7 @@ from quant_retrieval.eval.audit import (
     audit_metrics,
     audit_protocol,
     audit_provenance,
+    audit_rankings,
     validated_scores,
 )
 from quant_retrieval.eval.diagnostics import ranking_diagnostics
@@ -139,3 +140,18 @@ def test_diagnostic_audit_checks_primary_recall_counts():
     record["per_query"]["10"]["recall_at_100"] = 0.5
     with pytest.raises(ValueError, match="Recall@100 disagrees"):
         audit_diagnostics(record)
+
+
+def test_ranking_audit_reports_structure_without_claiming_corpus_membership():
+    assert audit_rankings(result_record()) == {"recorded": False}
+    report = audit_rankings(diagnostic_record())
+    assert report["minimum_returned"] == report["maximum_returned"] == 2
+    assert report["corpus_membership_verified"] is False
+
+
+@pytest.mark.parametrize("ranking", [[9, 9], [True, 1], [9], [2**63, 1], "9,1"])
+def test_ranking_audit_checks_ids_and_diagnostic_count(ranking):
+    record = diagnostic_record()
+    record["rankings"]["10"] = ranking
+    with pytest.raises(ValueError, match="ranking"):
+        audit_rankings(record)
