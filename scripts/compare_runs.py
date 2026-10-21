@@ -37,7 +37,7 @@ def load_per_query(path: Path, metric: str, *, record: dict | None = None) -> di
             or not query_id.isdecimal() or str(int(query_id)) != query_id
         ):
             raise SystemExit(f"{path} has an invalid query ID: {query_id!r}")
-        if int(query_id) < 1:
+        if not 0 < int(query_id) < 2**63:
             raise SystemExit(f"{path} has an invalid query ID: {query_id!r}")
         if not isinstance(scores, dict) or metric not in scores:
             raise SystemExit(f"{path} has no {metric!r} for query {query_id}")
@@ -53,6 +53,8 @@ def load_per_query(path: Path, metric: str, *, record: dict | None = None) -> di
 
 def validate_comparable_runs(baseline: dict, candidate: dict) -> None:
     for record in (baseline, candidate):
+        if not isinstance(record, dict):
+            raise SystemExit("comparison requires result objects")
         if not isinstance(record.get("split"), str) or not record["split"].strip():
             raise SystemExit("comparison requires a named split string")
         if not isinstance(record.get("counts"), dict):
@@ -62,7 +64,7 @@ def validate_comparable_runs(baseline: dict, candidate: dict) -> None:
     for name in ("corpus_documents", "max_results", "queries"):
         left = baseline.get("counts", {}).get(name)
         right = candidate.get("counts", {}).get(name)
-        if type(left) is not int or left < 1 or left != right:
+        if type(left) is not int or type(right) is not int or left < 1 or left != right:
             raise SystemExit(f"comparison requires matching positive {name} counts")
     left_hashes, right_hashes = baseline.get("dataset_sha256"), candidate.get("dataset_sha256")
     if left_hashes is None and right_hashes is None:

@@ -8,7 +8,7 @@ from scripts import compare_runs
 from scripts.compare_runs import load_per_query, validate_comparable_runs
 
 
-@pytest.mark.parametrize("query_id", ["01", "-1", "0", "1.0", "one"])
+@pytest.mark.parametrize("query_id", ["01", "-1", "0", "1.0", "one", str(2**63)])
 def test_comparison_rejects_ids_that_cannot_be_paired_unambiguously(tmp_path, query_id):
     path = tmp_path / "run.json"
     path.write_text(json.dumps({"per_query": {query_id: {"ndcg_at_10": 0.5}}}))
@@ -64,6 +64,20 @@ def test_comparison_rejects_different_evaluation_conditions(field):
 
 def test_matching_evaluation_conditions_are_comparable():
     validate_comparable_runs(run_record(), run_record())
+
+
+@pytest.mark.parametrize("value", [True, 1.0])
+def test_candidate_counts_cannot_pass_through_numeric_equality(value):
+    baseline, candidate = run_record(), run_record()
+    candidate["counts"]["queries"] = value
+    with pytest.raises(SystemExit, match="matching positive queries"):
+        validate_comparable_runs(baseline, candidate)
+
+
+@pytest.mark.parametrize("record", [None, [], "val"])
+def test_comparison_requires_result_objects(record):
+    with pytest.raises(SystemExit, match="result objects"):
+        validate_comparable_runs(record, run_record())
 
 
 @pytest.mark.parametrize("field", ["corpus", "queries", "qrels"])
