@@ -10,6 +10,7 @@ from quant_retrieval.eval.slices import (
     diagnostic_labels,
     grouped_summary,
     query_length_labels,
+    ranking_overlap,
     status_transitions,
 )
 from tests.test_result_audit import diagnostic_record, result_record
@@ -165,3 +166,25 @@ def test_status_transitions_account_for_each_query_once():
         },
     ]
     assert status_transitions(result_record(), shifted_record()) == {"recorded": False}
+
+
+def test_ranking_overlap_is_set_agreement_not_relevance():
+    report = ranking_overlap(diagnostic_record(), candidate_with_miss(), 10)
+    assert report["mean_jaccard"] == pytest.approx(2 / 3)
+    assert report["per_query"][0]["baseline_retained"] == 0.5
+    assert report["per_query"][0]["exact_order_match"] is False
+    assert ranking_overlap(diagnostic_record(), candidate_with_miss(), 1)["mean_jaccard"] == 1
+
+
+def test_overlap_does_not_award_perfect_agreement_to_empty_rankings():
+    record = result_record()
+    record["rankings"] = {"10": [], "20": []}
+    report = ranking_overlap(record, record)
+    assert report["empty_pairs"] == 2
+    assert report["mean_jaccard"] is None
+
+
+@pytest.mark.parametrize("k", [True, 0, 101, 1.5])
+def test_overlap_cutoffs_must_fit_the_saved_depth(k):
+    with pytest.raises(ValueError, match="overlap cutoff"):
+        ranking_overlap(diagnostic_record(), diagnostic_record(), k)

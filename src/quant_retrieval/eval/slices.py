@@ -222,3 +222,37 @@ def status_transitions(baseline: dict, candidate: dict) -> dict:
             for (before, after), ids in sorted(cells.items())
         ],
     }
+
+
+def ranking_overlap(baseline: dict, candidate: dict, k: int = 10) -> dict:
+    left, right = _paired_audits(baseline, candidate)
+    if type(k) is not int or not 1 <= k <= left["protocol"]["counts"]["max_results"]:
+        raise ValueError("overlap cutoff must be a positive integer within the saved depth")
+    if not left["rankings"]["recorded"] or not right["rankings"]["recorded"]:
+        return {"recorded": False}
+    rows = []
+    for key in sorted(baseline["per_query"], key=int):
+        before, after = baseline["rankings"][key][:k], candidate["rankings"][key][:k]
+        shared = len(set(before) & set(after))
+        union = len(set(before) | set(after))
+        rows.append(
+            {
+                "question_id": int(key),
+                "baseline_returned": len(before),
+                "candidate_returned": len(after),
+                "shared_answers": shared,
+                "jaccard": shared / union if union else None,
+                "baseline_retained": shared / len(before) if before else None,
+                "exact_order_match": before == after,
+            }
+        )
+    defined = [row["jaccard"] for row in rows if row["jaccard"] is not None]
+    return {
+        "recorded": True,
+        "k": k,
+        "scope": "ranked_set_overlap_not_relevance",
+        "queries": len(rows),
+        "empty_pairs": len(rows) - len(defined),
+        "mean_jaccard": math.fsum(defined) / len(defined) if defined else None,
+        "per_query": rows,
+    }

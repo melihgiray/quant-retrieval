@@ -12,6 +12,7 @@ from quant_retrieval.eval.slices import (
     diagnostic_labels,
     grouped_summary,
     query_length_labels,
+    ranking_overlap,
     status_transitions,
 )
 
@@ -29,7 +30,10 @@ def main() -> None:
     parser.add_argument("--queries", type=Path)
     parser.add_argument("--word-boundaries", type=int, nargs="+")
     parser.add_argument("--min-queries", type=int, default=5)
+    parser.add_argument("--overlap-k", type=int)
     args = parser.parse_args()
+    if args.overlap_k is not None and not args.candidate:
+        parser.error("--overlap-k requires --candidate")
     if args.group_by == "query_length" and args.queries is None:
         parser.error("query_length requires --queries")
     if args.group_by != "query_length" and (args.queries or args.word_boundaries is not None):
@@ -66,6 +70,9 @@ def main() -> None:
                 record, candidate, labels, group_by=args.group_by, min_queries=args.min_queries
             )
             report["status_transitions"] = status_transitions(record, candidate)
+            report["ranking_overlap"] = ranking_overlap(
+                record, candidate, 10 if args.overlap_k is None else args.overlap_k
+            )
             source["candidate"] = {
                 "path": str(args.candidate.resolve()),
                 "sha256": hashlib.sha256(candidate_bytes).hexdigest(),
