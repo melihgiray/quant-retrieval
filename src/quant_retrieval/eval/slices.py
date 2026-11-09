@@ -5,6 +5,7 @@ from collections import defaultdict
 
 import pandas as pd
 
+from quant_retrieval.eval.analysis import paired_query_changes
 from quant_retrieval.eval.audit import audit_diagnostics, audit_result, validated_scores
 from quant_retrieval.eval.fingerprints import query_fingerprint
 from quant_retrieval.eval.metrics import METRIC_NAMES
@@ -165,9 +166,18 @@ def _paired_audits(baseline: dict, candidate: dict) -> tuple[dict, dict]:
 
 
 def compare_groups(
-    baseline: dict, candidate: dict, labels: dict[int, str], *, group_by: str, min_queries: int = 5
+    baseline: dict,
+    candidate: dict,
+    labels: dict[int, str],
+    *,
+    group_by: str,
+    min_queries: int = 5,
+    example_limit: int = 3,
 ) -> dict:
+    if type(example_limit) is not int or example_limit < 1:
+        raise ValueError("paired group example limit must be a positive integer")
     left_audit, _ = _paired_audits(baseline, candidate)
+    baseline_scores, candidate_scores = validated_scores(baseline), validated_scores(candidate)
     hashes = left_audit["provenance"]["dataset_sha256"]
     left = grouped_summary(baseline, labels, group_by=group_by, min_queries=min_queries)
     right = grouped_summary(candidate, labels, group_by=group_by, min_queries=min_queries)
@@ -181,6 +191,14 @@ def compare_groups(
                 "small_group": before["small_group"],
                 "baseline_metrics": before["metrics"],
                 "candidate_metrics": after["metrics"],
+                "query_changes": {
+                    name: paired_query_changes(
+                        {key: baseline_scores[key][name] for key in before["question_ids"]},
+                        {key: candidate_scores[key][name] for key in before["question_ids"]},
+                        example_limit,
+                    )
+                    for name in METRIC_NAMES
+                },
                 "delta": {
                     name: after["metrics"][name] - before["metrics"][name] for name in METRIC_NAMES
                 },
@@ -189,6 +207,7 @@ def compare_groups(
     return {
         "schema_version": 1,
         "scope": "descriptive_paired_slices",
+        "example_limit": example_limit,
         "group_by": group_by,
         "baseline": baseline["run_name"],
         "candidate": candidate["run_name"],

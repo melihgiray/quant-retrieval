@@ -191,3 +191,29 @@ def test_overlap_does_not_award_perfect_agreement_to_empty_rankings():
 def test_overlap_cutoffs_must_fit_the_saved_depth(k):
     with pytest.raises(ValueError, match="overlap cutoff"):
         ranking_overlap(diagnostic_record(), diagnostic_record(), k)
+
+
+def test_paired_groups_expose_query_changes_hidden_by_averages():
+    report = compare_groups(
+        diagnostic_record(),
+        candidate_with_miss(),
+        {10: "all", 20: "all"},
+        group_by="fixture",
+        example_limit=1,
+    )
+    changes = report["groups"][0]["query_changes"]["recall_at_10"]
+    assert (changes["improved"], changes["regressed"], changes["unchanged"]) == (0, 1, 1)
+    assert changes["largest_regressions"][0]["question_id"] == 10
+    assert report["example_limit"] == 1
+
+
+@pytest.mark.parametrize("limit", [0, True, 1.5])
+def test_paired_group_examples_require_a_positive_integer_limit(limit):
+    with pytest.raises(ValueError, match="example limit"):
+        compare_groups(
+            result_record(),
+            shifted_record(),
+            {10: "a", 20: "b"},
+            group_by="fixture",
+            example_limit=limit,
+        )
