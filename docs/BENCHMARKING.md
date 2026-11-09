@@ -104,6 +104,8 @@ Evaluation refuses an existing output unless `--overwrite` is explicit. The
 final test evaluation additionally requires `--allow-test`; do not use it while
 tuning. The error-inspection command accepts train and validation records only.
 It reads saved results without loading a model, and cannot replace its input.
+Existing error reports also require explicit `--overwrite`; otherwise select a
+new output path. Linked output paths are refused even with that option.
 
 New results distinguish a primary answer in the top ten, one below that cutoff,
 one absent from the returned ranking, and a question without a primary label.
@@ -126,6 +128,12 @@ When rankings are present, error reports include bounded `top_answer_ids` lists
 for the displayed questions. `--rank-limit` controls this preview independently
 of `--limit`, which controls the number of questions. Rank lists, retrieval
 counts and diagnostic status must agree before a report is generated.
+
+The [audit and query-group guide](AUDITING.md) adds whole-report consistency
+checks and paired summaries using one fixed partition of questions. Text-length
+groups require the original query fingerprint and use whitespace words, not
+encoder token counts. Outcome-based groups are descriptive and must not be
+presented as independent evidence that a system is better for a population.
 
 ## Reranker sanity probes
 

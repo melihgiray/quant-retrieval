@@ -18,6 +18,8 @@ Fingerprints preserve row order, including the index's document order, but ignor
 DataFrame index labels. Changing a document, question, label or row order makes
 the corresponding fingerprint change. Comparisons require all three identities
 to match and set `dataset_identity_verified` to true in the report.
+That field means the recorded identities match. The comparison does not reopen
+the original corpus, query table or labels to recompute their hashes.
 
 Two legacy records without fingerprints can still be compared; their report
 sets `dataset_identity_verified` to false. Matching counts alone cannot establish
@@ -33,7 +35,10 @@ in batches to limit memory use without changing the seeded results.
 The report goes to `results/comparisons/` unless `--out` selects another directory.
 It records the seed, iteration count, confidence level, split and SHA-256 hashes
 of the exact input files. Keep those files with the report so later changes can
-be detected. Existing reports remain intact if writing a replacement fails.
+be detected. An existing comparison output is refused unless `--overwrite` is
+explicit; choose a different `--out` directory to keep both analyses. Outputs
+cannot replace either input or follow an output symlink. An authorized
+replacement is atomic, so a failed write leaves the earlier report intact.
 
 This command reads saved scores. It does not run a model or evaluate the test
 split. Non-finite scores, ambiguous query IDs and scores outside [0, 1] are
@@ -45,3 +50,8 @@ questions, with the ten largest improvements and regressions. Ties mean exactly
 equal saved scores. This is descriptive evidence for choosing examples to read,
 not a separate significance test. See [error inspection](BENCHMARKING.md) for
 ranking exports and the distinction between retrieval and ordering failures.
+
+For consistency checks across all metrics, saved rankings and diagnostics, use
+the [offline audit](AUDITING.md). The same guide covers fixed-baseline query
+groups, outcome transitions, and ranking overlap. Those descriptive views do
+not replace a paired uncertainty analysis or repair missing historical data.
