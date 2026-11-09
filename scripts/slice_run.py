@@ -12,6 +12,7 @@ from quant_retrieval.eval.slices import (
     diagnostic_labels,
     grouped_summary,
     query_length_labels,
+    status_transitions,
 )
 
 
@@ -64,6 +65,7 @@ def main() -> None:
             report = compare_groups(
                 record, candidate, labels, group_by=args.group_by, min_queries=args.min_queries
             )
+            report["status_transitions"] = status_transitions(record, candidate)
             source["candidate"] = {
                 "path": str(args.candidate.resolve()),
                 "sha256": hashlib.sha256(candidate_bytes).hexdigest(),

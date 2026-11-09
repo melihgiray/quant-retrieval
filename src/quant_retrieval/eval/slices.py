@@ -151,9 +151,7 @@ def query_length_labels(
     )
 
 
-def compare_groups(
-    baseline: dict, candidate: dict, labels: dict[int, str], *, group_by: str, min_queries: int = 5
-) -> dict:
+def _paired_audits(baseline: dict, candidate: dict) -> tuple[dict, dict]:
     left_audit, right_audit = audit_result(baseline), audit_result(candidate)
     for field in ("split", "counts"):
         if left_audit["protocol"][field] != right_audit["protocol"][field]:
@@ -161,6 +159,16 @@ def compare_groups(
     hashes = left_audit["provenance"]["dataset_sha256"]
     if hashes != right_audit["provenance"]["dataset_sha256"]:
         raise ValueError("paired slices require matching dataset identities or two legacy runs")
+    if set(baseline["per_query"]) != set(candidate["per_query"]):
+        raise ValueError("paired analyses require exactly the same query IDs")
+    return left_audit, right_audit
+
+
+def compare_groups(
+    baseline: dict, candidate: dict, labels: dict[int, str], *, group_by: str, min_queries: int = 5
+) -> dict:
+    left_audit, _ = _paired_audits(baseline, candidate)
+    hashes = left_audit["provenance"]["dataset_sha256"]
     left = grouped_summary(baseline, labels, group_by=group_by, min_queries=min_queries)
     right = grouped_summary(candidate, labels, group_by=group_by, min_queries=min_queries)
     rows = []
@@ -190,4 +198,27 @@ def compare_groups(
         "dataset_identity_matched": hashes is not None,
         "group_assignment": "one fixed partition shared by both runs",
         "interpretation": "Observed group differences, not significance tests.",
+    }
+
+
+def status_transitions(baseline: dict, candidate: dict) -> dict:
+    left, right = _paired_audits(baseline, candidate)
+    if not left["diagnostics"]["recorded"] or not right["diagnostics"]["recorded"]:
+        return {"recorded": False}
+    cells = defaultdict(list)
+    for key in sorted(baseline["per_query"], key=int):
+        pair = (baseline["diagnostics"][key]["status"], candidate["diagnostics"][key]["status"])
+        cells[pair].append(int(key))
+    return {
+        "recorded": True,
+        "queries": len(baseline["per_query"]),
+        "transitions": [
+            {
+                "baseline_status": before,
+                "candidate_status": after,
+                "queries": len(ids),
+                "question_ids": ids,
+            }
+            for (before, after), ids in sorted(cells.items())
+        ],
     }

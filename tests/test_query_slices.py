@@ -1,13 +1,16 @@
 import pandas as pd
 import pytest
 
+from quant_retrieval.eval.diagnostics import ranking_diagnostics
 from quant_retrieval.eval.fingerprints import query_fingerprint
+from quant_retrieval.eval.metrics import aggregate_metrics, per_query_metrics
 from quant_retrieval.eval.slices import (
     compare_groups,
     count_buckets,
     diagnostic_labels,
     grouped_summary,
     query_length_labels,
+    status_transitions,
 )
 from tests.test_result_audit import diagnostic_record, result_record
 
@@ -130,3 +133,35 @@ def test_paired_slices_reject_different_data_and_retrieval_conditions():
     candidate["counts"]["max_results"] = 200
     with pytest.raises(ValueError, match="identical split"):
         compare_groups(result_record(), candidate, {10: "a", 20: "b"}, group_by="fixture")
+
+
+def candidate_with_miss():
+    rankings, qrels = {10: [9, 8], 20: [2, 9]}, {10: {1: 2}, 20: {2: 2}}
+    return {
+        **diagnostic_record(),
+        "run_name": "miss",
+        "metrics": aggregate_metrics(rankings, qrels),
+        "per_query": {str(k): row for k, row in per_query_metrics(rankings, qrels).items()},
+        "diagnostics": {str(k): row for k, row in ranking_diagnostics(rankings, qrels).items()},
+        "rankings": {str(k): row for k, row in rankings.items()},
+    }
+
+
+def test_status_transitions_account_for_each_query_once():
+    report = status_transitions(diagnostic_record(), candidate_with_miss())
+    assert report["queries"] == 2
+    assert report["transitions"] == [
+        {
+            "baseline_status": "top_k",
+            "candidate_status": "not_retrieved",
+            "queries": 1,
+            "question_ids": [10],
+        },
+        {
+            "baseline_status": "top_k",
+            "candidate_status": "top_k",
+            "queries": 1,
+            "question_ids": [20],
+        },
+    ]
+    assert status_transitions(result_record(), shifted_record()) == {"recorded": False}
