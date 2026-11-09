@@ -3,6 +3,7 @@ import pytest
 
 from quant_retrieval.eval.fingerprints import query_fingerprint
 from quant_retrieval.eval.slices import (
+    compare_groups,
     count_buckets,
     diagnostic_labels,
     grouped_summary,
@@ -103,3 +104,29 @@ def test_query_lengths_reject_unmatched_sources(change):
         record.pop("dataset_sha256")
     with pytest.raises(ValueError):
         query_length_labels(record, queries)
+
+
+def shifted_record():
+    record = result_record()
+    record["run_name"] = "candidate"
+    for row in record["per_query"].values():
+        for metric in row:
+            row[metric] += 0.1
+    record["metrics"] = dict.fromkeys(record["metrics"], 0.5)
+    return record
+
+
+def test_paired_slices_use_one_fixed_partition():
+    result = compare_groups(
+        result_record(), shifted_record(), {10: "short", 20: "long"}, group_by="fixture"
+    )
+    assert result["dataset_identity_matched"] is False
+    assert [row["question_ids"] for row in result["groups"]] == [[20], [10]]
+    assert all(row["delta"]["ndcg_at_10"] == pytest.approx(0.1) for row in result["groups"])
+
+
+def test_paired_slices_reject_different_data_and_retrieval_conditions():
+    candidate = shifted_record()
+    candidate["counts"]["max_results"] = 200
+    with pytest.raises(ValueError, match="identical split"):
+        compare_groups(result_record(), candidate, {10: "a", 20: "b"}, group_by="fixture")

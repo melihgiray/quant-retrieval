@@ -149,3 +149,45 @@ def query_length_labels(
     return count_buckets(
         {int(row.question_id): len(row.text.split()) for row in selected.itertuples()}, boundaries
     )
+
+
+def compare_groups(
+    baseline: dict, candidate: dict, labels: dict[int, str], *, group_by: str, min_queries: int = 5
+) -> dict:
+    left_audit, right_audit = audit_result(baseline), audit_result(candidate)
+    for field in ("split", "counts"):
+        if left_audit["protocol"][field] != right_audit["protocol"][field]:
+            raise ValueError("paired slices require identical split and evaluation counts")
+    hashes = left_audit["provenance"]["dataset_sha256"]
+    if hashes != right_audit["provenance"]["dataset_sha256"]:
+        raise ValueError("paired slices require matching dataset identities or two legacy runs")
+    left = grouped_summary(baseline, labels, group_by=group_by, min_queries=min_queries)
+    right = grouped_summary(candidate, labels, group_by=group_by, min_queries=min_queries)
+    rows = []
+    for before, after in zip(left["groups"], right["groups"], strict=True):
+        rows.append(
+            {
+                "label": before["label"],
+                "queries": before["queries"],
+                "question_ids": before["question_ids"],
+                "small_group": before["small_group"],
+                "baseline_metrics": before["metrics"],
+                "candidate_metrics": after["metrics"],
+                "delta": {
+                    name: after["metrics"][name] - before["metrics"][name] for name in METRIC_NAMES
+                },
+            }
+        )
+    return {
+        "schema_version": 1,
+        "scope": "descriptive_paired_slices",
+        "group_by": group_by,
+        "baseline": baseline["run_name"],
+        "candidate": candidate["run_name"],
+        "queries": left["queries"],
+        "min_queries": min_queries,
+        "groups": rows,
+        "dataset_identity_matched": hashes is not None,
+        "group_assignment": "one fixed partition shared by both runs",
+        "interpretation": "Observed group differences, not significance tests.",
+    }
