@@ -3,7 +3,7 @@
 import math
 from collections import defaultdict
 
-from quant_retrieval.eval.audit import audit_result, validated_scores
+from quant_retrieval.eval.audit import audit_diagnostics, audit_result, validated_scores
 from quant_retrieval.eval.metrics import METRIC_NAMES
 
 
@@ -57,3 +57,30 @@ def grouped_summary(
         "groups": rows,
         "interpretation": "Descriptive groups, not significance tests.",
     }
+
+
+def diagnostic_labels(record: dict, group_by: str) -> dict[int, str]:
+    choices = ("diagnostic_status", "primary_labels", "first_primary_rank")
+    if group_by not in choices:
+        raise ValueError(f"diagnostic grouping must be one of {choices}")
+    if not audit_diagnostics(record)["recorded"]:
+        raise ValueError("this grouping requires saved retrieval diagnostics")
+    labels = {}
+    for key, row in record["diagnostics"].items():
+        if group_by == "diagnostic_status":
+            label = row["status"]
+        elif group_by == "primary_labels":
+            label = str(row["primary_labels"]) if row["primary_labels"] < 2 else "2+"
+        else:
+            first = row["first_primary_rank"]
+            label = (
+                "no_hit"
+                if first is None
+                else "rank_1"
+                if first == 1
+                else "ranks_2_to_10"
+                if first <= 10
+                else "below_10"
+            )
+        labels[int(key)] = label
+    return labels
