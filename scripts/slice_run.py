@@ -7,12 +7,18 @@ from pathlib import Path
 import pandas as pd
 
 from quant_retrieval.eval.results import parse_record, write_result
-from quant_retrieval.eval.slices import diagnostic_labels, grouped_summary, query_length_labels
+from quant_retrieval.eval.slices import (
+    compare_groups,
+    diagnostic_labels,
+    grouped_summary,
+    query_length_labels,
+)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", type=Path, required=True)
+    parser.add_argument("--candidate", type=Path, help="compare against the fixed baseline groups")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--group-by",
@@ -27,14 +33,19 @@ def main() -> None:
         parser.error("query_length requires --queries")
     if args.group_by != "query_length" and (args.queries or args.word_boundaries is not None):
         parser.error("query-table options require query_length grouping")
-    sources = [path.resolve() for path in (args.run, args.queries) if path is not None]
+    sources = [
+        path.resolve() for path in (args.run, args.queries, args.candidate) if path is not None
+    ]
     if args.output.resolve() in sources:
         parser.error("slice output must not replace an input")
     if args.output.exists() or args.output.is_symlink():
         parser.error("slice output exists; choose a new path")
     contents = args.run.read_bytes()
     record = parse_record(contents, args.run)
-    definition = {"group_by": args.group_by}
+    definition = {
+        "group_by": args.group_by,
+        "assignment_source": "baseline" if args.candidate else "source_run",
+    }
     source = {"path": str(args.run.resolve()), "sha256": hashlib.sha256(contents).hexdigest()}
     try:
         if args.group_by == "query_length":
@@ -47,9 +58,20 @@ def main() -> None:
             }
         else:
             labels = diagnostic_labels(record, args.group_by)
-        report = grouped_summary(
-            record, labels, group_by=args.group_by, min_queries=args.min_queries
-        )
+        if args.candidate:
+            candidate_bytes = args.candidate.read_bytes()
+            candidate = parse_record(candidate_bytes, args.candidate)
+            report = compare_groups(
+                record, candidate, labels, group_by=args.group_by, min_queries=args.min_queries
+            )
+            source["candidate"] = {
+                "path": str(args.candidate.resolve()),
+                "sha256": hashlib.sha256(candidate_bytes).hexdigest(),
+            }
+        else:
+            report = grouped_summary(
+                record, labels, group_by=args.group_by, min_queries=args.min_queries
+            )
     except ValueError as error:
         parser.error(str(error))
     report.update(source=source, grouping_definition=definition)

@@ -66,3 +66,30 @@ def test_query_length_command_records_verified_source_and_word_units(tmp_path, m
     assert report["grouping_definition"]["word_boundaries"] == [10, 25]
     assert report["grouping_definition"]["length_unit"] == "whitespace_words"
     assert len(report["source"]["query_table"]["sha256"]) == 64
+
+
+def test_paired_slice_command_preserves_both_sources_and_baseline_grouping(tmp_path, monkeypatch):
+    source, candidate, output = (tmp_path / name for name in ("base.json", "next.json", "out.json"))
+    source.write_text(json.dumps(diagnostic_record()))
+    candidate.write_text(json.dumps({**diagnostic_record(), "run_name": "next"}))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "slice",
+            "--run",
+            str(source),
+            "--candidate",
+            str(candidate),
+            "--output",
+            str(output),
+            "--group-by",
+            "first_primary_rank",
+        ],
+    )
+    slice_run.main()
+    report = json.loads(output.read_text())
+    assert report["scope"] == "descriptive_paired_slices"
+    assert report["grouping_definition"]["assignment_source"] == "baseline"
+    assert len(report["source"]["candidate"]["sha256"]) == 64
+    assert all(row["delta"]["ndcg_at_10"] == 0 for row in report["groups"])
