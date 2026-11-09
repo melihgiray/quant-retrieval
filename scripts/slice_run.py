@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
@@ -55,11 +56,12 @@ def main() -> None:
     try:
         if args.group_by == "query_length":
             boundaries = tuple(args.word_boundaries or (10, 25, 50, 100))
-            labels = query_length_labels(record, pd.read_parquet(args.queries), boundaries)
+            query_bytes = args.queries.read_bytes()
+            labels = query_length_labels(record, pd.read_parquet(BytesIO(query_bytes)), boundaries)
             definition.update(word_boundaries=list(boundaries), length_unit="whitespace_words")
             source["query_table"] = {
                 "path": str(args.queries.resolve()),
-                "sha256": hashlib.sha256(args.queries.read_bytes()).hexdigest(),
+                "sha256": hashlib.sha256(query_bytes).hexdigest(),
             }
         else:
             labels = diagnostic_labels(record, args.group_by)

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sys
 
@@ -93,3 +94,39 @@ def test_paired_slice_command_preserves_both_sources_and_baseline_grouping(tmp_p
     assert report["grouping_definition"]["assignment_source"] == "baseline"
     assert len(report["source"]["candidate"]["sha256"]) == 64
     assert all(row["delta"]["ndcg_at_10"] == 0 for row in report["groups"])
+
+
+def test_query_table_digest_describes_the_same_bytes_used_for_grouping(tmp_path, monkeypatch):
+    record, queries = query_fixture()
+    source, table, output = (
+        tmp_path / name for name in ("run.json", "queries.parquet", "out.json")
+    )
+    source.write_text(json.dumps(record))
+    queries.to_parquet(table)
+    original = table.read_bytes()
+    read_parquet = slice_run.pd.read_parquet
+
+    def changed_after_read(contents):
+        frame = read_parquet(contents)
+        table.write_bytes(b"changed after capture")
+        return frame
+
+    monkeypatch.setattr(slice_run.pd, "read_parquet", changed_after_read)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "slice",
+            "--run",
+            str(source),
+            "--output",
+            str(output),
+            "--group-by",
+            "query_length",
+            "--queries",
+            str(table),
+        ],
+    )
+    slice_run.main()
+    report = json.loads(output.read_text())
+    assert report["source"]["query_table"]["sha256"] == hashlib.sha256(original).hexdigest()
