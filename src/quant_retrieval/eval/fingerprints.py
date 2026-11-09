@@ -18,16 +18,21 @@ def corpus_fingerprint(corpus: pd.DataFrame) -> str:
     return _fingerprint((int(row.answer_id), row.text) for row in corpus.itertuples())
 
 
+def query_fingerprint(queries: pd.DataFrame) -> str:
+    """Identify validated query IDs, text and row order independently of corpus files."""
+    return _fingerprint((int(row.question_id), row.text) for row in queries.itertuples())
+
+
 def dataset_fingerprints(
     corpus: pd.DataFrame, queries: pd.DataFrame, qrels: pd.DataFrame
 ) -> dict[str, str]:
     """Hash validated values in evaluation order, ignoring DataFrame index labels."""
     tables = {
         "corpus": ((int(row.answer_id), row.text) for row in corpus.itertuples()),
-        "queries": ((int(row.question_id), row.text) for row in queries.itertuples()),
         "qrels": (
             (int(row.question_id), int(row.answer_id), int(row.grade))
             for row in qrels.itertuples()
         ),
     }
-    return {name: _fingerprint(rows) for name, rows in tables.items()}
+    return {"queries": query_fingerprint(queries),
+            **{name: _fingerprint(rows) for name, rows in tables.items()}}
