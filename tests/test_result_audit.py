@@ -53,6 +53,21 @@ def test_score_audit_requires_the_complete_metric_contract():
         validated_scores(record)
 
 
+def test_score_audit_checks_recall_across_cutoffs():
+    record = result_record()
+    record["per_query"]["10"]["recall_at_100"] = 0.1
+    with pytest.raises(ValueError, match="Recall@10 cannot exceed"):
+        validated_scores(record)
+
+
+@pytest.mark.parametrize("metric", ["mrr_at_10", "ndcg_at_10"])
+def test_strict_top_ten_metrics_must_agree_on_hit_presence(metric):
+    record = result_record()
+    record["per_query"]["10"][metric] = 0
+    with pytest.raises(ValueError, match="agree on whether"):
+        validated_scores(record)
+
+
 def test_metric_audit_recomputes_means_and_tolerates_serialization_rounding():
     record = result_record()
     record["metrics"]["mrr_at_10"] += 0.0000004
@@ -138,6 +153,7 @@ def test_diagnostic_audit_cross_checks_metrics_and_reports_missing_evidence():
 
 def test_diagnostic_audit_checks_primary_recall_counts():
     record = diagnostic_record()
+    record["per_query"]["10"]["recall_at_10"] = 0.5
     record["per_query"]["10"]["recall_at_100"] = 0.5
     with pytest.raises(ValueError, match="Recall@100 disagrees"):
         audit_diagnostics(record)

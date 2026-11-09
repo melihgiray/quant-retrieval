@@ -34,6 +34,10 @@ def validated_scores(record: dict) -> dict[int, dict[str, float]]:
             for value in row.values()
         ):
             raise ValueError("evaluation scores must be finite numbers between zero and one")
+        if row["recall_at_10"] > row["recall_at_100"] + SCORE_ROUNDING_TOLERANCE:
+            raise ValueError("Recall@10 cannot exceed Recall@100 for the same ranking")
+        if (row["mrr_at_10"] == 0) != (row["ndcg_at_10"] == 0):
+            raise ValueError("strict MRR and nDCG must agree on whether the top ten contain a hit")
         checked[int(key)] = {name: float(row[name]) for name in METRIC_NAMES}
     return dict(sorted(checked.items()))
 
