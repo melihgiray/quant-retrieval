@@ -1,6 +1,13 @@
+import pandas as pd
 import pytest
 
-from quant_retrieval.eval.slices import count_buckets, diagnostic_labels, grouped_summary
+from quant_retrieval.eval.fingerprints import query_fingerprint
+from quant_retrieval.eval.slices import (
+    count_buckets,
+    diagnostic_labels,
+    grouped_summary,
+    query_length_labels,
+)
 from tests.test_result_audit import diagnostic_record, result_record
 
 
@@ -63,3 +70,36 @@ def test_count_buckets_reject_ambiguous_boundaries(edges):
 def test_count_buckets_reject_invalid_counts(counts):
     with pytest.raises(ValueError, match="bucket counts"):
         count_buckets(counts, (10,))
+
+
+def query_fixture():
+    queries = pd.DataFrame(
+        {"question_id": [10, 20], "text": ["bond value", "word " * 10], "split": ["val", "val"]}
+    )
+    record = result_record()
+    record["dataset_sha256"] = {
+        "corpus": "a" * 64,
+        "qrels": "b" * 64,
+        "queries": query_fingerprint(queries),
+    }
+    return record, queries
+
+
+def test_query_lengths_use_verified_text_and_explicit_word_boundaries():
+    record, queries = query_fixture()
+    assert query_length_labels(record, queries, (10, 25)) == {10: "0_to_9", 20: "10_to_24"}
+
+
+@pytest.mark.parametrize("change", ["text", "order", "ids", "missing_identity"])
+def test_query_lengths_reject_unmatched_sources(change):
+    record, queries = query_fixture()
+    if change == "text":
+        queries.loc[0, "text"] = "changed"
+    elif change == "order":
+        queries = queries.iloc[::-1]
+    elif change == "ids":
+        queries.loc[0, "question_id"] = 30
+    else:
+        record.pop("dataset_sha256")
+    with pytest.raises(ValueError):
+        query_length_labels(record, queries)

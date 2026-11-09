@@ -3,7 +3,10 @@
 import math
 from collections import defaultdict
 
+import pandas as pd
+
 from quant_retrieval.eval.audit import audit_diagnostics, audit_result, validated_scores
+from quant_retrieval.eval.fingerprints import query_fingerprint
 from quant_retrieval.eval.metrics import METRIC_NAMES
 
 
@@ -113,3 +116,36 @@ def count_buckets(counts: dict[int, int], boundaries: tuple[int, ...]) -> dict[i
         else:
             labels[key] = f"{lower}_plus"
     return labels
+
+
+def query_length_labels(
+    record: dict, queries: pd.DataFrame, boundaries: tuple[int, ...] = (10, 25, 50, 100)
+) -> dict[int, str]:
+    """Group exact evaluation text by whitespace words, not model-token counts."""
+    audit = audit_result(record)
+    if not audit["provenance"]["dataset_identity_recorded"]:
+        raise ValueError("query-text grouping requires recorded dataset fingerprints")
+    if (
+        not isinstance(queries, pd.DataFrame)
+        or not queries.columns.is_unique
+        or not {"question_id", "text", "split"} <= set(queries.columns)
+    ):
+        raise ValueError("query table requires unique question_id, text and split columns")
+    selected = queries.loc[queries["split"] == record["split"]]
+    ids = selected["question_id"]
+    if (
+        not pd.api.types.is_integer_dtype(ids.dtype)
+        or ids.isna().any()
+        or (ids <= 0).any()
+        or (ids >= 2**63).any()
+        or ids.duplicated().any()
+        or set(ids) != set(validated_scores(record))
+    ):
+        raise ValueError("query table IDs must match the evaluated questions exactly")
+    if not all(isinstance(text, str) and text.strip() for text in selected["text"]):
+        raise ValueError("query table text must be nonempty strings")
+    if query_fingerprint(selected) != record["dataset_sha256"]["queries"]:
+        raise ValueError("query text or row order differs from the evaluated dataset")
+    return count_buckets(
+        {int(row.question_id): len(row.text.split()) for row in selected.itertuples()}, boundaries
+    )
