@@ -1,6 +1,6 @@
 import pytest
 
-from quant_retrieval.eval.slices import diagnostic_labels, grouped_summary
+from quant_retrieval.eval.slices import count_buckets, diagnostic_labels, grouped_summary
 from tests.test_result_audit import diagnostic_record, result_record
 
 
@@ -41,3 +41,25 @@ def test_diagnostic_grouping_refuses_absent_evidence():
         diagnostic_labels(result_record(), "diagnostic_status")
     with pytest.raises(ValueError, match="must be one of"):
         diagnostic_labels(diagnostic_record(), "unknown")
+
+
+def test_count_buckets_cover_zero_and_exact_boundaries_without_overlap():
+    assert count_buckets({1: 0, 2: 9, 3: 10, 4: 24, 5: 25}, (10, 25)) == {
+        1: "0_to_9",
+        2: "0_to_9",
+        3: "10_to_24",
+        4: "10_to_24",
+        5: "25_plus",
+    }
+
+
+@pytest.mark.parametrize("edges", [(), (0,), (True,), (10, 10), (20, 10), (1.5,)])
+def test_count_buckets_reject_ambiguous_boundaries(edges):
+    with pytest.raises(ValueError, match="boundaries"):
+        count_buckets({1: 5}, edges)
+
+
+@pytest.mark.parametrize("counts", [{1: True}, {1: -1}, {1: 2.5}, {True: 2}, {}])
+def test_count_buckets_reject_invalid_counts(counts):
+    with pytest.raises(ValueError, match="bucket counts"):
+        count_buckets(counts, (10,))

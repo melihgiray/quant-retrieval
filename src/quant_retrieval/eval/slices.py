@@ -84,3 +84,32 @@ def diagnostic_labels(record: dict, group_by: str) -> dict[int, str]:
             )
         labels[int(key)] = label
     return labels
+
+
+def count_buckets(counts: dict[int, int], boundaries: tuple[int, ...]) -> dict[int, str]:
+    """Use inclusive lower bounds and exclusive upper bounds for integer counts."""
+    if (
+        not isinstance(boundaries, (tuple, list))
+        or not boundaries
+        or any(type(edge) is not int or edge < 1 for edge in boundaries)
+        or any(left >= right for left, right in zip(boundaries, boundaries[1:], strict=False))
+    ):
+        raise ValueError("bucket boundaries must be strictly increasing positive integers")
+    if (
+        not isinstance(counts, dict)
+        or not counts
+        or any(type(key) is not int or not 0 < key < 2**63 for key in counts)
+        or any(type(value) is not int or value < 0 for value in counts.values())
+    ):
+        raise ValueError("bucket counts require positive int64 IDs and nonnegative integer counts")
+    labels = {}
+    for key, value in counts.items():
+        lower = 0
+        for upper in boundaries:
+            if value < upper:
+                labels[key] = f"{lower}_to_{upper - 1}"
+                break
+            lower = upper
+        else:
+            labels[key] = f"{lower}_plus"
+    return labels
