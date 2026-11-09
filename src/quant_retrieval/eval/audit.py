@@ -174,6 +174,8 @@ def audit_rankings(record: dict) -> dict:
             raise ValueError("saved rankings need unique positive int64 answer IDs")
         if len(ranking) > min(counts["max_results"], counts["corpus_documents"]):
             raise ValueError("saved ranking length exceeds corpus size or retrieval depth")
+        if not ranking and any(value != 0 for value in record["per_query"][key].values()):
+            raise ValueError("empty saved rankings cannot have positive retrieval metrics")
         if diagnostic_report["recorded"] and len(ranking) != record["diagnostics"][key]["returned"]:
             raise ValueError("saved ranking length disagrees with diagnostics")
         lengths.append(len(ranking))

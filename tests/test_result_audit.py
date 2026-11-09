@@ -174,6 +174,16 @@ def test_ranking_audit_checks_ids_and_diagnostic_count(ranking):
         audit_rankings(record)
 
 
+def test_empty_rankings_cannot_support_nonzero_scores_even_without_diagnostics():
+    record = result_record()
+    record["rankings"] = {"10": [], "20": []}
+    with pytest.raises(ValueError, match="empty saved rankings"):
+        audit_rankings(record)
+    for scores in record["per_query"].values():
+        scores.update(dict.fromkeys(scores, 0.0))
+    assert audit_rankings(record)["maximum_returned"] == 0
+
+
 def timing_record():
     return {
         "timing": {

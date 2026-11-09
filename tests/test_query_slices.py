@@ -178,6 +178,9 @@ def test_ranking_overlap_is_set_agreement_not_relevance():
 
 def test_overlap_does_not_award_perfect_agreement_to_empty_rankings():
     record = result_record()
+    record["metrics"] = dict.fromkeys(record["metrics"], 0.0)
+    for scores in record["per_query"].values():
+        scores.update(dict.fromkeys(scores, 0.0))
     record["rankings"] = {"10": [], "20": []}
     report = ranking_overlap(record, record)
     assert report["empty_pairs"] == 2
